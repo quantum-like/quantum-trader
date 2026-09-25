@@ -1,0 +1,494 @@
+<title>Regime-Aware Ranking Replication</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f7f7f4;
+    --surface: #fdfdfb;
+    --ink: #101110;
+    --ink-2: #4f524d;
+    --ink-3: #85887f;
+    --grid: #e2e2da;
+    --axis: #c4c5bb;
+    --ring: rgba(16,17,16,0.10);
+    --repro: #2a78d6;        /* series 1: reproduced */
+    --paper: #85887f;        /* muted: paper-reported */
+    --spy: #eb6834;          /* series 2 */
+    --bottom: #1baf7a;       /* series 3 */
+    --wash: rgba(42,120,214,0.10);
+    --good-text: #006300;
+    --display: "Newsreader", "Iowan Old Style", Georgia, serif;
+    --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    --data: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #101211; --surface: #1a1c1a; --ink: #f3f4f0; --ink-2: #c1c3ba; --ink-3: #8b8e86;
+      --grid: #2b2e2b; --axis: #3b3e3a; --ring: rgba(255,255,255,0.10);
+      --repro: #3987e5; --paper: #8b8e86; --spy: #d95926; --bottom: #199e70;
+      --wash: rgba(57,135,229,0.14); --good-text: #0ca30c;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #101211; --surface: #1a1c1a; --ink: #f3f4f0; --ink-2: #c1c3ba; --ink-3: #8b8e86;
+    --grid: #2b2e2b; --axis: #3b3e3a; --ring: rgba(255,255,255,0.10);
+    --repro: #3987e5; --paper: #8b8e86; --spy: #d95926; --bottom: #199e70;
+    --wash: rgba(57,135,229,0.14); --good-text: #0ca30c;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+  .wrap { max-width: 960px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; }
+  h1, h2, h3 { font-family: var(--display); font-weight: 500; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+  h1 { font-size: 2.4rem; line-height: 1.1; }
+  h2 { font-size: 1.55rem; line-height: 1.2; margin-top: 56px; margin-bottom: 8px; }
+  h3 { font-size: 1.15rem; margin-top: 28px; margin-bottom: 6px; }
+  p { max-width: 68ch; margin: 0 0 12px; color: var(--ink); }
+  p.lede { font-size: 1.15rem; color: var(--ink-2); max-width: 62ch; }
+  .eyebrow { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-3); margin-bottom: 10px; font-weight: 600; }
+  .meta { color: var(--ink-3); font-size: 0.9rem; margin-top: 12px; }
+  a { color: var(--repro); }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 28px 0 8px; }
+  .tile { background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; padding: 14px 16px; }
+  .tile .label { font-size: 0.8rem; color: var(--ink-3); }
+  .tile .value { font-family: var(--data); font-size: 2rem; font-weight: 600; line-height: 1.1; margin-top: 4px; }
+  .tile .value small { font-size: 0.9rem; font-weight: 400; color: var(--ink-3); }
+  .tile .sub { font-family: var(--data); font-size: 0.85rem; color: var(--ink-2); margin-top: 6px; }
+  .tile .sub b { font-weight: 600; color: var(--ink); }
+  .chart { background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; padding: 16px 16px 10px; margin: 14px 0 6px; position: relative; }
+  .chart h3 { margin-top: 0; font-family: var(--body); font-weight: 600; font-size: 0.95rem; }
+  .chart .sub { color: var(--ink-3); font-size: 0.82rem; margin-bottom: 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-family: var(--data); font-size: 0.8rem; color: var(--ink-2); margin: 6px 0 2px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+  .legend i.sq { border-radius: 2px; }
+  svg { display: block; width: 100%; height: auto; font-family: var(--data); }
+  svg text { fill: var(--ink-2); font-size: 11px; }
+  svg .tick { fill: var(--ink-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+  svg .grid { stroke: var(--grid); stroke-width: 1; }
+  svg .axis { stroke: var(--axis); stroke-width: 1; }
+  svg .lbl { font-size: 11px; fill: var(--ink); font-weight: 600; }
+  .tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font-family: var(--data); font-size: 12px; padding: 6px 9px; border-radius: 4px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity .08s; z-index: 2; }
+  .tip b { font-weight: 600; }
+  .tbl-wrap { overflow-x: auto; margin: 12px 0; }
+  table { border-collapse: collapse; width: 100%; font-family: var(--data); font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  th { color: var(--ink-3); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  th:first-child, td:first-child { text-align: left; }
+  td.p { color: var(--paper); }
+  td.r { color: var(--ink); font-weight: 600; }
+  td.d { color: var(--ink-3); font-size: 0.82rem; }
+  td.match { color: var(--good-text); }
+  .note { border-left: 3px solid var(--repro); padding: 4px 14px; margin: 18px 0; color: var(--ink-2); max-width: 70ch; }
+  .note p { margin-bottom: 6px; }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  ul { max-width: 72ch; padding-left: 20px; }
+  li { margin-bottom: 6px; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.85em; background: var(--surface); border: 1px solid var(--ring); padding: 1px 5px; border-radius: 3px; }
+  .prov { font-size: 0.9rem; }
+  .prov td:first-child { white-space: normal; }
+  .prov td, .prov th { text-align: left; white-space: normal; }
+  @media (max-width: 480px) { h1 { font-size: 1.9rem; } .tile .value { font-size: 1.6rem; } }
+  @media (prefers-reduced-motion: reduce) { .tip { transition: none; } }
+  :focus-visible { outline: 2px solid var(--repro); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Replication report</div>
+  <h1>Do market regimes improve machine-learning stock ranking?</h1>
+  <p class="lede" style="margin-top:14px">Reproducing Pascual Miralles &amp; Alfeus (SSRN 7200998, 2026) with the authors' public code and freely available substitute data in place of Bloomberg.</p>
+  <p class="meta" id="meta"></p>
+
+  <h2>Verdict</h2>
+  <p id="verdict"></p>
+  <div class="tiles" id="tiles"></div>
+  <p class="meta">Paper values in muted gray throughout; reproduced values in blue. Test window 2021–2025, 60 monthly rebalances, equal-weight Top10 of 206 large U.S. stocks ranked by a 7-seed XGBoost ensemble on predicted 20-day return rank percentile.</p>
+
+  <h2>Out-of-sample growth of $1</h2>
+  <p>The paper's benchmark rows are matched to the third decimal (SPY CAGR 14.72% vs 14.71%, drawdown −20.47% both), which confirms the rebalance calendar, holding-period arithmetic and total-return SPY reconstruction are identical. The Top10 line compounds less steeply than in the paper.</p>
+  <div class="chart" id="growth"></div>
+
+  <h2>Table 1 — Portfolio performance, 2021–2025</h2>
+  <div class="tbl-wrap"><table id="t1"></table></div>
+
+  <h2>Calendar-year returns</h2>
+  <p>The paper reports the Top10 portfolio beating SPY in every test year. Reproduced, it beats SPY in 2021, 2022 and 2025 and trails narrowly in 2023–2024, the years dominated by the mega-cap AI rally.</p>
+  <div class="chart" id="yearly"></div>
+
+  <h2>Table 2 — Ranking diagnostics</h2>
+  <p>Every diagnostic keeps its sign and ordering; the point estimates are roughly 55–65% of the paper's and the p-values move from the 1–5% range into the 7–15% range. The Bottom20 average monthly return matches exactly (1.16%).</p>
+  <div class="tbl-wrap"><table id="t2"></table></div>
+  <div class="chart" id="deciles"></div>
+  <div class="chart" id="ic"></div>
+
+  <h2>Table 3 — Alternative learners</h2>
+  <p>Same features, target, split and portfolio rule; only the learner changes. The paper's ordering (tree ensembles far ahead of Ridge and the neural network) is the test here.</p>
+  <div class="chart" id="models"></div>
+  <div class="tbl-wrap"><table id="t3"></table></div>
+
+  <h2>Regime experiments (Tables 10–13)</h2>
+  <p>The paper's central claim is negative: HMM regimes help describe <em>when</em> the model works but do not improve it as a feature or as a basis for regime-specific models. Both regime-aware specifications are reconstructed from the paper's Section 4.5 because the public repo omits that script.</p>
+  <div class="chart" id="regime"></div>
+  <div class="tbl-wrap"><table id="t10"></table></div>
+  <h3>Baseline conditional on the prevailing regime (Table 12)</h3>
+  <div class="tbl-wrap"><table id="t12"></table></div>
+  <h3>Paired tests against the baseline (Table 13)</h3>
+  <div class="tbl-wrap"><table id="t13"></table></div>
+
+  <h2>Portfolio optimization within the Top10 (Tables 14–15)</h2>
+  <p>Equal weighting versus minimum-variance and score-aware mean-variance weights, with static or regime-conditional covariance. The paper finds nothing beats 1/N; minimum variance is significantly worse.</p>
+  <div class="chart" id="opt"></div>
+  <div class="tbl-wrap"><table id="t14"></table></div>
+
+  <h2>Transaction costs (Table 20)</h2>
+  <p id="tc-text"></p>
+  <div class="chart" id="tc"></div>
+  <div class="tbl-wrap"><table id="t20"></table></div>
+
+  <h2>What the model uses (SHAP)</h2>
+  <p>The paper reports firm size as the dominant predictor, followed by valuation ratios, MACD and moving-average ratios, profitability, leverage and long momentum, with gold and aggregate-bond returns contributing. The reproduced ordering is the same in structure.</p>
+  <div class="chart" id="shap"></div>
+
+  <h2>Why the Top10 edge is smaller</h2>
+  <div class="note">
+    <p>The benchmark, the bottom-ranked portfolio, the panel sizes (653k / 102k / 257k rows vs 654k / 103k / 254k) and the linear Ridge model all match the paper closely. What differs is the top of the ranking, where a boosted-tree model leans on point-in-time fundamentals.</p>
+    <p>Bloomberg's daily market cap, P/E, P/B, ROE and D/E are replaced here by values derived from SEC XBRL filings (2009–2025) and a stockpup mirror (2004–2008). These are true point-in-time series and market caps land within 0–3% of known values, but ratio definitions, earnings normalizations and the treatment of negative-equity names differ from Bloomberg's. SHAP shows P/B and D/E in the top four and P/E lower than the paper reports, consistent with the P/E proxy being noisier.</p>
+    <p>The paper's own robustness tables show the headline is sensitive to specification (walk-forward retraining 23.0%, regime models 23.4%, no cross-asset features 31.3%), so a 25% CAGR from vendor-substituted inputs sits inside the range the authors themselves report.</p>
+  </div>
+
+  <h2>Data provenance</h2>
+  <p>This environment could reach only GitHub, so every input series was rebuilt from public repositories that mirror Yahoo Finance, LBMA, EIA, Treasury.gov and SEC EDGAR data. Each file's URL and SHA-256 is recorded in <code>reproduction/raw_sources/manifest.json</code>.</p>
+  <div class="tbl-wrap"><table class="prov" id="prov"></table></div>
+
+  <h2>Deviations from the paper</h2>
+  <ul id="devs"></ul>
+
+  <p class="meta" id="footer"></p>
+</div>
+
+<script>
+const DATA = __DATA__;
+const PROV = [
+  ["Stock OHLCV 2003–2018", "Deamoner/ultimate-stock-machine-learning-training-dataset (Yahoo snapshot, Apr 2019), adjusted close"],
+  ["Stock OHLCV 2019–2026", "fja05680/brownbear symbol-cache (Yahoo, Jul 2026); ArjunDivecha/Kronos as fallback; spliced on the 2019-01..04 overlap"],
+  ["SPY total return", "raw SPY (ctj01/regime-discovery-cpp) + dividend history (Gabe-Soler/dev_LS_gamma), Yahoo-convention reconstruction; agrees with an independent adjusted file to a constant within 0.26%"],
+  ["VIX, S&P 500 level", "datasets/finance-vix (CBOE); Jackscuster/fx-data"],
+  ["Treasury 3M / 2Y / 10Y", "fujiapple852/yield (Treasury.gov daily par curve; identical to FRED DGS series on spot checks)"],
+  ["Bonds / dollar / gold / oil", "AGG adjusted close (giacomomaggiore/margin-investing-etfs); DX-Y.NYB (whyyouj + kittycapital, identical on overlap); LBMA gold (tomelam/PortfolioAnalyzer); EIA WTI (datasets/oil-prices)"],
+  ["Fundamentals 2004–2008", "stockpup quarterly mirror (michaelcho1/stockpupr), 45-day reporting lag"],
+  ["Fundamentals 2009–2024", "SEC XBRL per filing, point-in-time by filing date (GTSF-Quantitative-Sector/sec_parser)"],
+  ["Fundamentals 2024–2025", "SEC Financial Statement Data Sets 2024q1–2025q2 (Jesse3141/stock_data)"],
+];
+const DEVS = [
+  "Data vendor: Yahoo-derived prices and SEC-derived fundamentals replace Bloomberg. Fundamental definitions are approximations (D/E = long-term debt / common equity; P/E undefined when trailing earnings are negative; negative-equity names fall back to the pipeline's cross-sectional median fill).",
+  "Universe edges: BK lacks a 2019+ price source and leaves the panel after April 2019; DD has no pre-2017 history. Renamed tickers (META, ELV, RTX, TT, IR, LHX, COR, TFC) are mapped explicitly.",
+  "FF5+MOM alpha (Table 1 last column, Tables 7–8) is not reproduced: Kenneth French's library is unreachable and no public mirror extends past 2018. The SPY single-factor alpha is reproduced.",
+  "The regime-as-feature and one-model-per-regime experiments are reconstructed from the paper's description; regimes are available from 2008, so those models train on 2008–2018.",
+  "Walk-forward retraining (Table 21) and the hyperparameter/early-stopping checks (Tables 5–6) were not rerun.",
+  "One extra feature (69 vs 68): the authors' code lists 69 names; the paper reports 68, so one Bloomberg column was presumably unavailable to them.",
+];
+
+const fmtPct = (x, d = 2) => x == null ? "—" : (x * 100).toFixed(d) + "%";
+const fmtNum = (x, d = 3) => x == null ? "—" : x.toFixed(d);
+const fmtP = x => x == null ? "—" : x.toFixed(4);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ---------- verdict + tiles ----------
+(function () {
+  const h = DATA.headline.RankModel_Top10, d = DATA.diagnostics, s = DATA.sample;
+  document.getElementById("meta").textContent =
+    `Reproduced ${new Date().toISOString().slice(0, 10)} · ${s.stocks.repro} stocks · ${s.features.repro} features · train ${s.train_rows.repro.toLocaleString()} / validation ${s.val_rows.repro.toLocaleString()} / test ${s.test_rows.repro.toLocaleString()} rows`;
+  document.getElementById("verdict").innerHTML =
+    `The paper's qualitative conclusions replicate: the equal-weight Top10 portfolio beats SPY (CAGR <b>${fmtPct(h.CAGR.repro, 1)}</b> vs ${fmtPct(DATA.headline.SPY.CAGR.repro, 1)}, Sharpe <b>${fmtNum(h.sharpe.repro, 2)}</b> vs ${fmtNum(DATA.headline.SPY.sharpe.repro, 2)}), the ranking signal is positive (mean monthly Spearman IC ${fmtNum(d.avg_spearman_ic.repro, 4)}), regime information does not improve the forecasts, and no optimizer beats 1/N. The magnitudes are smaller than reported: the paper's 34.2% CAGR and 13.6% SPY alpha come in at ${fmtPct(h.CAGR.repro, 1)} and ${fmtPct(h.spy_alpha.repro, 1)}, and the benchmark tests that were significant at 1–5% land at 7–15%.`;
+  const tiles = [
+    ["Top10 CAGR", fmtPct(h.CAGR.repro, 1), h.CAGR.paper],
+    ["Top10 Sharpe", fmtNum(h.sharpe.repro, 2), h.sharpe.paper, true],
+    ["SPY alpha (annualized)", fmtPct(h.spy_alpha.repro, 1), h.spy_alpha.paper],
+    ["Mean monthly Spearman IC", fmtNum(d.avg_spearman_ic.repro, 4), d.avg_spearman_ic.paper, true, 4],
+    ["Top-minus-SPY p-value", fmtP(d.top_minus_spy_p.repro), d.top_minus_spy_p.paper, true, 4],
+    ["Max drawdown", fmtPct(h.max_drawdown.repro, 1), h.max_drawdown.paper],
+  ];
+  document.getElementById("tiles").innerHTML = tiles.map(([l, v, p, isNum, dd]) =>
+    `<div class="tile"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">paper <b>${isNum ? fmtNum(p, dd || 2) : fmtPct(p, 1)}</b></div></div>`).join("");
+  document.getElementById("footer").textContent = "Code, data manifest and every result table: quantum-like/quantum-trader, branch claude/jolly-curie-2uj60d, directory reproduction/.";
+  document.getElementById("prov").innerHTML = "<tr><th>Series</th><th>Source</th></tr>" + PROV.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("");
+  document.getElementById("devs").innerHTML = DEVS.map(x => `<li>${x}</li>`).join("");
+})();
+
+// ---------- generic svg helpers ----------
+function svgEl(tag, attrs, parent) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function tipFor(container) {
+  let t = container.querySelector(".tip");
+  if (!t) { t = document.createElement("div"); t.className = "tip"; container.appendChild(t); }
+  return {
+    show(html, x, y) { t.innerHTML = html; t.style.left = x + "px"; t.style.top = y + "px"; t.style.opacity = 1; },
+    hide() { t.style.opacity = 0; }
+  };
+}
+function niceTicks(lo, hi, n) {
+  const span = hi - lo, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag; const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10)); return out;
+}
+
+// ---------- growth of $1 ----------
+(function () {
+  const c = document.getElementById("growth");
+  c.innerHTML = `<h3>Cumulative growth of $1, monthly rebalances</h3><div class="sub">Reproduced series. Paper terminal values: Top10 $4.36, SPY $1.99, Bottom20 $1.89.</div>
+    <div class="legend"><span><i style="background:var(--repro)"></i>Top10 (reproduced)</span><span><i style="background:var(--spy)"></i>SPY</span><span><i style="background:var(--bottom)"></i>Bottom20</span></div>`;
+  const m = DATA.monthly; const W = 900, H = 320, L = 44, R = 70, T = 12, B = 30;
+  const keys = [["top10", "--repro", "Top10"], ["spy", "--spy", "SPY"], ["bottom20", "--bottom", "Bottom20"]];
+  const eq = {}; keys.forEach(([k]) => { let v = 1; eq[k] = m.map(r => v *= 1 + r[k]); });
+  const allV = keys.flatMap(([k]) => eq[k]); const lo = 0.8, hi = Math.max(...allV) * 1.04;
+  const x = i => L + (i / (m.length - 1)) * (W - L - R), y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Cumulative growth of one dollar for Top10, SPY and Bottom20 portfolios" }, c);
+  niceTicks(1, hi, 5).forEach(v => { svgEl("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), class: "grid" }, svg); const t = svgEl("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end", class: "tick" }, svg); t.textContent = "$" + v.toFixed(1); });
+  svgEl("line", { x1: L, x2: W - R, y1: y(1), y2: y(1), class: "axis" }, svg);
+  const years = {}; m.forEach((r, i) => { const yr = r.date.slice(0, 4); if (!(yr in years)) years[yr] = i; });
+  Object.entries(years).forEach(([yr, i]) => { const t = svgEl("text", { x: x(i), y: H - 8, class: "tick", "text-anchor": "start" }, svg); t.textContent = yr; });
+  keys.forEach(([k, col, name]) => {
+    const d = eq[k].map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+    if (k === "top10") svgEl("path", { d: d + ` L${x(m.length - 1)} ${y(lo)} L${x(0)} ${y(lo)} Z`, fill: css(col), opacity: 0.10 }, svg);
+    svgEl("path", { d, fill: "none", stroke: css(col), "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+    const last = eq[k][m.length - 1];
+    svgEl("circle", { cx: x(m.length - 1), cy: y(last), r: 4, fill: css(col), stroke: css("--surface"), "stroke-width": 2 }, svg);
+    const t = svgEl("text", { x: x(m.length - 1) + 8, y: y(last) + 4, class: "lbl" }, svg); t.textContent = `$${last.toFixed(2)}`;
+  });
+  const hover = svgEl("line", { x1: 0, x2: 0, y1: T, y2: H - B, class: "axis", opacity: 0 }, svg);
+  const tip = tipFor(c);
+  svg.addEventListener("mousemove", e => {
+    const r = svg.getBoundingClientRect(); const px = (e.clientX - r.left) / r.width * W;
+    const i = Math.max(0, Math.min(m.length - 1, Math.round((px - L) / (W - L - R) * (m.length - 1))));
+    hover.setAttribute("x1", x(i)); hover.setAttribute("x2", x(i)); hover.setAttribute("opacity", 1);
+    tip.show(`<b>${m[i].date.slice(0, 7)}</b><br>Top10 $${eq.top10[i].toFixed(2)} · SPY $${eq.spy[i].toFixed(2)} · Bottom20 $${eq.bottom20[i].toFixed(2)}`, x(i) / W * r.width, y(eq.top10[i]) / H * r.height + 16);
+  });
+  svg.addEventListener("mouseleave", () => { hover.setAttribute("opacity", 0); tip.hide(); });
+})();
+
+// ---------- tables ----------
+function row(cells) { return "<tr>" + cells.join("") + "</tr>"; }
+function cmpRow(label, p, r, fmt, matchTol) {
+  const d = (p != null && r != null) ? r - p : null;
+  const close = d != null && Math.abs(d) <= matchTol;
+  return row([`<td>${label}</td>`, `<td class="p">${fmt(p)}</td>`, `<td class="r">${fmt(r)}</td>`, `<td class="d${close ? " match" : ""}">${d == null ? "" : (close ? "≈ match" : (d > 0 ? "+" : "") + fmt(d))}</td>`]);
+}
+(function () {
+  const t = document.getElementById("t1");
+  const mets = [["CAGR", "CAGR", x => fmtPct(x, 2), 0.005], ["Annual return", "annual_return", x => fmtPct(x, 2), 0.005], ["Volatility", "volatility", x => fmtPct(x, 2), 0.005],
+    ["Sharpe", "sharpe", x => fmtNum(x, 3), 0.02], ["Max drawdown", "max_drawdown", x => fmtPct(x, 2), 0.005], ["Excess vs SPY", "excess_vs_spy", x => fmtPct(x, 2), 0.005],
+    ["Beta vs SPY", "beta_vs_spy", x => fmtNum(x, 3), 0.02], ["SPY alpha", "spy_alpha", x => fmtPct(x, 2), 0.005]];
+  let html = "";
+  for (const [port, label] of [["RankModel_Top10", "RankModel Top10"], ["SPY", "SPY"], ["Bottom20_Predicted", "Bottom20 predicted"], ["TopMinusBottom", "Top minus Bottom"]]) {
+    html += row([`<th colspan="4" style="text-align:left;padding-top:16px">${label}</th>`]);
+    html += row(["<th>Metric</th><th>Paper</th><th>Reproduced</th><th>Difference</th>"]);
+    for (const [l, k, f, tol] of mets) { const v = DATA.headline[port][k]; if (v.paper == null) continue; html += cmpRow(l, v.paper, v.repro, f, tol); }
+  }
+  t.innerHTML = html;
+
+  const t2 = document.getElementById("t2");
+  const d = DATA.diagnostics;
+  const rows2 = [["Average Top10 monthly return", "avg_top10_monthly_return", x => fmtPct(x, 2), 0.001], ["Average Bottom20 monthly return", "avg_bottom20_monthly_return", x => fmtPct(x, 2), 0.001],
+    ["Average Top−Bottom spread", "avg_top_minus_bottom", x => fmtPct(x, 2), 0.001], ["Annualized Top−Bottom spread", "annualized_top_minus_bottom", x => fmtPct(x, 2), 0.01], ["Top−Bottom p-value", "top_minus_bottom_p", fmtP, 0.01],
+    ["Annualized Top10 excess vs random", "annualized_top10_excess_vs_random", x => fmtPct(x, 2), 0.01], ["Top−Random p-value", "top_minus_random_p", fmtP, 0.01],
+    ["Annualized Top10 excess vs SPY", "annualized_top10_excess_vs_spy", x => fmtPct(x, 2), 0.01], ["Top−SPY p-value", "top_minus_spy_p", fmtP, 0.01],
+    ["Average Spearman IC", "avg_spearman_ic", x => fmtNum(x, 4), 0.003], ["Spearman IC p-value", "spearman_ic_p", fmtP, 0.01],
+    ["Months Top beats SPY", "pct_months_top_beats_spy", x => fmtPct(x, 1), 0.02], ["Months with positive IC", "pct_positive_ic", x => fmtPct(x, 1), 0.02]];
+  t2.innerHTML = row(["<th>Diagnostic</th><th>Paper</th><th>Reproduced</th><th>Difference</th>"]) + rows2.map(([l, k, f, tol]) => cmpRow(l, d[k].paper, d[k].repro, f, tol)).join("");
+})();
+
+// ---------- yearly grouped columns ----------
+(function () {
+  const c = document.getElementById("yearly");
+  c.innerHTML = `<h3>Calendar-year returns, reproduced</h3><div class="sub">Compounded monthly holding-period returns within each year.</div>
+    <div class="legend"><span><i class="sq" style="background:var(--repro)"></i>Top10</span><span><i class="sq" style="background:var(--spy)"></i>SPY</span><span><i class="sq" style="background:var(--bottom)"></i>Bottom20</span></div>`;
+  const ys = DATA.yearly; const W = 900, H = 260, L = 48, R = 16, T = 16, B = 28;
+  const vals = ys.flatMap(y => [y.top10, y.spy, y.bottom20]); const lo = Math.min(0, Math.min(...vals) * 1.15), hi = Math.max(...vals) * 1.15;
+  const y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const band = (W - L - R) / ys.length, bw = Math.min(24, band / 4);
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Calendar year returns of Top10, SPY and Bottom20" }, c);
+  niceTicks(lo, hi, 5).forEach(v => { svgEl("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), class: "grid" }, svg); const t = svgEl("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end", class: "tick" }, svg); t.textContent = Math.round(v * 100) + "%"; });
+  svgEl("line", { x1: L, x2: W - R, y1: y(0), y2: y(0), class: "axis" }, svg);
+  const tip = tipFor(c);
+  ys.forEach((yr, i) => {
+    const x0 = L + i * band + band / 2 - 1.5 * bw - 2;
+    [["top10", "--repro", "Top10"], ["spy", "--spy", "SPY"], ["bottom20", "--bottom", "Bottom20"]].forEach(([k, col, name], j) => {
+      const v = yr[k], top = Math.min(y(v), y(0)), h = Math.abs(y(v) - y(0)), x = x0 + j * (bw + 2);
+      const rect = svgEl("rect", { x, y: top, width: bw, height: h, fill: css(col), rx: 0 }, svg);
+      rect.style.cursor = "default";
+      rect.addEventListener("mouseenter", e => { const r = svg.getBoundingClientRect(); tip.show(`<b>${yr.year} ${name}</b> ${fmtPct(v, 1)}`, (x + bw / 2) / W * r.width, top / H * r.height); });
+      rect.addEventListener("mouseleave", () => tip.hide());
+      if (k === "top10") { const t = svgEl("text", { x: x + bw / 2, y: (v >= 0 ? top - 4 : top + h + 12), "text-anchor": "middle", class: "lbl" }, svg); t.textContent = fmtPct(v, 0); }
+    });
+    const t = svgEl("text", { x: L + i * band + band / 2, y: H - 8, "text-anchor": "middle", class: "tick" }, svg); t.textContent = yr.year;
+  });
+})();
+
+// ---------- deciles ----------
+(function () {
+  const c = document.getElementById("deciles");
+  c.innerHTML = `<h3>Annualized average future return by predicted-score decile (reproduced)</h3><div class="sub">Decile 1 = lowest predicted rank, 10 = highest. The paper reports a not-perfectly-monotonic relation with the top decile strongest.</div>`;
+  const ds = DATA.deciles; const W = 900, H = 220, L = 48, R = 16, T = 14, B = 28;
+  const vals = ds.map(d => d.annualized_mean_return); const lo = Math.min(0, Math.min(...vals) * 1.15), hi = Math.max(...vals) * 1.2;
+  const y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B); const band = (W - L - R) / ds.length, bw = Math.min(24, band * 0.5);
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Average future return by predicted decile" }, c);
+  niceTicks(lo, hi, 4).forEach(v => { svgEl("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), class: "grid" }, svg); const t = svgEl("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end", class: "tick" }, svg); t.textContent = Math.round(v * 100) + "%"; });
+  svgEl("line", { x1: L, x2: W - R, y1: y(0), y2: y(0), class: "axis" }, svg);
+  const tip = tipFor(c);
+  ds.forEach((d, i) => {
+    const v = d.annualized_mean_return, x = L + i * band + band / 2 - bw / 2, top = Math.min(y(v), y(0)), h = Math.abs(y(v) - y(0));
+    const rect = svgEl("rect", { x, y: top, width: bw, height: h, fill: css(i === ds.length - 1 ? "--repro" : "--paper") }, svg);
+    rect.addEventListener("mouseenter", () => { const r = svg.getBoundingClientRect(); tip.show(`<b>Decile ${d.decile}</b> ${fmtPct(v, 1)}`, (x + bw / 2) / W * r.width, top / H * r.height); });
+    rect.addEventListener("mouseleave", () => tip.hide());
+    const t = svgEl("text", { x: x + bw / 2, y: H - 8, "text-anchor": "middle", class: "tick" }, svg); t.textContent = d.decile;
+    if (i === ds.length - 1 || i === 0) { const lb = svgEl("text", { x: x + bw / 2, y: top - 4, "text-anchor": "middle", class: "lbl" }, svg); lb.textContent = fmtPct(v, 1); }
+  });
+})();
+
+// ---------- monthly IC ----------
+(function () {
+  const c = document.getElementById("ic");
+  const m = DATA.monthly; const mean = m.reduce((a, r) => a + r.ic, 0) / m.length;
+  c.innerHTML = `<h3>Monthly Spearman IC at rebalance dates (reproduced)</h3><div class="sub">Mean ${mean.toFixed(4)} over ${m.length} months; paper 0.0424. ${Math.round(m.filter(r => r.ic > 0).length / m.length * 100)}% of months positive (paper 60%).</div>`;
+  const W = 900, H = 220, L = 48, R = 16, T = 14, B = 28; const lo = Math.min(...m.map(r => r.ic)) * 1.15, hi = Math.max(...m.map(r => r.ic)) * 1.15;
+  const x = i => L + (i / (m.length - 1)) * (W - L - R), y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Monthly information coefficient" }, c);
+  niceTicks(lo, hi, 4).forEach(v => { svgEl("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), class: "grid" }, svg); const t = svgEl("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end", class: "tick" }, svg); t.textContent = v.toFixed(2); });
+  svgEl("line", { x1: L, x2: W - R, y1: y(0), y2: y(0), class: "axis" }, svg);
+  svgEl("line", { x1: L, x2: W - R, y1: y(mean), y2: y(mean), stroke: css("--repro"), "stroke-width": 1, opacity: 0.6 }, svg);
+  const years = {}; m.forEach((r, i) => { const yr = r.date.slice(0, 4); if (!(yr in years)) years[yr] = i; });
+  Object.entries(years).forEach(([yr, i]) => { const t = svgEl("text", { x: x(i), y: H - 8, class: "tick" }, svg); t.textContent = yr; });
+  const bw = Math.max(3, (W - L - R) / m.length - 3);
+  const tip = tipFor(c);
+  m.forEach((r, i) => {
+    const top = Math.min(y(r.ic), y(0)), h = Math.abs(y(r.ic) - y(0));
+    const rect = svgEl("rect", { x: x(i) - bw / 2, y: top, width: bw, height: Math.max(h, 1), fill: css("--repro"), opacity: r.ic >= 0 ? 0.9 : 0.45 }, svg);
+    rect.addEventListener("mouseenter", () => { const rr = svg.getBoundingClientRect(); tip.show(`<b>${r.date.slice(0, 7)}</b> IC ${r.ic.toFixed(3)}`, x(i) / W * rr.width, top / H * rr.height); });
+    rect.addEventListener("mouseleave", () => tip.hide());
+  });
+})();
+
+// ---------- dumbbell chart helper (paper vs reproduced) ----------
+function dumbbell(container, title, sub, items, fmt, opts = {}) {
+  container.innerHTML = `<h3>${title}</h3><div class="sub">${sub}</div><div class="legend"><span><i style="background:var(--paper)"></i>Paper</span><span><i style="background:var(--repro)"></i>Reproduced</span></div>`;
+  const W = 900, rowH = 34, L = 190, R = 60, T = 10, B = 26; const H = T + B + items.length * rowH;
+  const vals = items.flatMap(it => [it.paper, it.repro]).filter(v => v != null);
+  let lo = Math.min(0, Math.min(...vals)), hi = Math.max(...vals); const pad = (hi - lo) * 0.12; lo = opts.min != null ? opts.min : lo - (lo < 0 ? pad : 0); hi += pad;
+  const x = v => L + (v - lo) / (hi - lo) * (W - L - R);
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": title }, container);
+  niceTicks(lo, hi, 5).forEach(v => { svgEl("line", { x1: x(v), x2: x(v), y1: T, y2: H - B, class: "grid" }, svg); const t = svgEl("text", { x: x(v), y: H - 8, "text-anchor": "middle", class: "tick" }, svg); t.textContent = fmt(v, 0); });
+  if (lo < 0) svgEl("line", { x1: x(0), x2: x(0), y1: T, y2: H - B, class: "axis" }, svg);
+  const tip = tipFor(container);
+  items.forEach((it, i) => {
+    const cy = T + i * rowH + rowH / 2;
+    const t = svgEl("text", { x: L - 10, y: cy + 4, "text-anchor": "end" }, svg); t.textContent = it.label;
+    if (it.paper != null && it.repro != null) svgEl("line", { x1: x(it.paper), x2: x(it.repro), y1: cy, y2: cy, stroke: css("--axis"), "stroke-width": 2 }, svg);
+    if (it.paper != null) svgEl("circle", { cx: x(it.paper), cy, r: 5, fill: css("--paper"), stroke: css("--surface"), "stroke-width": 2 }, svg);
+    if (it.repro != null) { svgEl("circle", { cx: x(it.repro), cy, r: 6, fill: css("--repro"), stroke: css("--surface"), "stroke-width": 2 }, svg);
+      const lb = svgEl("text", { x: x(Math.max(it.repro, it.paper ?? it.repro)) + 10, y: cy + 4, class: "lbl" }, svg); lb.textContent = fmt(it.repro, 1); }
+    else { const lb = svgEl("text", { x: x(it.paper) + 10, y: cy + 4, class: "tick" }, svg); lb.textContent = "pending"; }
+    const hit = svgEl("rect", { x: L, y: cy - rowH / 2, width: W - L - R, height: rowH, fill: "transparent" }, svg);
+    hit.addEventListener("mouseenter", () => { const r = svg.getBoundingClientRect(); tip.show(`<b>${it.label}</b> paper ${fmt(it.paper, 2)} · reproduced ${it.repro == null ? "pending" : fmt(it.repro, 2)}`, (L + (W - L - R) / 2) / W * r.width, (cy - 8) / H * r.height); });
+    hit.addEventListener("mouseleave", () => tip.hide());
+  });
+}
+const pctFmt = (v, d) => v == null ? "—" : (v * 100).toFixed(d) + "%";
+
+// ---------- models ----------
+(function () {
+  const M = DATA.models; const names = ["XGBoost", "RandomForest", "LightGBM", "ExtraTrees", "Ridge", "NeuralNetwork"];
+  const labels = { XGBoost: "XGBoost (baseline)", RandomForest: "Random Forest", LightGBM: "LightGBM", ExtraTrees: "Extra Trees", Ridge: "Ridge regression", NeuralNetwork: "Neural network (MLP)" };
+  dumbbell(document.getElementById("models"), "Top10 CAGR by learner", "Paper Table 3 vs reproduced.", names.map(n => ({ label: labels[n], paper: M[n].paper.CAGR, repro: M[n].repro ? M[n].repro.CAGR : null })), pctFmt);
+  const t = document.getElementById("t3");
+  t.innerHTML = row(["<th>Model</th><th>CAGR paper</th><th>CAGR repro</th><th>Sharpe paper</th><th>Sharpe repro</th><th>Top−Bottom p</th><th>Top−Random p</th><th>Top−SPY p</th><th>IC p</th>"]) +
+    names.map(n => { const p = M[n].paper, r = M[n].repro; const pr = (k, f) => r ? `<td class="p">${f(p[k])}</td><td class="r">${f(r[k])}</td>` : `<td class="p">${f(p[k])}</td><td class="d">pending</td>`;
+      return row([`<td>${labels[n]}</td>`, pr("CAGR", x => fmtPct(x, 2)), pr("sharpe", x => fmtNum(x, 3)), `<td class="d">${fmtP(p.tb_p)} → ${r ? fmtP(r.tb_p) : "…"}</td>`, `<td class="d">${fmtP(p.tr_p)} → ${r ? fmtP(r.tr_p) : "…"}</td>`, `<td class="d">${fmtP(p.ts_p)} → ${r ? fmtP(r.ts_p) : "…"}</td>`, `<td class="d">${fmtP(p.ic_p)} → ${r ? fmtP(r.ic_p) : "…"}</td>`]); }).join("");
+})();
+
+// ---------- regime ----------
+(function () {
+  const R = DATA.regime; const base = DATA.models.XGBoost;
+  const items = [{ label: "Baseline XGBoost", paper: base.paper.CAGR, repro: base.repro.CAGR },
+    { label: "HMM regime as feature", paper: DATA.regime.hmm_as_feature ? R.hmm_as_feature.paper.CAGR : 0.3037, repro: R.hmm_as_feature ? R.hmm_as_feature.repro.CAGR : null },
+    { label: "One model per regime", paper: R.one_model_per_regime ? R.one_model_per_regime.paper.CAGR : 0.2344, repro: R.one_model_per_regime ? R.one_model_per_regime.repro.CAGR : null }];
+  dumbbell(document.getElementById("regime"), "Top10 CAGR: regime-aware specifications", "Paper Tables 10–11 vs reproduced. Both alternatives should sit below the baseline if the paper's negative result holds.", items, pctFmt);
+  const t = document.getElementById("t10");
+  const specs = [["Baseline", base.paper, base.repro], ["HMM as feature", R.hmm_as_feature ? R.hmm_as_feature.paper : null, R.hmm_as_feature ? R.hmm_as_feature.repro : null], ["One model per regime", R.one_model_per_regime ? R.one_model_per_regime.paper : null, R.one_model_per_regime ? R.one_model_per_regime.repro : null]];
+  t.innerHTML = row(["<th>Specification</th><th>CAGR paper</th><th>CAGR repro</th><th>Sharpe paper</th><th>Sharpe repro</th><th>Top−Bottom p</th><th>Top−Random p</th><th>Top−SPY p</th><th>IC p</th>"]) +
+    specs.map(([l, p, r]) => p == null ? row([`<td>${l}</td><td colspan="8" class="d">pending</td>`]) : row([`<td>${l}</td>`, `<td class="p">${fmtPct(p.CAGR)}</td>`, `<td class="r">${r ? fmtPct(r.CAGR) : "pending"}</td>`, `<td class="p">${fmtNum(p.sharpe)}</td>`, `<td class="r">${r ? fmtNum(r.sharpe) : "…"}</td>`,
+      `<td class="d">${fmtP(p.tb_p)} → ${r ? fmtP(r.tb_p) : "…"}</td>`, `<td class="d">${fmtP(p.tr_p)} → ${r ? fmtP(r.tr_p) : "…"}</td>`, `<td class="d">${fmtP(p.ts_p)} → ${r ? fmtP(r.ts_p) : "…"}</td>`, `<td class="d">${fmtP(p.ic_p)} → ${r ? fmtP(r.ic_p) : "…"}</td>`])).join("");
+  const t12 = document.getElementById("t12");
+  const pc = DATA.regime_conditional.paper || {}; const rc = DATA.regime_conditional.repro || [];
+  const paperRows = Object.entries(pc).map(([k, v]) => ({ label: k.replace(/regime\d_/, "").replace(/_/g, " "), ...v }));
+  t12.innerHTML = row(["<th>Paper regime</th><th>Months</th><th>CAGR</th><th>Sharpe</th><th>Avg IC</th><th></th><th>Reproduced regime</th><th>Months</th><th>CAGR</th><th>Sharpe</th><th>Avg IC</th>"]) +
+    Array.from({ length: Math.max(paperRows.length, rc.length) }).map((_, i) => { const p = paperRows[i], r = rc[i];
+      return row([p ? `<td>${p.label}</td><td class="p">${p.test_months}</td><td class="p">${fmtPct(p.CAGR, 1)}</td><td class="p">${fmtNum(p.sharpe, 2)}</td><td class="p">${fmtNum(p.avg_ic, 3)}</td>` : "<td colspan='5'></td>", "<td></td>",
+        r ? `<td>${r.label} (state ${r.regime})</td><td class="r">${r.n_months}</td><td class="r">${fmtPct(r.CAGR, 1)}</td><td class="r">${fmtNum(r.sharpe, 2)}</td><td class="r">${fmtNum(r.avg_ic, 3)}</td>` : "<td colspan='5' class='d'>pending</td>"]); }).join("");
+  const t13 = document.getElementById("t13");
+  const pp = DATA.paired_tests.regime ? DATA.paired_tests.regime.paper : DATA.paper_table13, rp = DATA.paired_tests.regime ? DATA.paired_tests.regime.repro : null;
+  const spreads = [["top10_return", "Top10 return"], ["top_minus_spy", "Top−SPY"], ["top_minus_bottom", "Top−Bottom"], ["top_minus_random", "Top−Random"]];
+  t13.innerHTML = row(["<th>Alternative</th><th>Spread</th><th>Ann. diff paper</th><th>HAC p paper</th><th>Ann. diff repro</th><th>HAC p repro</th>"]) +
+    ["hmm_as_feature", "one_model_per_regime"].flatMap(alt => spreads.map(([s, sl], j) => { const P = pp ? pp[alt] : null, Rr = rp ? rp[alt] : null;
+      return row([`<td>${j === 0 ? alt.replace(/_/g, " ") : ""}</td>`, `<td style="text-align:left">${sl}</td>`, `<td class="p">${P && P[s] ? fmtPct(P[s].ann_diff, 2) : "—"}</td>`, `<td class="p">${P && P[s] ? fmtP(P[s].hac_p) : ""}</td>`,
+        `<td class="r">${Rr && Rr[s] ? fmtPct(Rr[s].ann_diff, 2) : "pending"}</td>`, `<td class="r">${Rr && Rr[s] ? fmtP(Rr[s].hac_p) : ""}</td>`]); })).join("");
+})();
+
+// ---------- optimization ----------
+(function () {
+  const O = DATA.optimization; const order = ["EqualWeight_Top10", "Static_MinVar_Top10", "Static_ScoreMV_Top10", "HMM_MinVar_Top10", "HMM_ScoreMV_Top10"];
+  const labels = { EqualWeight_Top10: "Equal weight (1/N)", Static_MinVar_Top10: "Static min-variance", Static_ScoreMV_Top10: "Static score-aware MV", HMM_MinVar_Top10: "HMM-covariance min-variance", HMM_ScoreMV_Top10: "HMM score-aware MV" };
+  dumbbell(document.getElementById("opt"), "Top10 CAGR by weighting scheme", "Paper Table 14 vs reproduced, all within the same ML-selected Top10 universe.", order.map(k => ({ label: labels[k], paper: O[k].paper.CAGR, repro: O[k].repro.CAGR })), pctFmt);
+  const t = document.getElementById("t14");
+  t.innerHTML = row(["<th>Strategy</th><th>CAGR paper</th><th>CAGR repro</th><th>Sharpe paper</th><th>Sharpe repro</th><th>SPY alpha paper</th><th>SPY alpha repro</th><th>vs 1/N ann. diff (paper)</th><th>HAC p (paper)</th><th>vs 1/N ann. diff (repro)</th><th>p (repro)</th>"]) +
+    order.map(k => { const p = O[k].paper, r = O[k].repro, pv = O[k].paired_vs_ew.paper, rv = O[k].paired_vs_ew.repro;
+      return row([`<td>${labels[k]}</td>`, `<td class="p">${fmtPct(p.CAGR)}</td>`, `<td class="r">${fmtPct(r.CAGR)}</td>`, `<td class="p">${fmtNum(p.sharpe)}</td>`, `<td class="r">${fmtNum(r.sharpe)}</td>`, `<td class="p">${fmtPct(p.spy_alpha)}</td>`, `<td class="r">${fmtPct(r.spy_alpha)}</td>`,
+        `<td class="p">${pv ? fmtPct(pv.ann_diff) : "—"}</td>`, `<td class="p">${pv ? fmtP(pv.hac_p) : "—"}</td>`, `<td class="r">${rv ? fmtPct(rv.ann_diff) : "—"}</td>`, `<td class="r">${rv ? fmtP(rv.p) : "—"}</td>`]); }).join("");
+})();
+
+// ---------- transaction costs ----------
+(function () {
+  const TC = DATA.transaction_costs; const c = document.getElementById("tc");
+  document.getElementById("tc-text").innerHTML = `Net return = gross return − cost rate × monthly turnover. Average monthly turnover: paper <b>${fmtPct(TC.avg_monthly_turnover.paper, 1)}</b>, reproduced <b>${fmtPct(TC.avg_monthly_turnover.repro, 1)}</b>. The decay per 5 bps is about 1.1 percentage points of CAGR in both.`;
+  c.innerHTML = `<h3>Top10 CAGR net of round-trip costs</h3><div class="sub">Paper Table 20 vs reproduced, by cost per trade in basis points.</div><div class="legend"><span><i style="background:var(--paper)"></i>Paper</span><span><i style="background:var(--repro)"></i>Reproduced</span></div>`;
+  const rows = TC.rows; const W = 900, H = 240, L = 48, R = 60, T = 14, B = 28;
+  const vals = rows.flatMap(r => [r.paper.CAGR, r.repro.CAGR]); const lo = 0, hi = Math.max(...vals) * 1.15;
+  const x = i => L + (i / (rows.length - 1)) * (W - L - R), y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "CAGR net of transaction costs, paper vs reproduced" }, c);
+  niceTicks(lo, hi, 4).forEach(v => { svgEl("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), class: "grid" }, svg); const t = svgEl("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end", class: "tick" }, svg); t.textContent = Math.round(v * 100) + "%"; });
+  svgEl("line", { x1: L, x2: W - R, y1: y(0), y2: y(0), class: "axis" }, svg);
+  rows.forEach((r, i) => { const t = svgEl("text", { x: x(i), y: H - 8, "text-anchor": "middle", class: "tick" }, svg); t.textContent = r.bps + " bps"; });
+  [["paper", "--paper"], ["repro", "--repro"]].forEach(([k, col]) => {
+    const d = rows.map((r, i) => (i ? "L" : "M") + x(i) + " " + y(r[k].CAGR)).join(" ");
+    svgEl("path", { d, fill: "none", stroke: css(col), "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+    rows.forEach((r, i) => svgEl("circle", { cx: x(i), cy: y(r[k].CAGR), r: 4, fill: css(col), stroke: css("--surface"), "stroke-width": 2 }, svg));
+    const last = rows[rows.length - 1][k].CAGR; const t = svgEl("text", { x: x(rows.length - 1) + 8, y: y(last) + 4, class: k === "repro" ? "lbl" : "tick" }, svg); t.textContent = fmtPct(last, 1);
+  });
+  const tip = tipFor(c);
+  rows.forEach((r, i) => { const hit = svgEl("rect", { x: x(i) - 40, y: T, width: 80, height: H - T - B, fill: "transparent" }, svg);
+    hit.addEventListener("mouseenter", () => { const rr = svg.getBoundingClientRect(); tip.show(`<b>${r.bps} bps</b> paper ${fmtPct(r.paper.CAGR, 1)} · reproduced ${fmtPct(r.repro.CAGR, 1)}`, x(i) / W * rr.width, y(Math.max(r.paper.CAGR, r.repro.CAGR)) / H * rr.height); });
+    hit.addEventListener("mouseleave", () => tip.hide()); });
+  const t = document.getElementById("t20");
+  t.innerHTML = row(["<th>Cost</th><th>CAGR paper</th><th>CAGR repro</th><th>Sharpe paper</th><th>Sharpe repro</th><th>SPY alpha paper</th><th>SPY alpha repro</th><th>Top−SPY p paper</th><th>Top−SPY p repro</th>"]) +
+    rows.map(r => row([`<td>${r.bps} bps</td>`, `<td class="p">${fmtPct(r.paper.CAGR)}</td>`, `<td class="r">${fmtPct(r.repro.CAGR)}</td>`, `<td class="p">${fmtNum(r.paper.sharpe)}</td>`, `<td class="r">${fmtNum(r.repro.sharpe)}</td>`, `<td class="p">${fmtPct(r.paper.spy_alpha)}</td>`, `<td class="r">${fmtPct(r.repro.spy_alpha)}</td>`, `<td class="p">${fmtP(r.paper.ts_p)}</td>`, `<td class="r">${fmtP(r.repro.ts_p)}</td>`])).join("");
+})();
+
+// ---------- SHAP ----------
+(function () {
+  const c = document.getElementById("shap"); const S = DATA.shap_top15;
+  c.innerHTML = `<h3>Mean |SHAP| of the top 15 features (reproduced)</h3><div class="sub">Computed on 5,000 sampled test rows from one ensemble member, as in the authors' script.</div>`;
+  const W = 900, rowH = 22, L = 170, R = 60, T = 6, B = 24, H = T + B + S.length * rowH; const hi = S[0].mean_abs_shap * 1.1;
+  const x = v => L + v / hi * (W - L - R);
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Top SHAP features" }, c);
+  niceTicks(0, hi, 4).forEach(v => { svgEl("line", { x1: x(v), x2: x(v), y1: T, y2: H - B, class: "grid" }, svg); const t = svgEl("text", { x: x(v), y: H - 8, "text-anchor": "middle", class: "tick" }, svg); t.textContent = v.toFixed(3); });
+  svgEl("line", { x1: x(0), x2: x(0), y1: T, y2: H - B, class: "axis" }, svg);
+  const fund = new Set(["log_market_cap", "pb_ratio", "pe_ratio", "roe", "debt_to_equity"]);
+  S.forEach((s, i) => { const cy = T + i * rowH + 3; const t = svgEl("text", { x: L - 8, y: cy + 12, "text-anchor": "end" }, svg); t.textContent = s.feature;
+    svgEl("rect", { x: x(0), y: cy, width: x(s.mean_abs_shap) - x(0), height: 14, fill: css(fund.has(s.feature) ? "--repro" : "--paper"), rx: 3 }, svg);
+    if (i < 4) { const lb = svgEl("text", { x: x(s.mean_abs_shap) + 6, y: cy + 11, class: "lbl" }, svg); lb.textContent = s.mean_abs_shap.toFixed(4); } });
+  const lg = document.createElement("div"); lg.className = "legend"; lg.innerHTML = `<span><i class="sq" style="background:var(--repro)"></i>Fundamental feature</span><span><i class="sq" style="background:var(--paper)"></i>Technical / market / cross-asset</span>`; c.appendChild(lg);
+})();
+</script>

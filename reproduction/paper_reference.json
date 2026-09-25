@@ -1,0 +1,327 @@
+{
+ "paper": "Do Market Regimes Improve Machine-Learning Stock Ranking? (Pascual Miralles & Alfeus, SSRN 7200998, July 2026)",
+ "sample": {
+  "universe": "201 listed tickers (~206 claimed) large US stocks",
+  "train": "2005-01-01..2018-12-31 (654,009 rows)",
+  "val": "2019-01-01..2020-12-31 (102,527 rows)",
+  "test": "2021-01-01..2025-12-31 (253,665 rows)",
+  "features": 68,
+  "test_months": 60
+ },
+ "table1_performance_2021_2025": {
+  "RankModel_Top10": {
+   "total_return": 3.3594,
+   "CAGR": 0.3424,
+   "annual_return": 0.321,
+   "volatility": 0.2197,
+   "sharpe": 1.2787,
+   "max_drawdown": -0.1227,
+   "excess_vs_spy": 0.1724,
+   "beta_vs_spy": 1.2489,
+   "spy_alpha": 0.1355,
+   "ff5mom_alpha": 0.1768
+  },
+  "SPY": {
+   "total_return": 0.9866,
+   "CAGR": 0.1472,
+   "annual_return": 0.1485,
+   "volatility": 0.1454,
+   "sharpe": 0.7463,
+   "max_drawdown": -0.2047,
+   "beta_vs_spy": 1.0169,
+   "spy_alpha": -0.0025
+  },
+  "Bottom20_Predicted": {
+   "total_return": 0.8885,
+   "CAGR": 0.1356,
+   "annual_return": 0.1397,
+   "volatility": 0.1568,
+   "sharpe": 0.6363,
+   "max_drawdown": -0.1914,
+   "excess_vs_spy": -0.0088,
+   "beta_vs_spy": 0.7788,
+   "spy_alpha": 0.0241
+  },
+  "TopMinusBottom": {
+   "total_return": 1.2531,
+   "CAGR": 0.1764,
+   "annual_return": 0.1812,
+   "volatility": 0.1936,
+   "sharpe": 0.7293,
+   "max_drawdown": -0.1533
+  }
+ },
+ "table2_ranking_diagnostics": {
+  "avg_top10_monthly_return": 0.0267,
+  "avg_bottom20_monthly_return": 0.0116,
+  "avg_top_minus_bottom": 0.0151,
+  "annualized_top_minus_bottom": 0.1812,
+  "top_minus_bottom_p": 0.0407,
+  "annualized_top10_excess_vs_random": 0.163,
+  "top_minus_random_p": 0.0112,
+  "annualized_top10_excess_vs_spy": 0.1724,
+  "top_minus_spy_p": 0.005,
+  "avg_spearman_ic": 0.0424,
+  "spearman_ic_p": 0.0464,
+  "pct_months_top_beats_spy": 0.6667,
+  "pct_positive_ic": 0.6
+ },
+ "table3_model_comparison": {
+  "XGBoost": {
+   "CAGR": 0.3424,
+   "sharpe": 1.279,
+   "tb_p": 0.0407,
+   "tr_p": 0.0112,
+   "ts_p": 0.005,
+   "ic_p": 0.0464
+  },
+  "RandomForest": {
+   "CAGR": 0.3337,
+   "sharpe": 1.222,
+   "tb_p": 0.0391,
+   "tr_p": 0.0291,
+   "ts_p": 0.0092,
+   "ic_p": 0.0943
+  },
+  "LightGBM": {
+   "CAGR": 0.3195,
+   "sharpe": 1.249,
+   "tb_p": 0.0562,
+   "tr_p": 0.0141,
+   "ts_p": 0.0062,
+   "ic_p": 0.1025
+  },
+  "ExtraTrees": {
+   "CAGR": 0.2808,
+   "sharpe": 1.03,
+   "tb_p": 0.0541,
+   "tr_p": 0.1068,
+   "ts_p": 0.0684,
+   "ic_p": 0.0782
+  },
+  "Ridge": {
+   "CAGR": 0.1554,
+   "sharpe": 0.678,
+   "tb_p": 0.8896,
+   "tr_p": 0.9671,
+   "ts_p": 0.8368,
+   "ic_p": 0.256
+  },
+  "NeuralNetwork": {
+   "CAGR": 0.1623,
+   "sharpe": 0.679,
+   "tb_p": 0.8948,
+   "tr_p": 0.8,
+   "ts_p": 0.701,
+   "ic_p": 0.6201
+  }
+ },
+ "table9_feature_ablation": {
+  "original_baseline": {
+   "CAGR": 0.3127,
+   "sharpe": 1.227
+  },
+  "original_plus_cross_asset_FINAL": {
+   "CAGR": 0.3424,
+   "sharpe": 1.279
+  },
+  "plus_rates": {
+   "CAGR": 0.3217,
+   "sharpe": 1.223
+  },
+  "plus_macro_cycle": {
+   "CAGR": 0.2238,
+   "sharpe": 0.935
+  }
+ },
+ "table10_hmm_as_feature": {
+  "baseline": {
+   "CAGR": 0.3424,
+   "sharpe": 1.279
+  },
+  "hmm_as_feature": {
+   "CAGR": 0.3037,
+   "sharpe": 1.12,
+   "tb_p": 0.0868,
+   "tr_p": 0.0426,
+   "ts_p": 0.021,
+   "ic_p": 0.0433
+  }
+ },
+ "table11_one_model_per_regime": {
+  "CAGR": 0.2344,
+  "sharpe": 0.905,
+  "tb_p": 0.1086,
+  "tr_p": 0.1631,
+  "ts_p": 0.1562,
+  "ic_p": 0.3472
+ },
+ "table12_regime_conditional_baseline": {
+  "regime0_normal_expansion": {
+   "test_months": 19,
+   "CAGR": 0.325,
+   "sharpe": 1.4,
+   "avg_ic": 0.052
+  },
+  "regime1_bull": {
+   "test_months": 16,
+   "CAGR": 0.477,
+   "sharpe": 1.8,
+   "avg_ic": 0.053
+  },
+  "regime2_correction_bear": {
+   "test_months": 13,
+   "CAGR": 0.396,
+   "sharpe": 1.16,
+   "avg_ic": 0.011
+  },
+  "regime3_crisis": {
+   "test_months": 12,
+   "CAGR": 0.156,
+   "sharpe": 0.58,
+   "avg_ic": 0.048
+  }
+ },
+ "table13_paired_tests_vs_baseline": {
+  "hmm_as_feature": {
+   "top10_return": {
+    "ann_diff": -0.0289,
+    "hac_p": 0.1732
+   },
+   "top_minus_spy": {
+    "ann_diff": -0.0289,
+    "hac_p": 0.1732
+   },
+   "top_minus_bottom": {
+    "ann_diff": -0.0311,
+    "hac_p": 0.1548
+   },
+   "top_minus_random": {
+    "ann_diff": -0.0286,
+    "hac_p": 0.1745
+   }
+  },
+  "one_model_per_regime": {
+   "top10_return": {
+    "ann_diff": -0.0862,
+    "hac_p": 0.0838
+   },
+   "top_minus_spy": {
+    "ann_diff": -0.0862,
+    "hac_p": 0.0838
+   },
+   "top_minus_bottom": {
+    "ann_diff": -0.0609,
+    "hac_p": 0.5216
+   },
+   "top_minus_random": {
+    "ann_diff": -0.0871,
+    "hac_p": 0.0837
+   }
+  }
+ },
+ "table14_portfolio_optimization": {
+  "EqualWeight_Top10": {
+   "CAGR": 0.3424,
+   "sharpe": 1.279,
+   "tb_p": 0.0407,
+   "ts_p": 0.005,
+   "spy_alpha": 0.1355
+  },
+  "Static_MinVar_Top10": {
+   "CAGR": 0.2421,
+   "sharpe": 1.088,
+   "tb_p": 0.2088,
+   "ts_p": 0.1084,
+   "spy_alpha": 0.0941
+  },
+  "Static_ScoreMV_Top10": {
+   "CAGR": 0.3216,
+   "sharpe": 1.074,
+   "tb_p": 0.0905,
+   "ts_p": 0.0334,
+   "spy_alpha": 0.1081
+  },
+  "HMM_MinVar_Top10": {
+   "CAGR": 0.2654,
+   "sharpe": 1.173,
+   "tb_p": 0.135,
+   "ts_p": 0.0596,
+   "spy_alpha": 0.1131
+  },
+  "HMM_ScoreMV_Top10": {
+   "CAGR": 0.3291,
+   "sharpe": 1.095,
+   "tb_p": 0.0836,
+   "ts_p": 0.0299,
+   "spy_alpha": 0.1162
+  }
+ },
+ "table15_paired_optimization_vs_ew": {
+  "Static_MinVar": {
+   "ann_diff": -0.0869,
+   "hac_p": 0.0182
+  },
+  "Static_ScoreMV": {
+   "ann_diff": -0.0086,
+   "hac_p": 0.8692
+  },
+  "HMM_MinVar": {
+   "ann_diff": -0.0673,
+   "hac_p": 0.1044
+  },
+  "HMM_ScoreMV": {
+   "ann_diff": -0.0024,
+   "hac_p": 0.9613
+  }
+ },
+ "table20_transaction_costs": {
+  "avg_monthly_turnover": 1.481,
+  "bps0": {
+   "CAGR": 0.3424,
+   "sharpe": 1.279,
+   "spy_alpha": 0.1355,
+   "ts_p": 0.005,
+   "tb_p": 0.0407
+  },
+  "bps5": {
+   "CAGR": 0.3308,
+   "sharpe": 1.238,
+   "spy_alpha": 0.1264,
+   "ts_p": 0.0076,
+   "tb_p": 0.0513
+  },
+  "bps10": {
+   "CAGR": 0.3192,
+   "sharpe": 1.197,
+   "spy_alpha": 0.1174,
+   "ts_p": 0.0113,
+   "tb_p": 0.0642
+  },
+  "bps25": {
+   "CAGR": 0.2851,
+   "sharpe": 1.074,
+   "spy_alpha": 0.0903,
+   "ts_p": 0.0347,
+   "tb_p": 0.1201
+  },
+  "bps50": {
+   "CAGR": 0.23,
+   "sharpe": 0.87,
+   "spy_alpha": 0.0452,
+   "ts_p": 0.1638,
+   "tb_p": 0.2921
+  }
+ },
+ "table21_walk_forward": {
+  "frozen": {
+   "CAGR": 0.3424,
+   "sharpe": 1.279
+  },
+  "walk_forward": {
+   "CAGR": 0.2302,
+   "sharpe": 0.866
+  }
+ },
+ "shap_note": "Log market cap dominant predictor, then P/B, P/E, MACD/MA ratios, ROE, D/E, long momentum; gold & agg bond returns also contribute"
+}
