@@ -60,11 +60,11 @@
 | Model | Paper | Reproduced |
 |---|---|---|
 | XGBoost | 34.24% / 1.279 / 0.0050 | 25.00% / 1.071 / 0.0800 |
-| RandomForest | 33.37% / 1.222 / 0.0092 | pending |
+| RandomForest | 33.37% / 1.222 / 0.0092 | 27.48% / 1.129 / 0.0480 |
 | LightGBM | 31.95% / 1.249 / 0.0062 | 28.70% / 1.224 / 0.0222 |
-| ExtraTrees | 28.08% / 1.030 / 0.0684 | pending |
+| ExtraTrees | 28.08% / 1.030 / 0.0684 | 29.46% / 1.050 / 0.0443 |
 | Ridge | 15.54% / 0.678 / 0.8368 | 16.51% / 0.749 / 0.7129 |
-| NeuralNetwork | 16.23% / 0.679 / 0.7010 | pending |
+| NeuralNetwork | 16.23% / 0.679 / 0.7010 | 30.49% / 1.203 / 0.0233 |
 
 ## Tables 10–11 — Regime-aware forecasting (CAGR / Sharpe / IC p)
 

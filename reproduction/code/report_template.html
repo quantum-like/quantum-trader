@@ -122,15 +122,16 @@
   <div class="chart" id="ic"></div>
 
   <h2>Table 3 — Alternative learners</h2>
-  <p>Same features, target, split and portfolio rule; only the learner changes. The paper's ordering (tree ensembles far ahead of Ridge and the neural network) is the test here.</p>
+  <p>Same features, target, split and portfolio rule; only the learner changes. Extra Trees and Ridge land within a point of the paper, LightGBM and Random Forest within 3–6 points, and every tree ensemble beats SPY at the 5% level. Two things differ: XGBoost is the weakest tree model here rather than the strongest (the paper's own paired tests found the tree models statistically indistinguishable), and the neural network reaches 30% CAGR against the paper's 16%. The MLP is a single early-stopped fit, so that number is the least stable in the table.</p>
   <div class="chart" id="models"></div>
   <div class="tbl-wrap"><table id="t3"></table></div>
 
   <h2>Regime experiments (Tables 10–13)</h2>
-  <p>The paper's central claim is negative: HMM regimes help describe <em>when</em> the model works but do not improve it as a feature or as a basis for regime-specific models. Both regime-aware specifications are reconstructed from the paper's Section 4.5 because the public repo omits that script.</p>
+  <p>The paper's central claim is negative: HMM regimes help describe <em>when</em> the model works but do not improve it as a feature or as a basis for regime-specific models. That replicates. Adding one-hot regime indicators lowers the CAGR slightly (24.3% vs 25.0%) and weakens the IC; training one model per regime leaves the portfolio unchanged but cuts the ranking IC to 0.010 (p = 0.66), consistent with the paper's sample-fragmentation explanation. Neither paired difference is significant in either study. Both specifications are reconstructed from the paper's Section 4.5 because the public repo omits that script.</p>
   <div class="chart" id="regime"></div>
   <div class="tbl-wrap"><table id="t10"></table></div>
   <h3>Baseline conditional on the prevailing regime (Table 12)</h3>
+  <p>HMM state numbers are arbitrary and the economic labels are assigned by the authors' heuristic from each state's return, volatility, drawdown, VIX and yield-spread averages. The paper's point is that the strategy's performance varies strongly by state; that replicates (CAGR ranges from −16% to +60% across states). Which state is best does not: the reproduced HMM's highest-stress state is a high-volatility recovery phase rather than a 2008/2020-style crisis, and the strategy does best there.</p>
   <div class="tbl-wrap"><table id="t12"></table></div>
   <h3>Paired tests against the baseline (Table 13)</h3>
   <div class="tbl-wrap"><table id="t13"></table></div>
