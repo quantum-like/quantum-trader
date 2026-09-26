@@ -1,7 +1,7 @@
 {
  "paper": "Do Market Regimes Improve Machine-Learning Stock Ranking? (Pascual Miralles & Alfeus, SSRN 7200998, July 2026)",
  "sample": {
-  "universe": "201 listed tickers (~206 claimed) large US stocks",
+  "universe": "206 tickers listed in the replication code (paper says ~206)",
   "train": "2005-01-01..2018-12-31 (654,009 rows)",
   "val": "2019-01-01..2020-12-31 (102,527 rows)",
   "test": "2021-01-01..2025-12-31 (253,665 rows)",
@@ -323,5 +323,21 @@
    "sharpe": 0.866
   }
  },
- "shap_note": "Log market cap dominant predictor, then P/B, P/E, MACD/MA ratios, ROE, D/E, long momentum; gold & agg bond returns also contribute"
+ "shap_note": "Log market cap dominant predictor, then P/B, P/E, MACD/MA ratios, ROE, D/E, long momentum; gold & agg bond returns also contribute",
+ "hmm_expanding_vs_full_agreement": 0.656,
+ "table17_horizon": {
+  "10d": {
+   "CAGR": 0.1167,
+   "sharpe": 0.571
+  },
+  "20d": {
+   "CAGR": 0.3424,
+   "sharpe": 1.279
+  },
+  "60d": {
+   "CAGR": 0.8261,
+   "sharpe": 1.865,
+   "note": "overlapping windows; paper flags as predictive-horizon evidence, not a tradable strategy"
+  }
+ }
 }
