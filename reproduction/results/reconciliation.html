@@ -1,0 +1,212 @@
+<title>Six Replications Reconciled</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f7f7f4; --surface: #fdfdfb; --ink: #101110; --ink-2: #4f524d; --ink-3: #85887f;
+    --grid: #e2e2da; --axis: #c4c5bb; --ring: rgba(16,17,16,0.10);
+    --paper: #85887f; --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #4a3aa7;
+    --good-text: #006300; --warn-text: #8a5a00;
+    --display: "Newsreader", "Iowan Old Style", Georgia, serif;
+    --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    --data: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #101211; --surface: #1a1c1a; --ink: #f3f4f0; --ink-2: #c1c3ba; --ink-3: #8b8e86;
+      --grid: #2b2e2b; --axis: #3b3e3a; --ring: rgba(255,255,255,0.10);
+      --paper: #8b8e86; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #9085e9;
+      --good-text: #0ca30c; --warn-text: #fab219;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #101211; --surface: #1a1c1a; --ink: #f3f4f0; --ink-2: #c1c3ba; --ink-3: #8b8e86;
+    --grid: #2b2e2b; --axis: #3b3e3a; --ring: rgba(255,255,255,0.10);
+    --paper: #8b8e86; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #9085e9;
+    --good-text: #0ca30c; --warn-text: #fab219;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+  .wrap { max-width: 980px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; }
+  h1, h2, h3 { font-family: var(--display); font-weight: 500; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+  h1 { font-size: 2.3rem; line-height: 1.1; }
+  h2 { font-size: 1.5rem; margin-top: 52px; margin-bottom: 8px; }
+  h3 { font-size: 1.1rem; margin-top: 24px; margin-bottom: 6px; }
+  p { max-width: 70ch; margin: 0 0 12px; }
+  p.lede { font-size: 1.12rem; color: var(--ink-2); }
+  .eyebrow { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-3); margin-bottom: 10px; font-weight: 600; }
+  .meta { color: var(--ink-3); font-size: 0.88rem; }
+  ol, ul { max-width: 74ch; padding-left: 22px; } li { margin-bottom: 8px; }
+  .chart { background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; padding: 16px 16px 10px; margin: 14px 0 6px; position: relative; }
+  .chart h3 { margin-top: 0; font-family: var(--body); font-weight: 600; font-size: 0.95rem; }
+  .chart .sub { color: var(--ink-3); font-size: 0.82rem; margin-bottom: 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-family: var(--data); font-size: 0.8rem; color: var(--ink-2); margin: 6px 0 2px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; } .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+  svg { display: block; width: 100%; height: auto; font-family: var(--data); }
+  svg text { fill: var(--ink-2); font-size: 11px; } svg .tick { fill: var(--ink-3); font-variant-numeric: tabular-nums; }
+  svg .grid { stroke: var(--grid); stroke-width: 1; } svg .axis { stroke: var(--axis); stroke-width: 1; } svg .lbl { fill: var(--ink); font-weight: 600; }
+  .tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font-family: var(--data); font-size: 12px; padding: 6px 9px; border-radius: 4px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity .08s; z-index: 2; }
+  .tbl-wrap { overflow-x: auto; margin: 12px 0; }
+  table { border-collapse: collapse; width: 100%; font-family: var(--data); font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 7px 9px; border-bottom: 1px solid var(--grid); white-space: nowrap; vertical-align: top; }
+  th { color: var(--ink-3); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  th:first-child, td:first-child { text-align: left; }
+  tr.paper td { color: var(--paper); font-weight: 600; }
+  td.tx, th.tx { white-space: normal; text-align: left; min-width: 200px; }
+  .pill { display: inline-block; font-family: var(--data); font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--ring); }
+  .pill.ok { color: var(--good-text); } .pill.warn { color: var(--warn-text); }
+  .note { border-left: 3px solid var(--s1); padding: 4px 14px; margin: 18px 0; color: var(--ink-2); max-width: 72ch; }
+  .kicker { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 24px 0 8px; }
+  .kicker div { background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; padding: 14px 16px; }
+  .kicker .l { font-size: 0.8rem; color: var(--ink-3); } .kicker .v { font-family: var(--data); font-size: 1.7rem; font-weight: 600; line-height: 1.15; margin-top: 4px; } .kicker .s { font-size: 0.85rem; color: var(--ink-2); margin-top: 4px; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; background: var(--surface); border: 1px solid var(--ring); padding: 1px 5px; border-radius: 3px; }
+  @media (max-width: 480px) { h1 { font-size: 1.8rem; } }
+  @media (prefers-reduced-motion: reduce) { .tip { transition: none; } }
+  :focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Reconciliation</div>
+  <h1>Six AI replications of the regime-aware stock-ranking paper</h1>
+  <p class="lede" style="margin-top:14px">Grok, ChatGPT, Kimi, Perplexity, "claude science" and Claude Code each re-ran Pascual Miralles &amp; Alfeus (SSRN 7200998) on public data. Lined up against the paper and each other, they tell one consistent story.</p>
+  <p class="meta">Compiled from the Slack thread with Alan Coppola, 2026-09-25 (messages, screenshots, two markdown reports and the ChatGPT results package). Paper values are muted gray; each run keeps its own color throughout.</p>
+
+  <div class="kicker">
+    <div><div class="l">Paper's Top10 CAGR</div><div class="v">34.2%</div><div class="s">Sharpe 1.28, alpha 13.6%, p 0.005</div></div>
+    <div><div class="l">Six replications, range</div><div class="v">19–25%</div><div class="s">Sharpe 0.77–1.08, p 0.06–0.32</div></div>
+    <div><div class="l">Two point-in-time builds, independent</div><div class="v">24.9% · 25.0%</div><div class="s">Sharpe 1.08 · 1.07, alpha 8.4% · 8.9%</div></div>
+    <div><div class="l">Naive size rule on the same universe</div><div class="v">25.3%</div><div class="s">10 smallest by market cap, Sharpe 1.03</div></div>
+  </div>
+
+  <h2>The headline numbers side by side</h2>
+  <p>Out-of-sample 2021–2025, sixty monthly rebalances, equal-weight Top10 from a 7-seed XGBoost ensemble. SPY reproduces at 14.71% CAGR, 0.746 Sharpe and −20.47% drawdown in every run that reports it (paper 14.72 / 0.746 / −20.47), so the calendar, holding-period arithmetic and benchmark are right everywhere; the whole spread is in the stock signal.</p>
+  <div class="chart" id="cagr"></div>
+  <div class="chart" id="sharpe"></div>
+  <div class="tbl-wrap"><table id="t1"></table></div>
+  <p class="meta">Kimi's second row is its "full-history variant"; the message does not say what changed and its 988 MB archive could not be inspected, so it is shown but not treated as a same-specification replication. Grok did not report IC significance or the spread p-values beyond "p ≈ 0.15".</p>
+
+  <h2>What every run agrees on</h2>
+  <ol>
+    <li><b>The Top10 portfolio beats SPY in the point estimate, by less than the paper says.</b> Six of six runs: 19–25% CAGR against 14.7% for SPY, versus the paper's 34.2%. Excess return over SPY is 5–10 points a year, not 17.</li>
+    <li><b>The paper's 5%-level significance does not survive.</b> With the paper's exact specification, Top−SPY p-values are 0.06–0.32 (paper 0.005) and IC p-values 0.09–0.49 (paper 0.046). Only Kimi's non-standard variant (p 0.011) and some <em>alternative</em> learners (LightGBM, Random Forest, Extra Trees in the Claude, claude-science and ChatGPT runs) clear 5% against SPY, and in the two reports that ran multiple-testing corrections (claude science, ChatGPT) no family keeps a significant test.</li>
+    <li><b>Regimes add nothing.</b> All four runs that tested it (Grok did not run the forecasting variants): HMM regime as a feature moves the Top10 return by −0.8 to +4.4 points a year depending on how pre-2008 rows are handled, never significantly (p 0.055–0.97; paper −2.9, p 0.17). One model per regime is flat-to-worse (12–27% vs 22–25% baselines) and always worse on IC.</li>
+    <li><b>No optimizer beats 1/N inside the Top10, and minimum variance is the worst.</b> All five runs that tested it. Static min-variance vs equal weight: −7.1%/yr (p 0.036, claude science), −7.5%/yr (p 0.028, Claude Code); paper −8.7% (p 0.018).</li>
+    <li><b>Costs erode the edge at about 1.1 CAGR points per 5 bps</b> (paper 1.2), on 144–169% monthly turnover (paper 148%). At 25 bps the strategy still beats SPY on return but not significantly; at 50 bps it does not beat SPY.</li>
+    <li><b>Size dominates.</b> Log market cap is the top SHAP feature in every run that reports SHAP (paper, Claude Code, claude science), ahead of valuation, trend and profitability.</li>
+  </ol>
+
+  <h2>Why the runs differ from each other</h2>
+  <p>The ordering tracks the quality of the fundamentals block, which is the block the model leans on most.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th class="tx">Fundamentals input</th><th class="tx">Runs</th><th>CAGR</th></tr>
+    <tr><td class="tx">None</td><td class="tx">ChatGPT (64 features)</td><td>21.5%</td></tr>
+    <tr><td class="tx">Sparse, or lagged and back-filled</td><td class="tx">Grok (yfinance), Perplexity (SEC XBRL with an extra 90-day availability lag)</td><td>22.4–23.7%</td></tr>
+    <tr><td class="tx">Point-in-time SEC filings, full coverage</td><td class="tx">claude science, Claude Code</td><td>24.9–25.0%</td></tr>
+  </table></div>
+  <p>The two point-in-time builds were done independently, with different code paths and different data mirrors, and land within 0.1 CAGR point, 0.01 Sharpe, 0.5 points of alpha and 0.0004 of IC of each other. That convergence is the best available estimate of what the published strategy does on public data: <b>CAGR ≈ 25%, Sharpe ≈ 1.07, SPY alpha ≈ 8.5%/yr, mean IC ≈ 0.031, Top−SPY p ≈ 0.06–0.08.</b></p>
+  <h3>Two runs need qualification</h3>
+  <ul>
+    <li><b>ChatGPT omitted the five fundamental features entirely.</b> Its 21.5% is a lower bound for the technical and cross-asset signal alone, and its learner ordering (Extra Trees 29.9% &gt; Random Forest 28.1% &gt; LightGBM 23.3% &gt; XGBoost 21.5%) is not comparable with the other runs. Its package is otherwise the most carefully audited of the six (pinned upstream commit, independent recomputation of every portfolio to 1e-16).</li>
+    <li><b>Kimi's "full-history variant" (28.4%, p 0.011)</b> is the only result above 25% and the only one significant at 5% under something close to the paper's rule. Until "full-history" is defined it should be read as a specification change, not a replication.</li>
+  </ul>
+  <h3>Smaller inconsistencies, all within noise</h3>
+  <ul>
+    <li>The short side is unstable: Bottom20 CAGR is 13.4% (Claude Code), 14.0% (Perplexity), 16.3% (claude science) and 17.9% (ChatGPT) against the paper's 13.6%, which is why Top−Bottom is never significant.</li>
+    <li>ChatGPT and Perplexity got the paper's exact regime-month counts (19/16/13/12); the Claude runs did not. This carries no information: the released HMM script re-initialises at every refit, so numeric state IDs are not comparable across time (next section).</li>
+    <li>The HMM-feature effect flips sign between runs. claude science's control explains it: most of the apparent gain in "drop pre-2008 rows" variants comes from discarding back-filled 2005–2007 fundamentals, not from the regime dummies — its 2008–2018 control without dummies reaches 29.2%.</li>
+  </ul>
+
+  <h2>Cross-claims re-tested on an independent panel</h2>
+  <p>Three claims made by one run were re-tested on the Claude Code panel, which was built from different sources than any of the other runs.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th class="tx">Claim (source)</th><th class="tx">Result on the Claude Code panel</th><th>Verdict</th></tr>
+    <tr><td class="tx">A size-only rule — buy the 10 smallest names by market cap — matches the XGBoost ranker: 25.8% CAGR, Sharpe 1.07 (Perplexity)</td><td class="tx">10 smallest: 25.26% CAGR, Sharpe 1.03. ML Top10: 25.00%, 1.07. Equal-weight universe 15.8%, SPY 14.7%. The ML picks sit at the 31st size percentile on average and share only 2 of 10 names with the smallest-10 set.</td><td><span class="pill ok">confirmed</span></td></tr>
+    <tr><td class="tx">The released expanding-window HMM label-switches; its raw states agree with the full-sample HMM only 19% of the time over 2021–25, not the paper's 65.6% (claude science; ChatGPT flags the same mechanism)</td><td class="tx">Raw agreement 18.2%; the best possible fixed relabelling reaches 36.3%. The paper's Table 12 is therefore not comparable across runs or with the paper.</td><td><span class="pill ok">confirmed</span></td></tr>
+    <tr><td class="tx">Ensemble seed choice alone moves Top−SPY significance across the 5% line: five 7-seed sets gave Sharpe 0.95–1.18 and p 0.03–0.17, one of five significant (Perplexity)</td><td class="tx" id="seed-cell">Four 7-seed ensembles on the same panel (the paper's seeds plus three alternatives): CAGR 23.4–28.9%, Sharpe 0.97–1.20, Top−SPY p 0.029–0.149, one of four below 0.05. The paper's own seeds give 25.0% and p 0.080; seed set A gives 28.9% and p 0.029; seed set B gives 23.4% and p 0.149.</td><td><span class="pill ok" id="seed-pill">confirmed</span></td></tr>
+  </table></div>
+
+  <h2>Why all six differ from the paper</h2>
+  <ol>
+    <li><b>Data vendor, concentrated in the features that matter most.</b> Bloomberg's daily market cap, P/E, P/B, ROE and D/E are replaced by SEC-derived proxies or omitted, and these are the top SHAP features in the paper and the replications alike. claude science's control trained on 2008–2018 only, the years with genuine XBRL data, recovers 29.2% CAGR with p 0.007; ChatGPT's pooled 2008+ model rises from 21.5% to 26.2%; claude science's 2019–20 validation window shows IC 0.089 (p 0.008). The signal is strongest where the fundamentals are cleanest.</li>
+    <li><b>Survivorship and a size tilt.</b> The universe is today's 206 large caps. Within it, "smaller then, larger now" is a mechanical winner, and a size-only rule matches the model.</li>
+    <li><b>Sixty monthly observations and seed noise.</b> The paper's own robustness tables put the CAGR at 23.0% (walk-forward retraining), 23.4% (per-regime models) and 31.3% (no cross-asset features); the 34.2% headline is the top of a wide range, and both Perplexity's seed experiment and the re-test here show the 5% threshold sits inside seed noise: identical data, different seeds, CAGR anywhere from 23% to 29%.</li>
+    <li><b>Small code issues</b> surfaced by the replications: the released alpha/beta formula mixes a sample covariance with a population variance, inflating beta by n/(n−1) (ChatGPT); the released feature lists enumerate 69 names while the paper reports 68 (all runs); the 60-day-horizon "CAGR" compounds overlapping windows (claude science, ChatGPT, Perplexity).</li>
+  </ol>
+
+  <h2>Bottom line</h2>
+  <div class="note">
+    <p><b>Replicates:</b> every qualitative claim. A tree-based ranker beats SPY and random portfolios, linear models do not, cross-asset features help, regimes and optimizers do not improve equal-weight Top10, and costs matter at about 1.1 points per 5 bps.</p>
+    <p><b>Does not replicate:</b> the magnitude (34% → about 25% CAGR, Sharpe 1.28 → about 1.07, alpha 13.6% → about 8.5%) and the 5%-level significance of the headline tests.</p>
+    <p><b>Consensus reading:</b> a real but modest ranking signal (IC ≈ 0.03) whose return is largely explained by a size tilt inside a survivor universe, with Sharpe ≈ 1.0 after 5 bps of costs and p ≈ 0.06–0.25 against SPY on sixty months. A signal to build on, not a proven edge — the position the Slack thread had already reached.</p>
+  </div>
+
+  <h2>Per-run detail</h2>
+  <div class="tbl-wrap"><table id="t2"></table></div>
+  <p class="meta" id="footer"></p>
+</div>
+
+<script>
+const RUNS = [
+  { key: "paper", name: "Paper (Bloomberg)", color: "--paper", cagr: 0.3424, sharpe: 1.279, dd: -0.1227, alpha: 0.1355, ic: 0.0424, icp: 0.046, pspy: 0.0050, prnd: 0.0112, pbot: 0.0407, fund: "Bloomberg", size: "206 / 68 / 654,009" },
+  { key: "kimi", name: "Kimi", color: "--s5", cagr: 0.1930, sharpe: 0.767, dd: -0.1619, alpha: 0.0145, ic: null, icp: null, pspy: 0.318, prnd: null, pbot: null, fund: "not stated", size: "not stated" },
+  { key: "kimi2", name: "Kimi, full-history variant", color: "--s5", cagr: 0.2843, sharpe: 1.161, dd: -0.1226, alpha: 0.0937, ic: null, icp: null, pspy: 0.011, prnd: null, pbot: null, fund: "not stated", size: "not stated", variant: true },
+  { key: "chatgpt", name: "ChatGPT", color: "--s4", cagr: 0.2153, sharpe: 0.933, dd: -0.1365, alpha: 0.0684, ic: 0.0163, icp: 0.490, pspy: 0.243, prnd: 0.254, pbot: 0.678, fund: "none (omitted)", size: "205 / 64 / 619,620" },
+  { key: "perplexity", name: "Perplexity", color: "--s3", cagr: 0.2238, sharpe: 1.052, dd: -0.1341, alpha: 0.0754, ic: 0.0203, icp: 0.317, pspy: 0.124, prnd: 0.128, pbot: 0.255, fund: "SEC XBRL, +90-day lag, back-filled pre-2009", size: "206 / 69 / 622,891" },
+  { key: "grok", name: "Grok", color: "--s2", cagr: 0.2366, sharpe: 0.952, dd: -0.154, alpha: 0.0708, ic: 0.012, icp: null, pspy: 0.15, prnd: null, pbot: null, fund: "yfinance (sparse)", size: "205 / — / —" },
+  { key: "cscience", name: "claude science", color: "--s6", cagr: 0.2490, sharpe: 1.080, dd: -0.1243, alpha: 0.0837, ic: 0.0315, icp: 0.132, pspy: 0.061, prnd: 0.073, pbot: 0.278, fund: "SEC XBRL companyfacts, filing-date PIT, back-filled pre-2009", size: "205 / 69 / 662,574" },
+  { key: "ccode", name: "Claude Code", color: "--s1", cagr: 0.2500, sharpe: 1.071, dd: -0.1553, alpha: 0.0889, ic: 0.0311, icp: 0.093, pspy: 0.080, prnd: 0.067, pbot: 0.151, fund: "SEC XBRL + stockpup 2004–08 + SEC FSDS 2024–25, filing-date PIT", size: "206 / 69 / 653,098" },
+];
+const DETAIL = [
+  ["Grok", "Yahoo + FRED on a Mac; no EA; sparse yfinance fundamentals. Optimizers: HMM MinVar 22.0%, static MinVar 20.1%, score-MV worse. 5–10 bps still beats SPY, 50 bps does not. Did not run the regime-forecasting variants (the public repo lacks that script). Its own verdict: not an edge to promote."],
+  ["ChatGPT", "205 stocks (no EA; BK via BNY), 64 features, fundamentals omitted. Learners: Extra Trees 29.86% / 1.02, Random Forest 28.13% / 1.08, LightGBM 23.34% / 1.00, MLP 21.35% / 0.93, Ridge 13.36% / 0.52. HMM indicators 21.62%; per-regime 12.23%; pooled from 2008 26.17%; without cross-asset 28.77%. All four optimizers below equal weight. Turnover 169%. FF5+MOM alpha 9.97% (p 0.038). Flags the n/(n−1) beta formula and the 60-session overlap."],
+  ["Kimi", "Standard run 19.30% / 0.767 / alpha 1.45% / p 0.318; a \"full-history variant\" 28.43% / 1.161 / alpha 9.37% / p 0.011. Data and the meaning of the variant are not described; the 988 MB archive was not inspectable here."],
+  ["Perplexity", "Yahoo prices (BK via BNY, EA from its own finance feed); SEC XBRL companyfacts with a 90-day availability lag, back-filled before 2009; 622,891 training rows. Regimes: HMM feature 23.29% (+0.96%/yr, p 0.53), per-regime 17.98% (−3.61%/yr, p 0.55), regime months 19/16/13/12. Equal weight best (Sharpe 1.052) vs optimizers 0.84–0.95. Costs 22.4 → 21.3 → 20.2 → 16.9 → 11.7%. Seed study: five 7-seed sets, Sharpe 0.95–1.18, Top−SPY p 0.03–0.17, one of five below 0.05. Size-only rule 25.8% / 1.07. Verdict: signal, survivorship bias, seed sensitivity; SOFT."],
+  ["claude science", "Yahoo chart API; SEC XBRL companyfacts point-in-time; FRED; Ken French factors; 205 stocks; 662,574 rows. The most complete run: all 26 paper tables including walk-forward (22.52%, paired −1.57%/yr, p 0.74), ablations, concentration, horizon, multiple-testing corrections (no family keeps a significant test). Found the HMM label-switching (raw agreement 19.0%, aligned 63.8%). Bottom20 16.3% (above SPY). FF5+MOM alpha 7.66% (p 0.11), CAPM alpha p 0.015. Control trained on 2008–18 only: 29.2%, p 0.007."],
+  ["Claude Code", "GitHub-mirrored Yahoo prices (two archives spliced), SPY reconstructed from raw prices + dividends, SEC XBRL + stockpup + SEC FSDS fundamentals with a split-safe market-cap construction; 206 stocks, 653,098 rows. Learners: LightGBM 28.70% / 1.22, Extra Trees 29.46% / 1.05, Random Forest 27.48% / 1.13, MLP 30.49% / 1.20, Ridge 16.51% / 0.75. HMM feature 24.27% (−0.78%/yr, p 0.79); per-regime 25.14% (IC 0.010). Static min-variance −7.5%/yr (p 0.028). Costs 25.0 → 23.9 → 22.8 → 19.5 → 14.3%, turnover 151%. Re-tested the size-only rule (25.3%) and HMM agreement (18.2%)."],
+];
+
+const pct = (x, d = 1) => x == null ? "—" : (x * 100).toFixed(d) + "%";
+const num = (x, d = 3) => x == null ? "—" : x.toFixed(d);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function svgEl(tag, attrs, parent) { const e = document.createElementNS("http://www.w3.org/2000/svg", tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function tipFor(c) { let t = c.querySelector(".tip"); if (!t) { t = document.createElement("div"); t.className = "tip"; c.appendChild(t); } return { show(h, x, y) { t.innerHTML = h; t.style.left = x + "px"; t.style.top = y + "px"; t.style.opacity = 1; }, hide() { t.style.opacity = 0; } }; }
+function ticks(lo, hi, n) { const raw = (hi - lo) / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), norm = raw / mag, step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag; const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10)); return out; }
+
+function dotplot(id, title, sub, key, fmt, lo, hi, tickDec = 0) {
+  const c = document.getElementById(id);
+  c.innerHTML = `<h3>${title}</h3><div class="sub">${sub}</div>`;
+  const rows = RUNS.slice().sort((a, b) => (a.key === "paper" ? -1 : b.key === "paper" ? 1 : a[key] - b[key]));
+  const W = 900, rowH = 30, L = 210, R = 70, T = 8, B = 26, H = T + B + rows.length * rowH;
+  const x = v => L + (v - lo) / (hi - lo) * (W - L - R);
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": title }, c);
+  ticks(lo, hi, 6).forEach(v => { svgEl("line", { x1: x(v), x2: x(v), y1: T, y2: H - B, class: "grid" }, svg); const t = svgEl("text", { x: x(v), y: H - 8, "text-anchor": "middle", class: "tick" }, svg); t.textContent = fmt(v, tickDec); });
+  const paperV = RUNS[0][key];
+  svgEl("line", { x1: x(paperV), x2: x(paperV), y1: T, y2: H - B, stroke: css("--paper"), "stroke-width": 1, "stroke-dasharray": "0" , opacity: 0.6 }, svg);
+  const tip = tipFor(c);
+  rows.forEach((r, i) => {
+    const cy = T + i * rowH + rowH / 2;
+    const t = svgEl("text", { x: L - 10, y: cy + 4, "text-anchor": "end", class: r.key === "paper" ? "lbl" : "" }, svg); t.textContent = r.name;
+    if (r.key !== "paper") svgEl("line", { x1: x(r[key]), x2: x(paperV), y1: cy, y2: cy, stroke: css("--axis"), "stroke-width": 1.5 }, svg);
+    svgEl("circle", { cx: x(r[key]), cy, r: r.key === "paper" ? 5 : 6, fill: css(r.color), stroke: css("--surface"), "stroke-width": 2, opacity: r.variant ? 0.55 : 1 }, svg);
+    const lb = svgEl("text", { x: x(r[key]) + (r.key === "paper" ? 10 : -10), y: cy + 4, "text-anchor": r.key === "paper" ? "start" : "end", class: "lbl" }, svg); lb.textContent = fmt(r[key], key === "sharpe" ? 2 : 1);
+    const hit = svgEl("rect", { x: L, y: cy - rowH / 2, width: W - L - R, height: rowH, fill: "transparent" }, svg);
+    hit.addEventListener("mouseenter", () => { const bb = svg.getBoundingClientRect(); tip.show(`<b>${r.name}</b> CAGR ${pct(r.cagr, 2)} · Sharpe ${num(r.sharpe)} · alpha ${pct(r.alpha, 2)} · Top−SPY p ${r.pspy == null ? "—" : r.pspy.toFixed(3)}`, (L + (W - L - R) / 2) / W * bb.width, (cy - 8) / H * bb.height); });
+    hit.addEventListener("mouseleave", () => tip.hide());
+  });
+}
+dotplot("cagr", "Top10 CAGR by run", "Gray line: the paper's 34.24%. Sorted low to high; the faded point is Kimi's variant.", "cagr", (v, d) => (v * 100).toFixed(d) + "%", 0.10, 0.36);
+dotplot("sharpe", "Top10 Sharpe by run", "Gray line: the paper's 1.279. Monthly returns, 4% risk-free rate, as in the released code.", "sharpe", (v, d) => v.toFixed(d), 0.6, 1.4, 1);
+
+(function () {
+  const t = document.getElementById("t1");
+  let h = "<tr><th class='tx'>Run</th><th class='tx'>Fundamentals source</th><th class='tx'>Stocks / features / train rows</th><th>CAGR</th><th>Sharpe</th><th>Max DD</th><th>SPY alpha</th><th>Mean IC (p)</th><th>Top−SPY p</th><th>Top−Random p</th><th>Top−Bottom p</th></tr>";
+  RUNS.forEach(r => {
+    h += `<tr class="${r.key === "paper" ? "paper" : ""}"><td class="tx"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(${r.color});margin-right:6px;vertical-align:middle"></i>${r.name}</td><td class="tx">${r.fund}</td><td class="tx">${r.size}</td><td>${pct(r.cagr, 2)}</td><td>${num(r.sharpe)}</td><td>${pct(r.dd, 2)}</td><td>${pct(r.alpha, 2)}</td><td>${r.ic == null ? "—" : r.ic.toFixed(4) + (r.icp == null ? " (n.s.)" : " (" + r.icp.toFixed(3) + ")")}</td><td>${r.pspy == null ? "—" : (r.key === "grok" ? "≈0.15" : r.pspy.toFixed(3))}</td><td>${r.prnd == null ? "—" : r.prnd.toFixed(3)}</td><td>${r.pbot == null ? "—" : r.pbot.toFixed(3)}</td></tr>`;
+  });
+  t.innerHTML = h;
+  const t2 = document.getElementById("t2");
+  t2.innerHTML = "<tr><th class='tx'>Run</th><th class='tx'>What it did and found</th></tr>" + DETAIL.map(d => `<tr><td class="tx"><b>${d[0]}</b></td><td class="tx" style="min-width:420px">${d[1]}</td></tr>`).join("");
+  document.getElementById("footer").textContent = "Claude Code's replication, code and data manifest: quantum-like/quantum-trader, branch claude/jolly-curie-2uj60d, reproduction/. Full replication report: the earlier artifact 'Regime-Aware Ranking Replication'.";
+})();
+</script>
