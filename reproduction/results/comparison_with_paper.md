@@ -61,10 +61,17 @@
 |---|---|---|
 | XGBoost | 34.24% / 1.279 / 0.0050 | 25.00% / 1.071 / 0.0800 |
 | RandomForest | 33.37% / 1.222 / 0.0092 | pending |
-| LightGBM | 31.95% / 1.249 / 0.0062 | pending |
+| LightGBM | 31.95% / 1.249 / 0.0062 | 28.70% / 1.224 / 0.0222 |
 | ExtraTrees | 28.08% / 1.030 / 0.0684 | pending |
 | Ridge | 15.54% / 0.678 / 0.8368 | 16.51% / 0.749 / 0.7129 |
 | NeuralNetwork | 16.23% / 0.679 / 0.7010 | pending |
+
+## Tables 10–11 — Regime-aware forecasting (CAGR / Sharpe / IC p)
+
+| Specification | Paper | Reproduced |
+|---|---|---|
+| hmm_as_feature | 30.37% / 1.120 / 0.0433 | 24.27% / 1.091 / 0.1705 |
+| one_model_per_regime | 23.44% / 0.905 / 0.3472 | 25.14% / 1.081 / 0.6593 |
 
 ## Table 14 — Portfolio optimization (CAGR / Sharpe / SPY alpha)
 

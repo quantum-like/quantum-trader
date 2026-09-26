@@ -1,0 +1,9 @@
+alternative,spread,annualized_diff,hac_p_value
+hmm_as_feature,top10_return,-0.007835798298844465,0.7860622122493588
+hmm_as_feature,top_minus_spy,-0.00783579829884458,0.7860622122493556
+hmm_as_feature,top_minus_bottom,0.006651917451699846,0.8707449669869954
+hmm_as_feature,top_minus_random,-0.007203186650352136,0.8031594765395407
+one_model_per_regime,top10_return,0.001195283113646907,0.9724383075897853
+one_model_per_regime,top_minus_spy,0.0011952831136467956,0.9724383075897879
+one_model_per_regime,top_minus_bottom,-0.03514723239469637,0.567380199838097
+one_model_per_regime,top_minus_random,0.0036371479268204306,0.9169476836168674
