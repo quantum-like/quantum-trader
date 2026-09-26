@@ -1,0 +1,6396 @@
+{
+ "AAPL": {
+  "status": "ok",
+  "n_filings": 125,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "stockpup": 61,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2020-08-31",
+    4,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-05-16",
+    "2000-08-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-02-08",
+    "2005-05-10",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2014-04-24",
+    "2014-07-23",
+    7,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9489854609315702,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.0011410718239708295,
+  "mcap_last": 4981215691031.189,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8518130083162202
+ },
+ "MSFT": {
+  "status": "ok",
+  "n_filings": 128,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-05-15",
+    "1994-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1996-11-14",
+    "1997-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-11-14",
+    "1998-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-02-14",
+    "1999-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2003-02-14",
+    "2003-05-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0136237348830857,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0044304120271165814,
+  "mcap_last": 3353477445373.535,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6151255646331469
+ },
+ "NVDA": {
+  "status": "ok",
+  "n_filings": 106,
+  "first_asof": "1999-03-17",
+  "last_asof": "2025-05-28",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 42,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2021-07-20",
+    4,
+    "whitelist"
+   ],
+   [
+    "2024-06-10",
+    10,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-06-14",
+    "2000-09-13",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2001-09-12",
+    "2001-12-12",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-03-15",
+    "2006-06-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2007-09-12",
+    "2007-12-12",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.023440955367528,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.020374512404538248,
+  "mcap_last": 4854545432891.846,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8049833667814188
+ },
+ "AMZN": {
+  "status": "ok",
+  "n_filings": 112,
+  "first_asof": "1997-08-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 48,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2022-06-06",
+    20,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-02-14",
+    "1998-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-11-14",
+    "1999-02-14",
+    3,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-08-14",
+    "1999-11-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0710381320960267,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.024740822965412024,
+  "mcap_last": 2499361500000.0,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.947245347558351
+ },
+ "META": {
+  "status": "ok",
+  "n_filings": 52,
+  "first_asof": "2012-07-31",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 46,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0356606614776855,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.03501408548414098,
+  "mcap_last": 1414953826904.2969,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9916609310572518
+ },
+ "GOOGL": {
+  "status": "ok",
+  "n_filings": 84,
+  "first_asof": "2004-08-14",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "stockpup": 45,
+   "gtsf": 33,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2022-07-18",
+    20,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "2004-08-14",
+    "2004-11-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2014-02-14",
+    "2014-05-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0279359245185933,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.009301851381117832,
+  "mcap_last": 4055637344512.9395,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6410762664037444
+ },
+ "GOOG": {
+  "status": "ok",
+  "n_filings": 84,
+  "first_asof": "2004-08-14",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "stockpup": 45,
+   "gtsf": 33,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2022-07-18",
+    20,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "2004-08-14",
+    "2004-11-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2014-02-14",
+    "2014-05-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0301905486019556,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.009887897604316409,
+  "mcap_last": 4055880310974.121,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6410762664037444
+ },
+ "BRK-B": {
+  "status": "ok",
+  "n_filings": 63,
+  "first_asof": "2009-11-06",
+  "last_asof": "2025-05-05",
+  "sources": {
+   "gtsf": 57,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": NaN,
+  "residual_treatment": "none",
+  "seam_price_gap": NaN,
+  "mcap_last": 837565286.8439943,
+  "mcap_last_date": "2026-07-30"
+ },
+ "LLY": {
+  "status": "ok",
+  "n_filings": 128,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 60,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-11-14",
+    "1996-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-08-14",
+    "1997-11-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0176277604263322,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0072589350019371945,
+  "mcap_last": 1040165955615.2344,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7448140805866501
+ },
+ "AVGO": {
+  "status": "ok",
+  "n_filings": 39,
+  "first_asof": "2016-03-16",
+  "last_asof": "2025-06-11",
+  "sources": {
+   "gtsf": 24,
+   "stockpup": 9,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2024-07-15",
+    10,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "2016-03-16",
+    "2016-06-15",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9410803179813557,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0030281597509052016,
+  "mcap_last": 1824011502777.0996,
+  "mcap_last_date": "2026-07-30"
+ },
+ "JPM": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-05-15",
+    "1998-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-05-15",
+    "2000-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-11-14",
+    "2001-02-14",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.038624370474504,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.017311972592326974,
+  "mcap_last": 1021955897778.3203,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9793654115897276
+ },
+ "V": {
+  "status": "ok",
+  "n_filings": 15,
+  "first_asof": "2008-05-15",
+  "last_asof": "2011-11-18",
+  "sources": {
+   "gtsf": 10,
+   "stockpup": 5
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0206964365705644,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.007427586095235084,
+  "mcap_last": 171883488843.6667,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": -0.4281974284165254
+ },
+ "TSLA": {
+  "status": "ok",
+  "n_filings": 64,
+  "first_asof": "2010-08-14",
+  "last_asof": "2025-04-23",
+  "sources": {
+   "gtsf": 54,
+   "fsds": 6,
+   "stockpup": 4
+  },
+  "splits_applied": [
+   [
+    "2020-08-31",
+    5,
+    "whitelist"
+   ],
+   [
+    "2022-08-25",
+    3,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 0.974240223757517,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0681489731036321,
+  "mcap_last": 994497019653.3203,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7323138202603146
+ },
+ "XOM": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-05",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-02-14",
+    "1997-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-11-14",
+    "2000-02-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2001-05-15",
+    "2001-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0434081093781467,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.021997359529190685,
+  "mcap_last": 676540705261.2305,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9900600352188955
+ },
+ "UNH": {
+  "status": "ok",
+  "n_filings": 123,
+  "first_asof": "1995-02-14",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-11-14",
+    "2001-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2003-05-15",
+    "2003-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-05-15",
+    "2005-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9760539929242693,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.022599509209909163,
+  "mcap_last": 383537701110.83984,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8002253429764817
+ },
+ "MA": {
+  "status": "ok",
+  "n_filings": 92,
+  "first_asof": "2002-08-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 28,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2013-10-31",
+    "2014-02-14",
+    10,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0178619426158855,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.005777957232682374,
+  "mcap_last": 527697877685.5469,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.5210283879419756
+ },
+ "COST": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-01-05",
+  "last_asof": "2025-06-05",
+  "sources": {
+   "stockpup": 64,
+   "gtsf": 57,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-01-05",
+    "2000-03-29",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0256614462657743,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.005154326043705915,
+  "mcap_last": 423192516650.3296,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.2858378209501473
+ },
+ "HD": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-03-16",
+  "last_asof": "2025-05-28",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-06-18",
+    "1997-09-17",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-06-17",
+    "1998-09-16",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-12-15",
+    "2000-03-15",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.019974115098707,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.003433804637066107,
+  "mcap_last": 331683256072.99805,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.19612517740335175
+ },
+ "PG": {
+  "status": "ok",
+  "n_filings": 125,
+  "first_asof": "1994-02-14",
+  "last_asof": "2023-10-18",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 62
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-05-15",
+    "1997-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2004-05-15",
+    "2004-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.010309305091688,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.006962569651841832,
+  "mcap_last": 339297354759.381,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8632879260984376
+ },
+ "NFLX": {
+  "status": "ok",
+  "n_filings": 94,
+  "first_asof": "2002-08-14",
+  "last_asof": "2025-04-18",
+  "sources": {
+   "gtsf": 60,
+   "stockpup": 28,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2003-11-14",
+    "2004-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2015-04-17",
+    "2015-07-17",
+    7,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.11643385028248791,
+  "residual_treatment": "price-continuity x0.1164",
+  "seam_price_gap": -0.14114322267462664,
+  "mcap_last": 31147239696.250763,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8770587429027195
+ },
+ "JNJ": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1993-08-18",
+  "last_asof": "2025-04-23",
+  "sources": {
+   "stockpup": 64,
+   "gtsf": 58,
+   "fsds": 4
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1996-05-15",
+    "1996-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0037715358654387,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.010073638287605657,
+  "mcap_last": 621668199798.584,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8354006670391133
+ },
+ "CRM": {
+  "status": "ok",
+  "n_filings": 84,
+  "first_asof": "2004-09-14",
+  "last_asof": "2025-05-29",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 20,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2013-03-08",
+    "2013-05-24",
+    4,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.024354129911352,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.010367220240125707,
+  "mcap_last": 175288706512.45117,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.848265412011856
+ },
+ "ABBV": {
+  "status": "ok",
+  "n_filings": 50,
+  "first_asof": "2013-02-14",
+  "last_asof": "2025-05-09",
+  "sources": {
+   "gtsf": 43,
+   "fsds": 6,
+   "stockpup": 1
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 0.9924368782395863,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.03210759308043132,
+  "mcap_last": 456130526489.2578,
+  "mcap_last_date": "2026-07-30"
+ },
+ "BAC": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2004-08-14",
+    "2004-11-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0467787997698035,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.012987000923329939,
+  "mcap_last": 466684026057.9479,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9701823863605565
+ },
+ "KO": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1996-02-14",
+    "1996-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2012-07-26",
+    "2012-10-25",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9947033899161227,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.008870077771488294,
+  "mcap_last": 382453770767.2119,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9545268639990393
+ },
+ "WMT": {
+  "status": "ok",
+  "n_filings": 123,
+  "first_asof": "1995-03-17",
+  "last_asof": "2025-06-06",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 58,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2024-02-26",
+    3,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-12-15",
+    "1999-03-17",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0201987790969076,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.0020396856279985,
+  "mcap_last": 894466087715.1489,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.5760230254546659
+ },
+ "CVX": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-08",
+  "sources": {
+   "stockpup": 61,
+   "gtsf": 60,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-02-14",
+    "1994-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2004-08-14",
+    "2004-11-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0199723712698563,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.017464854397365004,
+  "mcap_last": 355603493445.5565,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.983316728884519
+ },
+ "MRK": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-11-14",
+    "1999-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2009-10-29",
+    "2010-03-01",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9569836592081079,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.05604164944286749,
+  "mcap_last": 328890839059.26556,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9602580056964364
+ },
+ "AMD": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-09",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "stockpup": 66,
+   "gtsf": 54,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-08-16",
+    "2000-11-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.066217751143874,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.02004338340106493,
+  "mcap_last": 784390263671.875,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7365384657552106
+ },
+ "PEP": {
+  "status": "ok",
+  "n_filings": 124,
+  "first_asof": "1995-02-14",
+  "last_asof": "2025-04-24",
+  "sources": {
+   "stockpup": 59,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1996-02-13",
+    "1996-05-07",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0010053062711781,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.010861735528372551,
+  "mcap_last": 193475995788.57422,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.939810548405413
+ },
+ "ADBE": {
+  "status": "ok",
+  "n_filings": 123,
+  "first_asof": "1995-01-09",
+  "last_asof": "2025-06-25",
+  "sources": {
+   "stockpup": 58,
+   "gtsf": 58,
+   "fsds": 7
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1999-10-18",
+    "2000-01-17",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-10-16",
+    "2001-01-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-04-18",
+    "2005-07-18",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0137139671565052,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.007381533452958666,
+  "mcap_last": 105853297393.79884,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8987756263020492
+ },
+ "TMO": {
+  "status": "ok",
+  "n_filings": 128,
+  "first_asof": "1994-02-15",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 60,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-05-16",
+    "1995-08-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1996-05-14",
+    "1996-08-13",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0030304318605234,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.019527214121679348,
+  "mcap_last": 221479687500.0,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8409912679065183
+ },
+ "LIN": {
+  "status": "ok",
+  "n_filings": 29,
+  "first_asof": "2017-10-30",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 23,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0037811562552286,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.007434015073188638,
+  "mcap_last": 246991521993.16406,
+  "mcap_last_date": "2026-07-30"
+ },
+ "MCD": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-12",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-05-15",
+    "1994-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-11-14",
+    "1999-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0154932858198253,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.00850374333131565,
+  "mcap_last": 192793.609753418,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.5953573749712836
+ },
+ "CSCO": {
+  "status": "ok",
+  "n_filings": 123,
+  "first_asof": "1995-03-15",
+  "last_asof": "2025-05-20",
+  "sources": {
+   "stockpup": 59,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-12-13",
+    "1996-03-13",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-12-09",
+    "1998-03-10",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-06-09",
+    "1998-09-08",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-06-15",
+    "1999-09-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-03-14",
+    "2000-06-13",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0042085644902794,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.008769929657443165,
+  "mcap_last": 449697590332.0313,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8767614628844382
+ },
+ "ACN": {
+  "status": "ok",
+  "n_filings": 64,
+  "first_asof": "2009-10-15",
+  "last_asof": "2025-06-20",
+  "sources": {
+   "gtsf": 57,
+   "fsds": 6,
+   "stockpup": 1
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0089400653305751,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.002978499293005421,
+  "mcap_last": 103788360246.74501,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6665966355183833
+ },
+ "ABT": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-05-15",
+    "1998-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9670112658605915,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.03912625133986425,
+  "mcap_last": 184780748787.90283,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9935797235448364
+ },
+ "ORCL": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-01-14",
+  "last_asof": "2025-06-18",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-01-14",
+    "1995-04-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1996-04-14",
+    "1996-07-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-07-15",
+    "1997-10-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-01-14",
+    "1999-04-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-10-15",
+    "2000-01-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-07-15",
+    "2000-10-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0421686613680787,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.0015503807853494145,
+  "mcap_last": 358060913146.9727,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9408890250385854
+ },
+ "WFC": {
+  "status": "ok",
+  "n_filings": 128,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 60,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-08-14",
+    "1997-11-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-08-14",
+    "2006-11-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0427725544288853,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.01866312416408622,
+  "mcap_last": 283764289013.6719,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9504490473346469
+ },
+ "QCOM": {
+  "status": "ok",
+  "n_filings": 117,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 53,
+   "fsds": 5
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2004-08-11",
+    "2004-11-10",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.006239944253324,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.00861011561730085,
+  "mcap_last": 166760006713.8672,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8218438135685675
+ },
+ "INTU": {
+  "status": "ok",
+  "n_filings": 117,
+  "first_asof": "1996-06-14",
+  "last_asof": "2025-05-22",
+  "sources": {
+   "gtsf": 57,
+   "stockpup": 54,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1999-06-14",
+    "1999-09-14",
+    3,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-06-14",
+    "2006-09-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0007658610763848,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.012090448610709847,
+  "mcap_last": 89602000000.0,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": -0.04239884815538392
+ },
+ "IBM": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-24",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-02-14",
+    "1997-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-02-14",
+    "1999-05-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9923083714499319,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.03102486255075365,
+  "mcap_last": 206979064250.37137,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9323736719453948
+ },
+ "GE": {
+  "status": "ok",
+  "n_filings": 131,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-22",
+  "sources": {
+   "gtsf": 63,
+   "stockpup": 62,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2021-08-02",
+    0.125,
+    "whitelist"
+   ],
+   [
+    "~post-filing",
+    1.5,
+    "seam-residual snap (0.6938)"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-02-14",
+    "1994-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-02-14",
+    "1997-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-02-14",
+    "2000-05-15",
+    3,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.6938334215325075,
+  "residual_treatment": "none",
+  "seam_price_gap": -0.00621817565547822,
+  "mcap_last": 567914884264.3658,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7568199409320581
+ },
+ "TXN": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-24",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-08-14",
+    "1995-11-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-11-14",
+    "1998-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-08-14",
+    "1999-11-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-05-15",
+    "2000-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0060761081937792,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0005291328228338443,
+  "mcap_last": 255622928955.07812,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.598043658487776
+ },
+ "DHR": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-05-16",
+  "last_asof": "2025-04-22",
+  "sources": {
+   "stockpup": 61,
+   "gtsf": 60,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-11-14",
+    "1995-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-05-11",
+    "1998-08-10",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2004-05-17",
+    "2004-08-16",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2010-04-22",
+    "2010-08-11",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.8777905544036715,
+  "residual_treatment": "price-continuity x0.8778",
+  "seam_price_gap": -0.015709878815298395,
+  "mcap_last": 140379250689.69727,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8439556701471771
+ },
+ "AMAT": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-03-16",
+  "last_asof": "2025-05-22",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-09-13",
+    "1995-12-13",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-09-10",
+    "1997-12-10",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-03-15",
+    "2000-06-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2002-03-13",
+    "2002-06-12",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0611727528319141,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.022602254912412745,
+  "mcap_last": 407437231079.10156,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.763577912419854
+ },
+ "VZ": {
+  "status": "ok",
+  "n_filings": 125,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 4
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-11-14",
+    "1998-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2013-10-24",
+    "2014-02-27",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.021940145983584,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0035574663571120713,
+  "mcap_last": 194860862579.3457,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.40467660933426863
+ },
+ "CAT": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 60,
+   "fsds": 4
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-08-14",
+    "1994-11-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-05-15",
+    "1997-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-05-15",
+    "2005-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.020221266410244,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.005430097135936118,
+  "mcap_last": 386040700988.76953,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.5260474593482434
+ },
+ "PM": {
+  "status": "ok",
+  "n_filings": 69,
+  "first_asof": "2008-05-15",
+  "last_asof": "2025-04-24",
+  "sources": {
+   "gtsf": 58,
+   "fsds": 6,
+   "stockpup": 5
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0098860996344496,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.008238397315221135,
+  "mcap_last": 298061950272.0,
+  "mcap_last_date": "2026-07-30"
+ },
+ "NOW": {
+  "status": "ok",
+  "n_filings": 52,
+  "first_asof": "2012-08-10",
+  "last_asof": "2025-04-23",
+  "sources": {
+   "gtsf": 46,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "~post-filing",
+    5,
+    "seam-residual snap (0.2013)"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 0.20132547069357,
+  "residual_treatment": "none",
+  "seam_price_gap": 0.0015164519395287623,
+  "mcap_last": 113910892334.17511,
+  "mcap_last_date": "2026-07-30"
+ },
+ "ISRG": {
+  "status": "ok",
+  "n_filings": 100,
+  "first_asof": "2000-08-14",
+  "last_asof": "2025-04-23",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 36,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2021-10-05",
+    3,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "2017-07-21",
+    "2017-10-20",
+    3,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0063580022400826,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.02691472276840523,
+  "mcap_last": 126504448437.5,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8902331727555639
+ },
+ "DIS": {
+  "status": "ok",
+  "n_filings": 122,
+  "first_asof": "1996-02-14",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "stockpup": 93,
+   "gtsf": 23,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-05-15",
+    "1998-08-14",
+    3,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.02900867503441,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.006201553084477562,
+  "mcap_last": 174434246643.0664,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.995045201867218
+ },
+ "NEE": {
+  "status": "ok",
+  "n_filings": 125,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-23",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 57,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2020-10-26",
+    4,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "2005-02-14",
+    "2005-05-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0006969976454172,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.022954811443090528,
+  "mcap_last": 181047870628.35693,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.406034577444715
+ },
+ "RTX": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-22",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "~post-filing",
+    1.5,
+    "seam-residual snap (0.6368)"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "1996-11-14",
+    "1997-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-05-15",
+    "2005-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.6368242357350127,
+  "residual_treatment": "none",
+  "seam_price_gap": -0.039875013497249645,
+  "mcap_last": 462385926427.38354,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6303183529313804
+ },
+ "PFE": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-05",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-05-17",
+    "1995-08-16",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-05-14",
+    "1997-08-13",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-05-19",
+    "1999-08-18",
+    3,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9571804000224343,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.05992771214478965,
+  "mcap_last": 142236099128.72314,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9566984074821868
+ },
+ "GS": {
+  "status": "ok",
+  "n_filings": 105,
+  "first_asof": "1999-07-12",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 40,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0737287883362687,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.02981140758193268,
+  "mcap_last": 315276226091.9619,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9603961387715206
+ },
+ "UBER": {
+  "status": "ok",
+  "n_filings": 25,
+  "first_asof": "2019-06-04",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "gtsf": 19,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": NaN,
+  "residual_treatment": "none",
+  "seam_price_gap": NaN,
+  "mcap_last": 147203912465.4541,
+  "mcap_last_date": "2026-07-30"
+ },
+ "SPGI": {
+  "status": "ok",
+  "n_filings": 128,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 60,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1996-02-14",
+    "1996-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-02-14",
+    "1999-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-05-15",
+    "2005-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9683343413683897,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.05442729349634756,
+  "mcap_last": 127280500000.0,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.3917343046007397
+ },
+ "UNP": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-24",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2008-05-15",
+    "2008-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2014-04-17",
+    "2014-07-25",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0073840803907714,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.003255421848736506,
+  "mcap_last": 173384226148.69995,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6842208188227205
+ },
+ "LOW": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-03-17",
+  "last_asof": "2025-05-29",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-03-16",
+    "1998-06-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2001-06-18",
+    "2001-09-17",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-12-12",
+    "2006-03-20",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-03-20",
+    "2006-06-19",
+    0.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-06-19",
+    "2006-09-18",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.021881146558625,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0009744907610478304,
+  "mcap_last": 117644801025.39062,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9726177305917117
+ },
+ "HON": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-08-14",
+    "1997-11-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-11-14",
+    "2000-02-14",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0176504147797878,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.013698609569935849,
+  "mcap_last": 155475559353.63766,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.5750042363998524
+ },
+ "BKNG": {
+  "status": "ok",
+  "n_filings": 105,
+  "first_asof": "1999-05-15",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "gtsf": 54,
+   "stockpup": 45,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2003-05-15",
+    "2003-08-14",
+    0.16666666666666666,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.03990651927183961,
+  "residual_treatment": "price-continuity x0.0399",
+  "seam_price_gap": 0.001923416322949123,
+  "mcap_last": 6706587630.645753,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8175723939235586
+ },
+ "T": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 61,
+   "fsds": 4
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-02-14",
+    "1997-05-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-02-14",
+    "1998-05-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.8140464472937905,
+  "residual_treatment": "price-continuity x0.8140",
+  "seam_price_gap": -0.03967256283710019,
+  "mcap_last": 166949523414.61182,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8956064949108998
+ },
+ "PGR": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-05",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2002-02-14",
+    "2002-05-15",
+    3,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-05-15",
+    "2006-08-14",
+    4,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9984911961393858,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.018233088934735187,
+  "mcap_last": 125344655282.59277,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.98569171767845
+ },
+ "BLK": {
+  "status": "ok",
+  "n_filings": 72,
+  "first_asof": "2006-11-14",
+  "last_asof": "2024-08-06",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 11,
+   "fsds": 3
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2010-11-08",
+    "2011-02-28",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0103662188184392,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.008655348080776837,
+  "mcap_last": 162767953728.24377,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.07585543460448088
+ },
+ "ELV": {
+  "status": "ok",
+  "n_filings": 96,
+  "first_asof": "2001-11-14",
+  "last_asof": "2025-04-22",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 31,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2005-05-15",
+    "2005-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9634156111886336,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.02897612789424886,
+  "mcap_last": 84931406903.19443,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6350537430246677
+ },
+ "SYK": {
+  "status": "ok",
+  "n_filings": 125,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 58,
+   "fsds": 4
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1996-02-14",
+    "1996-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-02-14",
+    "2000-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2004-02-14",
+    "2004-05-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0155238926373484,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.014354066985645897,
+  "mcap_last": 134030207290.64941,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8258137464719747
+ },
+ "LMT": {
+  "status": "ok",
+  "n_filings": 123,
+  "first_asof": "1995-02-14",
+  "last_asof": "2025-04-22",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-11-14",
+    "1999-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0202086293826507,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.011037330770155007,
+  "mcap_last": 142435949634.39148,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6555818937283082
+ },
+ "TJX": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-03-15",
+  "last_asof": "2025-05-30",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-06-10",
+    "1997-09-09",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-06-16",
+    "1998-09-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2002-03-12",
+    "2002-06-11",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2011-12-01",
+    "2012-03-27",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2018-08-31",
+    "2018-12-04",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.035583972807056,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0017881499341381168,
+  "mcap_last": 177704567184.8894,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.25063327856169004
+ },
+ "VRTX": {
+  "status": "ok",
+  "n_filings": 117,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "stockpup": 56,
+   "gtsf": 55,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-05-15",
+    "2000-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0671033172027389,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.009836490355268901,
+  "mcap_last": 123781376500.71358,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7358102066282635
+ },
+ "MS": {
+  "status": "ok",
+  "n_filings": 117,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-05-05",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 53,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1996-11-14",
+    "1997-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-10-15",
+    "2000-01-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0490221071256551,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.018915509990850454,
+  "mcap_last": 337525726824.953,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9490890721198507
+ },
+ "C": {
+  "status": "ok",
+  "n_filings": 131,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-08",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 62,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1996-02-14",
+    "1996-05-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-08-14",
+    "1997-11-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-11-14",
+    "1999-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-02-14",
+    "1999-05-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2009-08-14",
+    "2009-11-06",
+    4,
+    "no price drop -> issuance"
+   ],
+   [
+    "2011-05-05",
+    "2011-08-05",
+    0.1,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0649024643739922,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.028236599447345245,
+  "mcap_last": 257124238232.42188,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9369252422994893
+ },
+ "MDT": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-03-14",
+  "last_asof": "2025-06-20",
+  "sources": {
+   "stockpup": 84,
+   "gtsf": 36,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-09-12",
+    "1994-12-12",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1995-09-11",
+    "1995-12-11",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-06-14",
+    "1997-09-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-09-13",
+    "1999-12-13",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2014-12-08",
+    "2015-02-27",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9573156498229367,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.03342129448246978,
+  "mcap_last": 109874615792.2338,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9813370434313455
+ },
+ "ADI": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-03-15",
+  "last_asof": "2025-05-22",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-09-13",
+    "1994-12-13",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1995-09-12",
+    "1995-12-12",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-03-14",
+    "2000-06-13",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9748125408797363,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.0010485417216670179,
+  "mcap_last": 181959332690.80896,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8659149765528215
+ },
+ "MU": {
+  "status": "ok",
+  "n_filings": 125,
+  "first_asof": "1994-04-17",
+  "last_asof": "2025-06-26",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 56,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-04-16",
+    "1995-07-16",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-04-16",
+    "2000-07-16",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.037377266917403,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.03214624873870342,
+  "mcap_last": 978744509948.7305,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8703674757922288
+ },
+ "PANW": {
+  "status": "ok",
+  "n_filings": 52,
+  "first_asof": "2012-12-10",
+  "last_asof": "2025-05-21",
+  "sources": {
+   "gtsf": 46,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2022-09-14",
+    3,
+    "whitelist"
+   ],
+   [
+    "2024-12-16",
+    2,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0116310696631057,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.027289656769206805,
+  "mcap_last": 216870307122.80273,
+  "mcap_last_date": "2026-07-30"
+ },
+ "CB": {
+  "status": "ok",
+  "n_filings": 117,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-04-28",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 53,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2015-11-04",
+    "2016-02-26",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9959314869493834,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.014630684838304986,
+  "mcap_last": 140322079576.77536,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8251725326570127
+ },
+ "ETN": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "stockpup": 75,
+   "gtsf": 46,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2003-11-14",
+    "2004-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2010-11-14",
+    "2011-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0042497204660863,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0007282704499097514,
+  "mcap_last": 151390062731.9336,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9789754292626911
+ },
+ "REGN": {
+  "status": "ok",
+  "n_filings": 116,
+  "first_asof": "1996-08-14",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "stockpup": 56,
+   "gtsf": 54,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0917724009846201,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.002838012205070184,
+  "mcap_last": 82103410986.32812,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9308687080525697
+ },
+ "BSX": {
+  "status": "ok",
+  "n_filings": 118,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 53,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-11-14",
+    "1999-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2003-08-14",
+    "2003-11-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9982598209371344,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.024900992199084482,
+  "mcap_last": 68682600000.0,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.899179732304409
+ },
+ "PLD": {
+  "status": "ok",
+  "n_filings": 109,
+  "first_asof": "1998-05-15",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "gtsf": 54,
+   "stockpup": 49,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2008-11-12",
+    1.5,
+    "price-verified"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.02878069492972679,
+  "mcap_last": 135647071845.33691,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9879136846898782
+ },
+ "DE": {
+  "status": "ok",
+  "n_filings": 128,
+  "first_asof": "1993-12-15",
+  "last_asof": "2025-05-29",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-09-14",
+    "1995-12-15",
+    3,
+    "no price drop -> issuance"
+   ],
+   [
+    "2007-09-14",
+    "2007-12-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0440528217941891,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.007172970963087666,
+  "mcap_last": 162935938037.10938,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9741086230691213
+ },
+ "SCHW": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-09",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-11-14",
+    "1995-02-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1995-05-15",
+    "1995-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-08-14",
+    "1997-11-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-11-14",
+    "1999-02-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-05-15",
+    "1999-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0336092841515498,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.00120402247116691,
+  "mcap_last": 190089263336.1816,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9489385078392073
+ },
+ "KLAC": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "stockpup": 68,
+   "gtsf": 53,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "~post-filing",
+    10,
+    "seam-residual snap (0.1032)"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-08-14",
+    "1995-11-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-11-14",
+    "2000-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.10320497849513093,
+  "residual_treatment": "none",
+  "seam_price_gap": 0.01586767463227523,
+  "mcap_last": 244989127287.59766,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7251723255407307
+ },
+ "ADP": {
+  "status": "ok",
+  "n_filings": 125,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 56,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-11-14",
+    "1996-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-11-14",
+    "1999-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.010059607635511,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.007474037248576759,
+  "mcap_last": 107210379016.11328,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": -0.6474352657051811
+ },
+ "CI": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "stockpup": 100,
+   "gtsf": 20,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-02-14",
+    "1998-05-15",
+    3,
+    "no price drop -> issuance"
+   ],
+   [
+    "2007-05-15",
+    "2007-08-14",
+    3,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9855202188999933,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.014479781100006694,
+  "mcap_last": 84175060491.16632,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9869115130372894
+ },
+ "AMT": {
+  "status": "ok",
+  "n_filings": 110,
+  "first_asof": "1998-02-14",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 46,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-11-14",
+    "1999-02-14",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0007585505742183,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.009166173120069732,
+  "mcap_last": 81669439562.9425,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9440216211510635
+ },
+ "LRCX": {
+  "status": "ok",
+  "n_filings": 121,
+  "first_asof": "1995-05-15",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 53,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2024-10-03",
+    10,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-02-09",
+    "2000-05-10",
+    3,
+    "no price drop -> issuance"
+   ],
+   [
+    "2012-05-03",
+    "2012-08-22",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0358643369078375,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.01564221999527793,
+  "mcap_last": 381961959606.1096,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9898036117947258
+ },
+ "COP": {
+  "status": "ok",
+  "n_filings": 94,
+  "first_asof": "2002-11-14",
+  "last_asof": "2025-05-08",
+  "sources": {
+   "gtsf": 61,
+   "stockpup": 27,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2005-05-15",
+    "2005-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.029187661832366,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.016519689161206053,
+  "mcap_last": 151748845813.75122,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9128154405844248
+ },
+ "GILD": {
+  "status": "ok",
+  "n_filings": 117,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 53,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-11-14",
+    "2001-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2001-11-14",
+    "2002-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2004-08-14",
+    "2004-11-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2007-05-15",
+    "2007-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2012-11-06",
+    "2013-02-27",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.088569099414915,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.014228607522046355,
+  "mcap_last": 163443598480.2246,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8273391774984816
+ },
+ "MDLZ": {
+  "status": "ok",
+  "n_filings": 96,
+  "first_asof": "2001-08-14",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 32,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0210000038146974,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0034973618265722317,
+  "mcap_last": 85845295993.67424,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.3976776125173304
+ },
+ "ZTS": {
+  "status": "ok",
+  "n_filings": 50,
+  "first_asof": "2013-05-15",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "gtsf": 44,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0050990192794877,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.012391834781958044,
+  "mcap_last": 33912436241.667328,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7648633135490666
+ },
+ "SBUX": {
+  "status": "ok",
+  "n_filings": 117,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 53,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1999-02-10",
+    "1999-05-12",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2001-02-14",
+    "2001-05-16",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-08-17",
+    "2005-11-16",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2015-01-27",
+    "2015-04-28",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.005854413408516,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0012422644279369566,
+  "mcap_last": 120668998260.49805,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6355495535399551
+ },
+ "TMUS": {
+  "status": "ok",
+  "n_filings": 63,
+  "first_asof": "2010-08-09",
+  "last_asof": "2025-04-24",
+  "sources": {
+   "gtsf": 57,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2013-04-25",
+    "2013-08-08",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.071099820053563,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.02593934145648147,
+  "mcap_last": 197146438285.45807,
+  "mcap_last_date": "2026-07-30"
+ },
+ "SO": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0157104387562141,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.004553664767308674,
+  "mcap_last": 104245695953.36914,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7807498748561941
+ },
+ "UPS": {
+  "status": "ok",
+  "n_filings": 102,
+  "first_asof": "2000-02-14",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 38,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.008280747818069,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0032810386427704064,
+  "mcap_last": 90321657119.75098,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": -0.033599041395649454
+ },
+ "MO": {
+  "status": "ok",
+  "n_filings": 130,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 62,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-02-14",
+    "1997-05-15",
+    3,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0073922095423358,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0016197209424179126,
+  "mcap_last": 120161859349.54504,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.4393034986836448
+ },
+ "CME": {
+  "status": "ok",
+  "n_filings": 96,
+  "first_asof": "2002-02-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 31,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2007-05-15",
+    "2007-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2012-05-08",
+    "2012-08-08",
+    5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9969075124697879,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.013501984648418452,
+  "mcap_last": 96154574699.24927,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.967437195021334
+ },
+ "ICE": {
+  "status": "ok",
+  "n_filings": 80,
+  "first_asof": "2006-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 44,
+   "stockpup": 30,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2016-11-01",
+    "2017-02-07",
+    5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9963636815748632,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.0,
+  "mcap_last": 89698982452.39258,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.856797130315958
+ },
+ "EQIX": {
+  "status": "ok",
+  "n_filings": 102,
+  "first_asof": "2000-08-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "gtsf": 56,
+   "stockpup": 40,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-08-14",
+    "2000-11-14",
+    6,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0129413338489643,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.007261168528253759,
+  "mcap_last": 102468339935.79102,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9687513566862397
+ },
+ "DUK": {
+  "status": "ok",
+  "n_filings": 79,
+  "first_asof": "2006-05-15",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "gtsf": 60,
+   "stockpup": 13,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2012-05-09",
+    "2012-08-08",
+    0.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9889483834532312,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.018540046893811057,
+  "mcap_last": 98111787391.6626,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.4327435957773418
+ },
+ "NKE": {
+  "status": "ok",
+  "n_filings": 122,
+  "first_asof": "1995-01-14",
+  "last_asof": "2025-04-03",
+  "sources": {
+   "stockpup": 59,
+   "gtsf": 57,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-10-15",
+    "1996-01-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1996-10-15",
+    "1997-01-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2007-01-14",
+    "2007-04-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2012-10-09",
+    "2013-01-09",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2015-10-06",
+    "2016-01-06",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0178620841750912,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0010790643608483697,
+  "mcap_last": 64555686397.55249,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9873034593223574
+ },
+ "SHW": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2021-04-01",
+    3,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "1996-11-14",
+    "1997-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.006802220972873,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.003126101139255155,
+  "mcap_last": 86416903082.27539,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.20009455174903432
+ },
+ "CL": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-05-15",
+    "1997-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-05-15",
+    "1999-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2013-04-25",
+    "2013-07-25",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.004536297978614212,
+  "mcap_last": 75420897668.03363,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7438591023556815
+ },
+ "APH": {
+  "status": "ok",
+  "n_filings": 117,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 53,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2021-03-19",
+    2,
+    "whitelist"
+   ],
+   [
+    "~post-filing",
+    4,
+    "seam-residual snap (0.2429)"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-02-14",
+    "2000-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2004-02-14",
+    "2004-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2007-02-14",
+    "2007-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2014-08-06",
+    "2014-11-05",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.24285005137176366,
+  "residual_treatment": "none",
+  "seam_price_gap": -0.015181384577906187,
+  "mcap_last": 401435894396.97266,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8213916368766985
+ },
+ "WM": {
+  "status": "ok",
+  "n_filings": 122,
+  "first_asof": "1995-05-15",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 57,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1996-08-14",
+    "1996-11-14",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0327459349942598,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0030340111197635355,
+  "mcap_last": 90871495735.16846,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.768729132546321
+ },
+ "MCK": {
+  "status": "ok",
+  "n_filings": 120,
+  "first_asof": "1995-08-14",
+  "last_asof": "2025-05-09",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 56,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-11-14",
+    "1998-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0349416182465665,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.023535787502406924,
+  "mcap_last": 109573567236.32812,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.5399449132875701
+ },
+ "CDNS": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "stockpup": 66,
+   "gtsf": 55,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-08-15",
+    "1995-11-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1996-02-13",
+    "1996-05-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-08-12",
+    "1997-11-11",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9981540878917161,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.005749770069733984,
+  "mcap_last": 91040916083.4961,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9492907152832587
+ },
+ "SNPS": {
+  "status": "ok",
+  "n_filings": 119,
+  "first_asof": "1996-05-14",
+  "last_asof": "2025-05-28",
+  "sources": {
+   "stockpup": 57,
+   "gtsf": 56,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2003-09-14",
+    "2003-12-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.009730961181834,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0022553990601824614,
+  "mcap_last": 57765508096.74072,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9668383426678282
+ },
+ "PH": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 57,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-05-15",
+    "1995-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-05-15",
+    "1997-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2007-08-14",
+    "2007-11-14",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0207757290459,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.008381386650902378,
+  "mcap_last": 123695235766.00488,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9713647579193435
+ },
+ "ANET": {
+  "status": "ok",
+  "n_filings": 44,
+  "first_asof": "2014-08-08",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "gtsf": 38,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "~post-filing",
+    15,
+    "seam-residual snap (0.0641)"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 0.06405311608785004,
+  "residual_treatment": "none",
+  "seam_price_gap": -0.06316739098239599,
+  "mcap_last": 3223556060531.616,
+  "mcap_last_date": "2026-07-30"
+ },
+ "CMG": {
+  "status": "ok",
+  "n_filings": 78,
+  "first_asof": "2006-02-14",
+  "last_asof": "2025-04-24",
+  "sources": {
+   "gtsf": 54,
+   "stockpup": 18,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2024-06-26",
+    50,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0975757628069664,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.026795400806918,
+  "mcap_last": 52414896502.887726,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.3757715036977616
+ },
+ "TT": {
+  "status": "ok",
+  "n_filings": 94,
+  "first_asof": "2002-02-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 30,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2005-08-14",
+    "2005-11-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.7849112255492392,
+  "residual_treatment": "price-continuity x0.7849",
+  "seam_price_gap": -0.008688952050023069,
+  "mcap_last": 101044259719.84863,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9304638661440181
+ },
+ "ORLY": {
+  "status": "ok",
+  "n_filings": 119,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-05-09",
+  "sources": {
+   "gtsf": 57,
+   "stockpup": 56,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2025-06-10",
+    15,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-05-15",
+    "1997-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-11-14",
+    "2000-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-05-15",
+    "2005-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9942586037033783,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.009235266890336491,
+  "mcap_last": 74841550578.88985,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6440934694489299
+ },
+ "TDG": {
+  "status": "ok",
+  "n_filings": 79,
+  "first_asof": "2006-05-16",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "gtsf": 56,
+   "stockpup": 17,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0255045602436046,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0012056803653851533,
+  "mcap_last": 72244799975.58594,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.1701330218448169
+ },
+ "EOG": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-05-15",
+    "1994-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-02-14",
+    "2005-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2014-02-24",
+    "2014-05-06",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.07312616283545,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.03898637268171079,
+  "mcap_last": 83959266830.44434,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7888168982592272
+ },
+ "ITW": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-05-15",
+    "1997-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-05-15",
+    "2006-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0197241746343433,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0007104267546823584,
+  "mcap_last": 83124103576.66016,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": -0.43710152915266454
+ },
+ "USB": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-05-15",
+    "1998-08-14",
+    3,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.02687819425222,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.014223144427357504,
+  "mcap_last": 98061102378.84521,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9710961220333179
+ },
+ "PNC": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-11-14",
+    "1996-02-14",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0484527711260387,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.016251764921466405,
+  "mcap_last": 98986582672.11914,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9744318054850519
+ },
+ "AON": {
+  "status": "ok",
+  "n_filings": 124,
+  "first_asof": "1995-02-14",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "gtsf": 60,
+   "stockpup": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-02-14",
+    "1997-05-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-02-14",
+    "1999-05-15",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0076852568098993,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.009080952935306641,
+  "mcap_last": 73350658465.57619,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.2757207358451821
+ },
+ "HCA": {
+  "status": "ok",
+  "n_filings": 58,
+  "first_asof": "2011-05-11",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 52,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0082530001544208,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.02161506531117452,
+  "mcap_last": 96159319842.03491,
+  "mcap_last_date": "2026-07-30"
+ },
+ "MCO": {
+  "status": "ok",
+  "n_filings": 98,
+  "first_asof": "2001-02-14",
+  "last_asof": "2025-04-23",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 34,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2005-05-15",
+    "2005-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.028202314342648,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.005784153500548728,
+  "mcap_last": 87144383764.64844,
+  "mcap_last_date": "2026-07-30"
+ },
+ "MSI": {
+  "status": "ok",
+  "n_filings": 132,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 63,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-02-14",
+    "1994-05-17",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-05-16",
+    "2000-08-15",
+    3,
+    "no price drop -> issuance"
+   ],
+   [
+    "2010-11-02",
+    "2011-02-18",
+    0.14285714285714285,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0294877288070714,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0022601020007065875,
+  "mcap_last": 71903859222.41212,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8057903346216697
+ },
+ "BDX": {
+  "status": "ok",
+  "n_filings": 128,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 60,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1996-08-14",
+    "1996-11-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-08-14",
+    "1998-11-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.7554143129898626,
+  "residual_treatment": "price-continuity x0.7554",
+  "seam_price_gap": -0.008290169316052864,
+  "mcap_last": 48047526548.6539,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9472654465375507
+ },
+ "APD": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-05-15",
+    "1998-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9989984121307708,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0028741437369321776,
+  "mcap_last": 66884562719.72656,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.44915201544608674
+ },
+ "EMR": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-02-14",
+    "1997-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-11-14",
+    "2007-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0104853529627127,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.0,
+  "mcap_last": 83609999656.67725,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.3012820863672241
+ },
+ "GD": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-23",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-11-12",
+    "1998-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-08-18",
+    "1999-11-17",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-02-14",
+    "2006-05-17",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.017083607779071,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.0003179682643212889,
+  "mcap_last": 104301183223.26051,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9841213016421784
+ },
+ "FDX": {
+  "status": "ok",
+  "n_filings": 110,
+  "first_asof": "1998-04-14",
+  "last_asof": "2025-03-20",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 46,
+   "fsds": 5
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1999-04-14",
+    "1999-07-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.8273368147955474,
+  "residual_treatment": "price-continuity x0.8273",
+  "seam_price_gap": -0.014800272655450808,
+  "mcap_last": 77104342634.95386,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.5052291427239125
+ },
+ "CTAS": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-01-14",
+  "last_asof": "2025-04-03",
+  "sources": {
+   "stockpup": 67,
+   "gtsf": 53,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2024-09-11",
+    4,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-10-15",
+    "1998-01-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-01-14",
+    "2000-04-14",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0338505408454854,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0029763675436057513,
+  "mcap_last": 83474709799.81995,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8665631929554544
+ },
+ "MMM": {
+  "status": "ok",
+  "n_filings": 134,
+  "first_asof": "1993-08-14",
+  "last_asof": "2025-04-22",
+  "sources": {
+   "stockpup": 64,
+   "gtsf": 64,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-02-14",
+    "1994-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2003-08-14",
+    "2003-11-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.843096584261522,
+  "residual_treatment": "price-continuity x0.8431",
+  "seam_price_gap": -0.006140433558157743,
+  "mcap_last": 94757596349.09802,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.03972540964068884
+ },
+ "MAR": {
+  "status": "ok",
+  "n_filings": 113,
+  "first_asof": "1998-05-11",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "gtsf": 62,
+   "stockpup": 45,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2006-05-08",
+    "2006-07-31",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2016-07-28",
+    "2016-11-09",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.011066307189068,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.010132631713881568,
+  "mcap_last": 103884696710.40619,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.664803211616367
+ },
+ "ROP": {
+  "status": "ok",
+  "n_filings": 118,
+  "first_asof": "1996-06-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 54,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-06-14",
+    "1997-09-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-08-14",
+    "2005-11-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0139109347595692,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.000337672000601863,
+  "mcap_last": 42000075000.0,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7885374873035406
+ },
+ "NOC": {
+  "status": "ok",
+  "n_filings": 98,
+  "first_asof": "2001-05-15",
+  "last_asof": "2025-04-22",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 33,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2004-05-15",
+    "2004-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0347705736010284,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.006002455113675698,
+  "mcap_last": 77056382599.34106,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.4542520987236681
+ },
+ "ECL": {
+  "status": "ok",
+  "n_filings": 123,
+  "first_asof": "1995-02-14",
+  "last_asof": "2025-05-08",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-11-14",
+    "1998-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2003-05-15",
+    "2003-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0159313093409117,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.016491400298030534,
+  "mcap_last": 79192888961.79199,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.836211862829248
+ },
+ "AJG": {
+  "status": "ok",
+  "n_filings": 122,
+  "first_asof": "1995-02-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 54,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1999-11-14",
+    "2000-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-11-14",
+    "2001-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9975100248596467,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.02455899095714842,
+  "mcap_last": 65679403811.64551,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9512079880945759
+ },
+ "COF": {
+  "status": "ok",
+  "n_filings": 116,
+  "first_asof": "1996-08-14",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 52,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1999-05-15",
+    "1999-08-14",
+    3,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0653629388434467,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.02209294720527355,
+  "mcap_last": 80475043322.44026,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9631071921259672
+ },
+ "TFC": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-08-14",
+    "1998-11-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0535506215647186,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.024699900793214047,
+  "mcap_last": 68109121191.98227,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7387363695069286
+ },
+ "CSX": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-16",
+  "sources": {
+   "stockpup": 61,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2021-06-28",
+    3,
+    "whitelist"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-11-13",
+    "1996-02-12",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-08-14",
+    "2006-11-13",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0062842618170633,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0028971866961188253,
+  "mcap_last": 94959477401.73338,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7753284470147245
+ },
+ "NSC": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-23",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 57,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-08-14",
+    "1997-11-14",
+    3,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0170259061278768,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.0,
+  "mcap_last": 75282346637.73248,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6225631005030992
+ },
+ "HLT": {
+  "status": "ok",
+  "n_filings": 47,
+  "first_asof": "2014-02-14",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "gtsf": 40,
+   "fsds": 6,
+   "stockpup": 1
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2016-10-26",
+    "2017-02-15",
+    0.3333333333333333,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0058296036121217,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.011977723869059154,
+  "mcap_last": 76893500247.9711,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7622573450838641
+ },
+ "GM": {
+  "status": "ok",
+  "n_filings": 64,
+  "first_asof": "2009-11-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 51,
+   "stockpup": 7,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2010-08-14",
+    "2010-11-14",
+    3,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0035799203534013,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.005680078396873789,
+  "mcap_last": 102720801773.07129,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8078730458994445
+ },
+ "FCX": {
+  "status": "ok",
+  "n_filings": 129,
+  "first_asof": "1993-08-14",
+  "last_asof": "2025-05-08",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 60,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2007-02-14",
+    "2007-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2010-11-05",
+    "2011-02-25",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0403846242018713,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.004849586326438393,
+  "mcap_last": 91607358016.96776,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.5525808452499628
+ },
+ "SLB": {
+  "status": "ok",
+  "n_filings": 117,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 53,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-05-15",
+    "1997-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-02-14",
+    "2006-05-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0759702224725454,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.031042097423641613,
+  "mcap_last": 67495799789.42871,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9917670971223304
+ },
+ "NXPI": {
+  "status": "ok",
+  "n_filings": 31,
+  "first_asof": "2012-04-12",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "gtsf": 25,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0460280025127395,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.023881004764623626,
+  "mcap_last": 62520213813.90379,
+  "mcap_last_date": "2026-07-30"
+ },
+ "WELL": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-05-15",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "stockpup": 65,
+   "gtsf": 55,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 0.9893171950392522,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.03054318736103645,
+  "mcap_last": 136083396719.9707,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8805159210227861
+ },
+ "PSA": {
+  "status": "ok",
+  "n_filings": 72,
+  "first_asof": "2007-08-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 8,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 0.9746665983824971,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.03631246465360116,
+  "mcap_last": 55852790047.72949,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9799401702183255
+ },
+ "AEP": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-05-15",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "stockpup": 61,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 0.9772513782781868,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.024083428870899648,
+  "mcap_last": 67416266709.06143,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6935933141229176
+ },
+ "O": {
+  "status": "ok",
+  "n_filings": 122,
+  "first_asof": "1995-11-14",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "stockpup": 59,
+   "gtsf": 57,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2004-11-14",
+    "2005-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9600769910462328,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.04806966276116065,
+  "mcap_last": 58184284935.59265,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9757290047113242
+ },
+ "TRV": {
+  "status": "ok",
+  "n_filings": 128,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-16",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 60,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-02-14",
+    "1994-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2004-02-14",
+    "2004-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2004-05-15",
+    "2004-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9966170371016096,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.019874716103698953,
+  "mcap_last": 85199331787.10938,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9650753297759346
+ },
+ "AZO": {
+  "status": "ok",
+  "n_filings": 117,
+  "first_asof": "1996-06-18",
+  "last_asof": "2025-06-13",
+  "sources": {
+   "gtsf": 57,
+   "stockpup": 54,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 0.9959714367606214,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.00016694134694517082,
+  "mcap_last": 53399690984.13086,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9662245186432684
+ },
+ "ROST": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-03-15",
+  "last_asof": "2025-06-11",
+  "sources": {
+   "stockpup": 65,
+   "gtsf": 56,
+   "fsds": 5
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1996-12-17",
+    "1997-03-18",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-09-14",
+    "1999-12-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2003-12-16",
+    "2004-03-16",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2011-12-07",
+    "2012-03-27",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2015-06-10",
+    "2015-09-09",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0434037826461173,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.0069711761097239755,
+  "mcap_last": 82687379277.83203,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": -0.14160167400860552
+ },
+ "SPG": {
+  "status": "ok",
+  "n_filings": 109,
+  "first_asof": "1998-11-14",
+  "last_asof": "2025-05-12",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 44,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0002988289679713,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.01773921595859096,
+  "mcap_last": 75390461535.6474,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.5340284893131033
+ },
+ "PCAR": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "~post-filing",
+    1.5,
+    "seam-residual snap (0.6885)"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-05-15",
+    "1997-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2002-05-15",
+    "2002-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2003-11-14",
+    "2004-02-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-08-14",
+    "2006-11-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2007-08-14",
+    "2007-11-14",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.6885035421759249,
+  "residual_treatment": "none",
+  "seam_price_gap": 0.012600651529470763,
+  "mcap_last": 105717211658.47778,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8702252901170153
+ },
+ "SRE": {
+  "status": "ok",
+  "n_filings": 109,
+  "first_asof": "1998-08-14",
+  "last_asof": "2025-05-08",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 44,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "~post-filing",
+    2,
+    "seam-residual snap (0.5131)"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 0.5131493439968555,
+  "residual_treatment": "none",
+  "seam_price_gap": -0.013217490275501453,
+  "mcap_last": 116799852493.12042,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9406868055142341
+ },
+ "DLR": {
+  "status": "ok",
+  "n_filings": 84,
+  "first_asof": "2004-11-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 55,
+   "stockpup": 23,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.031534495674480745,
+  "mcap_last": 65055380992.126465,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.3040179742013746
+ },
+ "AFL": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-11-14",
+    "1996-02-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-02-14",
+    "1998-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-11-14",
+    "2001-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2018-02-23",
+    "2018-05-04",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0046718371725991,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0008779831940654015,
+  "mcap_last": 69650382413.78784,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7425614383477855
+ },
+ "MET": {
+  "status": "ok",
+  "n_filings": 106,
+  "first_asof": "2000-05-15",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 63,
+   "stockpup": 37,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0408665655111353,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.014856229304733848,
+  "mcap_last": 65356647209.68698,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8687692906416485
+ },
+ "OKE": {
+  "status": "ok",
+  "n_filings": 113,
+  "first_asof": "1998-01-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "gtsf": 61,
+   "stockpup": 46,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2001-05-15",
+    "2001-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2012-05-02",
+    "2012-08-01",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0624531479766293,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.008526396255190694,
+  "mcap_last": 55635486172.529106,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6409737511818066
+ },
+ "PSX": {
+  "status": "ok",
+  "n_filings": 54,
+  "first_asof": "2012-05-15",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "gtsf": 47,
+   "fsds": 6,
+   "stockpup": 1
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0692090079658747,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.022867106045393992,
+  "mcap_last": 86452355505.52367,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8950753369830191
+ },
+ "KMB": {
+  "status": "ok",
+  "n_filings": 128,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-22",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 60,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-02-14",
+    "1997-05-15",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9912287988918821,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.018869593468584744,
+  "mcap_last": 37237721929.04131,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.47041169178552145
+ },
+ "D": {
+  "status": "ok",
+  "n_filings": 124,
+  "first_asof": "1995-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 60,
+   "stockpup": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2007-11-14",
+    "2008-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9890732934691331,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.00391825892645048,
+  "mcap_last": 59479692863.464355,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7351159144965758
+ },
+ "ALL": {
+  "status": "ok",
+  "n_filings": 119,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 54,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-05-15",
+    "1998-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0090475346067522,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.01198109520363777,
+  "mcap_last": 70325701293.94531,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.932058462975066
+ },
+ "VLO": {
+  "status": "ok",
+  "n_filings": 113,
+  "first_asof": "1997-05-15",
+  "last_asof": "2025-04-24",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 49,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2004-08-14",
+    "2004-11-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-11-14",
+    "2006-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0480402642627775,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.00786976561669972,
+  "mcap_last": 103176007171.63086,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9181157647397418
+ },
+ "URI": {
+  "status": "ok",
+  "n_filings": 108,
+  "first_asof": "1998-08-14",
+  "last_asof": "2025-04-23",
+  "sources": {
+   "stockpup": 52,
+   "gtsf": 50,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-08-14",
+    "1998-11-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2008-05-15",
+    "2008-08-14",
+    0.6666666666666666,
+    "no price drop -> issuance"
+   ],
+   [
+    "2012-04-17",
+    "2012-07-17",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0741246324451892,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.030137559778349532,
+  "mcap_last": 69458708331.63257,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8300915651703134
+ },
+ "TEL": {
+  "status": "ok",
+  "n_filings": 71,
+  "first_asof": "2007-08-13",
+  "last_asof": "2025-04-28",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 8,
+   "fsds": 5
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0065551553681542,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.005156675972652014,
+  "mcap_last": 61974000549.31641,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9222379775537453
+ },
+ "F": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-05-15",
+    "1994-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-08-14",
+    "2000-11-14",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0345710605511762,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.03267973815469505,
+  "mcap_last": 59603458622.932434,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9639664260386652
+ },
+ "BK": {
+  "status": "ok",
+  "n_filings": 72,
+  "first_asof": "2007-08-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 8,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": NaN,
+  "residual_treatment": "none",
+  "seam_price_gap": NaN,
+  "mcap_last": 46541756387.899055,
+  "mcap_last_date": "2018-12-31",
+  "roe_corr_vs_stockpup": 0.9816050565734504
+ },
+ "AMP": {
+  "status": "ok",
+  "n_filings": 79,
+  "first_asof": "2005-11-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 15,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0734852323696085,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.03439682134154376,
+  "mcap_last": 55097280919.86914,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8038723365873235
+ },
+ "AIG": {
+  "status": "ok",
+  "n_filings": 128,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 59,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-05-15",
+    "1995-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-05-15",
+    "1997-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-05-15",
+    "1998-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-05-15",
+    "2000-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2009-05-15",
+    "2009-08-14",
+    0.05,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0403936151329893,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.005328573592634722,
+  "mcap_last": 54273283735.12161,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7932814391039386
+ },
+ "KMI": {
+  "status": "ok",
+  "n_filings": 59,
+  "first_asof": "2011-05-15",
+  "last_asof": "2025-04-18",
+  "sources": {
+   "gtsf": 51,
+   "fsds": 6,
+   "stockpup": 2
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2014-10-29",
+    "2015-02-23",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0559167522937634,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.027308197215134555,
+  "mcap_last": 70350362747.84082,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9356393895914364
+ },
+ "LHX": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-24",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-08-11",
+    "1997-11-17",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-02-14",
+    "2005-05-16",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.014941354042544,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.011214218902949158,
+  "mcap_last": 51006739480.018616,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9500000050013269
+ },
+ "FIS": {
+  "status": "ok",
+  "n_filings": 99,
+  "first_asof": "2001-08-14",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "gtsf": 61,
+   "stockpup": 32,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2005-11-14",
+    "2006-02-14",
+    3,
+    "no price drop -> issuance"
+   ],
+   [
+    "2009-08-05",
+    "2009-11-05",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0096220736454171,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.010921528164331118,
+  "mcap_last": 24426000000.0,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9471940810538073
+ },
+ "COR": {
+  "status": "ok",
+  "n_filings": 96,
+  "first_asof": "2001-11-14",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 31,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2005-11-14",
+    "2006-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2009-05-15",
+    "2009-08-06",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0125118752103712,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.0006719814695956838,
+  "mcap_last": 60505108011.61206,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.49561724210084757
+ },
+ "PAYX": {
+  "status": "ok",
+  "n_filings": 121,
+  "first_asof": "1995-04-14",
+  "last_asof": "2025-03-26",
+  "sources": {
+   "stockpup": 58,
+   "gtsf": 58,
+   "fsds": 5
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-04-14",
+    "1995-07-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1996-04-14",
+    "1996-07-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1997-04-14",
+    "1997-07-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-04-14",
+    "1998-07-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1999-04-14",
+    "1999-07-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-04-14",
+    "2000-07-15",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0182464873756936,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.001227963609838234,
+  "mcap_last": 41902066659.54589,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": -0.1545626077041997
+ },
+ "MNST": {
+  "status": "ok",
+  "n_filings": 117,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-05-09",
+  "sources": {
+   "stockpup": 57,
+   "gtsf": 54,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2023-03-28",
+    2,
+    "whitelist"
+   ],
+   [
+    "~post-filing",
+    2,
+    "seam-residual snap (0.5064)"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "2005-08-14",
+    "2005-11-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-05-15",
+    "2006-08-14",
+    4,
+    "no price drop -> issuance"
+   ],
+   [
+    "2011-11-09",
+    "2012-02-29",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2016-11-07",
+    "2017-03-01",
+    3,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.5064154896913825,
+  "residual_treatment": "none",
+  "seam_price_gap": -0.009345853063011167,
+  "mcap_last": 95222715437.95013,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7360784585458985
+ },
+ "DOW": {
+  "status": "ok",
+  "n_filings": 25,
+  "first_asof": "2019-05-03",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "gtsf": 19,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": NaN,
+  "residual_treatment": "none",
+  "seam_price_gap": NaN,
+  "mcap_last": 21270621107.86438,
+  "mcap_last_date": "2026-07-30"
+ },
+ "HUM": {
+  "status": "ok",
+  "n_filings": 130,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 62,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 0.9786631786141751,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0170693048761118,
+  "mcap_last": 45139777046.04492,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7071419824929724
+ },
+ "PRU": {
+  "status": "ok",
+  "n_filings": 94,
+  "first_asof": "2002-02-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 30,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0522406695280202,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.013733845190375682,
+  "mcap_last": 44319968788.14697,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7701289803056627
+ },
+ "OXY": {
+  "status": "ok",
+  "n_filings": 122,
+  "first_asof": "1995-02-14",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "stockpup": 58,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2006-08-14",
+    "2006-11-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.043069318086966,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.010100992523554009,
+  "mcap_last": 49256749001.81964,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.984751257432008
+ },
+ "FAST": {
+  "status": "ok",
+  "n_filings": 123,
+  "first_asof": "1995-02-14",
+  "last_asof": "2025-04-16",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 58,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2019-05-23",
+    2,
+    "whitelist"
+   ],
+   [
+    "~post-filing",
+    2,
+    "seam-residual snap (0.4994)"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-02-14",
+    "1995-05-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2002-05-15",
+    "2002-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2005-11-14",
+    "2006-02-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2011-04-21",
+    "2011-07-21",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.4994237286620415,
+  "residual_treatment": "none",
+  "seam_price_gap": -0.016829241780600523,
+  "mcap_last": 53529467652.18752,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": -0.08512923582832296
+ },
+ "KR": {
+  "status": "ok",
+  "n_filings": 128,
+  "first_asof": "1994-02-15",
+  "last_asof": "2025-06-27",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 60,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-02-11",
+    "1997-05-06",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2014-12-16",
+    "2015-03-31",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2015-03-31",
+    "2015-04-01",
+    0.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2015-06-30",
+    "2015-09-22",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0058181762695313,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.007272755015980126,
+  "mcap_last": 38419040405.27344,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6213263042408742
+ },
+ "NEM": {
+  "status": "ok",
+  "n_filings": 96,
+  "first_asof": "2002-02-14",
+  "last_asof": "2025-04-24",
+  "sources": {
+   "gtsf": 61,
+   "stockpup": 29,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 0.9942162882490121,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.004906261938130374,
+  "mcap_last": 107921522407.53175,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7870913000112182
+ },
+ "CTVA": {
+  "status": "ok",
+  "n_filings": 25,
+  "first_asof": "2019-05-31",
+  "last_asof": "2025-05-08",
+  "sources": {
+   "gtsf": 19,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": NaN,
+  "residual_treatment": "none",
+  "seam_price_gap": NaN,
+  "mcap_last": 61021540338.68408,
+  "mcap_last_date": "2026-07-30"
+ },
+ "ODFL": {
+  "status": "ok",
+  "n_filings": 60,
+  "first_asof": "2010-08-06",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "gtsf": 54,
+   "fsds": 6
+  },
+  "splits_applied": [
+   [
+    "2022-03-25",
+    2,
+    "whitelist"
+   ],
+   [
+    "~post-filing",
+    1.5,
+    "seam-residual snap (0.6711)"
+   ]
+  ],
+  "jumps_rejected_as_issuance": [
+   [
+    "2010-08-06",
+    "2010-11-08",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2012-08-09",
+    "2012-11-06",
+    1.5,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.6710708618359654,
+  "residual_treatment": "none",
+  "seam_price_gap": -0.0005668450565642358,
+  "mcap_last": 67542919976.92909,
+  "mcap_last_date": "2026-07-30"
+ },
+ "PEG": {
+  "status": "ok",
+  "n_filings": 124,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 57,
+   "fsds": 5
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2007-11-14",
+    "2008-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0007792148724584,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.02343895146759578,
+  "mcap_last": 38775001525.87891,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7780348916880009
+ },
+ "YUM": {
+  "status": "ok",
+  "n_filings": 109,
+  "first_asof": "1997-10-21",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "gtsf": 57,
+   "stockpup": 48,
+   "fsds": 4
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2002-05-07",
+    "2002-07-30",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2007-05-08",
+    "2007-07-31",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0043975541986037,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.005221885738692866,
+  "mcap_last": 44008390383.0,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.3307869476814638
+ },
+ "RSG": {
+  "status": "ok",
+  "n_filings": 109,
+  "first_asof": "1998-08-14",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 44,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2007-02-14",
+    "2007-05-15",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2008-11-14",
+    "2009-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0122340782661536,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.007768034221683151,
+  "mcap_last": 66204828983.62732,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8718233198439
+ },
+ "VRSK": {
+  "status": "ok",
+  "n_filings": 63,
+  "first_asof": "2009-11-14",
+  "last_asof": "2025-05-07",
+  "sources": {
+   "gtsf": 51,
+   "stockpup": 6,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0177679607784438,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0035766634847202994,
+  "mcap_last": 28040545282.83459,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.7996775959632219
+ },
+ "EXC": {
+  "status": "ok",
+  "n_filings": 98,
+  "first_asof": "2001-05-15",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 59,
+   "stockpup": 33,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2004-05-15",
+    "2004-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.7113536180748091,
+  "residual_treatment": "price-continuity x0.7114",
+  "seam_price_gap": -0.020210083810201285,
+  "mcap_last": 45990221847.53418,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.8612146955734454
+ },
+ "LEN": {
+  "status": "ok",
+  "n_filings": 107,
+  "first_asof": "1999-04-14",
+  "last_asof": "2025-04-04",
+  "sources": {
+   "gtsf": 55,
+   "stockpup": 46,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2003-10-15",
+    "2004-01-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0117553237906887,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.011917152768534667,
+  "mcap_last": 23689022500.0,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9839560971044407
+ },
+ "KDP": {
+  "status": "ok",
+  "n_filings": 63,
+  "first_asof": "2010-05-06",
+  "last_asof": "2025-04-24",
+  "sources": {
+   "gtsf": 57,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2018-04-25",
+    "2018-08-07",
+    8,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0035335749907424,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.014040511371785525,
+  "mcap_last": 42877199213.091606,
+  "mcap_last_date": "2026-07-30"
+ },
+ "IR": {
+  "status": "ok",
+  "n_filings": 33,
+  "first_asof": "2017-08-04",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "gtsf": 27,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0304220247676437,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.02689482721473957,
+  "mcap_last": 33970848138.330757,
+  "mcap_last_date": "2026-07-30"
+ },
+ "GEHC": {
+  "status": "ok",
+  "n_filings": 10,
+  "first_asof": "2023-02-15",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "fsds": 6,
+   "gtsf": 4
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": NaN,
+  "residual_treatment": "none",
+  "seam_price_gap": NaN,
+  "mcap_last": 32102461120.60547,
+  "mcap_last_date": "2026-07-30"
+ },
+ "KHC": {
+  "status": "ok",
+  "n_filings": 40,
+  "first_asof": "2015-08-10",
+  "last_asof": "2025-04-29",
+  "sources": {
+   "gtsf": 34,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0277200447577037,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.006970242348492084,
+  "mcap_last": 31392199001.312256,
+  "mcap_last_date": "2026-07-30"
+ },
+ "EA": {
+  "status": "ok",
+  "n_filings": 122,
+  "first_asof": "1995-02-14",
+  "last_asof": "2025-05-13",
+  "sources": {
+   "stockpup": 58,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-08-14",
+    "2000-11-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2003-11-14",
+    "2004-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": NaN,
+  "residual_treatment": "none",
+  "seam_price_gap": NaN,
+  "mcap_last": 14620227319.335365,
+  "mcap_last_date": "2014-12-31",
+  "roe_corr_vs_stockpup": 0.876276221952684
+ },
+ "CHTR": {
+  "status": "ok",
+  "n_filings": 57,
+  "first_asof": "2011-05-03",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "gtsf": 51,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 1.0552338497629605,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.010597568167650673,
+  "mcap_last": 20823334258.0,
+  "mcap_last_date": "2026-07-30"
+ },
+ "PPG": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-30",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1994-05-15",
+    "1994-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2015-04-27",
+    "2015-07-27",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9902202364878587,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.0052822155707259455,
+  "mcap_last": 26416673712.158203,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.46375920464895676
+ },
+ "XEL": {
+  "status": "ok",
+  "n_filings": 127,
+  "first_asof": "1993-11-14",
+  "last_asof": "2025-04-24",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1998-05-15",
+    "1998-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9801096096380916,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.02131112700030624,
+  "mcap_last": 45103277735.160164,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9488295906572602
+ },
+ "DD": {
+  "status": "ok",
+  "n_filings": 123,
+  "first_asof": "1995-02-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "stockpup": 91,
+   "gtsf": 26,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-05-15",
+    "2000-08-14",
+    3,
+    "no price drop -> issuance"
+   ],
+   [
+    "2017-08-14",
+    "2017-11-06",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 2.742251540961662,
+  "residual_treatment": "price-continuity x2.7423",
+  "seam_price_gap": -0.0124054389679914,
+  "mcap_last": 58909810446.16699,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.987702601759967
+ },
+ "HAL": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-14",
+  "last_asof": "2025-04-25",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-05-15",
+    "1997-08-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2006-05-15",
+    "2006-08-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.07529321786381,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.027088010361969506,
+  "mcap_last": 28191239456.17676,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9857179639941297
+ },
+ "BIIB": {
+  "status": "ok",
+  "n_filings": 116,
+  "first_asof": "1996-08-14",
+  "last_asof": "2025-05-01",
+  "sources": {
+   "gtsf": 58,
+   "stockpup": 52,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1999-11-14",
+    "2000-02-14",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.081247181184811,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.012528209641919474,
+  "mcap_last": 30482536926.26953,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.6350981707537716
+ },
+ "GLW": {
+  "status": "ok",
+  "n_filings": 126,
+  "first_asof": "1994-02-16",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "stockpup": 62,
+   "gtsf": 58,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2000-08-14",
+    "2000-11-14",
+    3,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 0.9835016274114634,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.010923533058816548,
+  "mcap_last": 115366308179.85324,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.975226438905703
+ },
+ "HPQ": {
+  "status": "ok",
+  "n_filings": 130,
+  "first_asof": "1993-12-15",
+  "last_asof": "2025-05-29",
+  "sources": {
+   "stockpup": 63,
+   "gtsf": 61,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1995-03-17",
+    "1995-06-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "1996-06-14",
+    "1996-09-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-09-14",
+    "2000-12-15",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2002-03-17",
+    "2002-06-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2017-08-31",
+    "2017-12-15",
+    0.1,
+    "no price drop -> issuance"
+   ],
+   [
+    "2017-12-15",
+    "2018-03-01",
+    10,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0186823578129742,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.008308899506401346,
+  "mcap_last": 25302120574.951168,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.9460102737374171
+ },
+ "DLTR": {
+  "status": "ok",
+  "n_filings": 119,
+  "first_asof": "1996-05-15",
+  "last_asof": "2025-06-04",
+  "sources": {
+   "stockpup": 57,
+   "gtsf": 56,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "1997-05-15",
+    "1997-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "1998-05-15",
+    "1998-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2000-05-15",
+    "2000-08-14",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2010-06-15",
+    "2010-08-19",
+    1.5,
+    "no price drop -> issuance"
+   ],
+   [
+    "2012-05-17",
+    "2012-08-16",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0588167768753087,
+  "residual_treatment": "ok",
+  "seam_price_gap": 0.009743105141622577,
+  "mcap_last": 27019159322.994385,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.48962014355651484
+ },
+ "GPN": {
+  "status": "ok",
+  "n_filings": 100,
+  "first_asof": "2001-04-14",
+  "last_asof": "2025-05-06",
+  "sources": {
+   "gtsf": 56,
+   "stockpup": 38,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [
+   [
+    "2005-10-15",
+    "2006-01-14",
+    2,
+    "no price drop -> issuance"
+   ],
+   [
+    "2015-10-07",
+    "2016-01-11",
+    2,
+    "no price drop -> issuance"
+   ]
+  ],
+  "seam_residual": 1.0020479723288247,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.010666135008401967,
+  "mcap_last": 21307199577.05902,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.3695674666693488
+ },
+ "MTD": {
+  "status": "ok",
+  "n_filings": 110,
+  "first_asof": "1998-02-14",
+  "last_asof": "2025-05-02",
+  "sources": {
+   "gtsf": 54,
+   "stockpup": 50,
+   "fsds": 6
+  },
+  "splits_applied": [],
+  "jumps_rejected_as_issuance": [],
+  "seam_residual": 0.9570255732651248,
+  "residual_treatment": "ok",
+  "seam_price_gap": -0.03454867299421582,
+  "mcap_last": 29486198282.8479,
+  "mcap_last_date": "2026-07-30",
+  "roe_corr_vs_stockpup": 0.5254881317055633
+ }
+}
