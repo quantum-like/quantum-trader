@@ -1,0 +1,45 @@
+{
+  "skill_name": "ml4t",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm reproducing a regime-aware ML stock-ranking paper in this repo (see reproduction/README.md and reproduction/code/baseline.py: XGBoost on a daily panel of ~200 large US stocks, 20-day forward-return target, fixed train 2005-2018 / val 2019-2020 / test 2021-2025 split, monthly equal-weight Top-10 portfolio). Before I trust the backtest numbers, audit baseline.py for lookahead/leakage, evaluation-protocol weaknesses, and anything that would inflate the reported Sharpe. Write the audit as reproduction/AUDIT_baseline.md with concrete findings (file:line), why each matters, and the fix you recommend, ordered by severity.",
+      "expected_output": "A Markdown audit that identifies concrete protocol risks in baseline.py (e.g. overlapping 20-day labels vs daily rows without purge/embargo, scalers or cross-sectional fills fitted on the full panel, survivorship in the hard-coded ticker list, no transaction costs or capacity check, single fixed split with no walk-forward and no selection accounting such as DSR/BH-FDR, test-period peeking through model/seed selection), each with a file:line citation, a why, and a specific fix.",
+      "files": [],
+      "expectations": [
+        "Flags that the label horizon (20 trading days) overlaps daily training rows and recommends purging/embargo (or non-overlapping sampling) between train/validation/test",
+        "Flags survivorship bias in the hard-coded present-day ticker universe and recommends point-in-time universe construction",
+        "Flags that the reported performance ignores transaction costs and recommends a cost model and breakeven/turnover analysis",
+        "Flags that a single fixed train/val/test split with model and hyperparameter selection on it needs walk-forward evaluation and multiple-testing control (Deflated Sharpe Ratio, BH-FDR, or probability of backtest overfitting)",
+        "Each finding cites a concrete location in baseline.py (file:line or function name) and gives a specific fix",
+        "Checks whether any preprocessing (scaling, winsorizing, median fill) is fitted on data outside the training window"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "For the same regime-aware ranking study, replace the single fixed split with a proper walk-forward evaluation protocol. Monthly rebalance, 20-trading-day forward return label, ~200 stocks, daily rows from 2005. Write reproduction/code/walk_forward.py with a function that generates purged, embargoed walk-forward folds over a monthly decision calendar (train window, validation window, test window as date ranges), plus a short docstring explaining the choices, and a tiny self-test under `if __name__ == '__main__':` that asserts no train row's label window overlaps any test row. Also write reproduction/PROTOCOL.md describing the protocol, the holdout rule, and how model selection will be accounted for.",
+      "expected_output": "A runnable walk_forward.py whose fold generator enforces a purge gap of at least the label horizon (20 trading days) plus an embargo between train end and test start, aligned to month-end decision dates, with an executable self-test; and a PROTOCOL.md that reserves a holdout period to be touched once, explains purge/embargo and fold geometry, and states how many configurations will be tried and how selection bias will be corrected.",
+      "files": [],
+      "expectations": [
+        "walk_forward.py runs without error and its self-test asserts that no training label window overlaps any test decision date (purge >= 20 trading days)",
+        "The fold generator includes an explicit embargo parameter in addition to the purge, and folds roll forward in time (expanding or sliding) without reusing future data",
+        "Decision dates are aligned to a monthly (month-end) calendar rather than every trading day",
+        "PROTOCOL.md reserves a final holdout window that is evaluated once, after all model selection, and says so explicitly",
+        "PROTOCOL.md states that selection across configurations will be corrected (Deflated Sharpe Ratio, BH-FDR, or an explicit count of trials) rather than reporting the best validation result as-is"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Our Top-10 monthly long-only portfolio from the ranking model shows Sharpe ~1.2 before costs over 2021-2025. Build the cost and capacity analysis the way a careful quant would: write reproduction/code/cost_analysis.py that takes monthly portfolio weights (CSV with date, ticker, weight) and daily prices, computes one-way turnover per rebalance, applies a parametric cost model (spread + impact as a function of participation of ADV) at several cost levels, and reports net Sharpe, breakeven cost in bps, and the AUM at which impact would consume half the gross alpha. Document assumptions in the module docstring and print a summary table. Use synthetic data in a __main__ demo so it runs standalone.",
+      "expected_output": "A standalone cost_analysis.py with turnover computation from weight changes, a cost model with explicit spread and impact components (impact increasing with participation rate / square-root style), a cost sweep producing net Sharpe per level, a breakeven cost in bps, a capacity estimate, and a __main__ demo on synthetic data that prints a table.",
+      "files": [],
+      "expectations": [
+        "Turnover is computed from period-to-period weight changes (sum of absolute weight changes, one-way or clearly labelled two-way)",
+        "The cost model has an explicit spread component and a market-impact component that grows with the trade's participation in average daily volume",
+        "Reports breakeven cost in basis points (the cost level at which net return or net Sharpe reaches zero or the benchmark)",
+        "Reports a capacity/AUM estimate derived from the impact model rather than a fixed guess",
+        "The __main__ demo runs standalone on synthetic data and prints a summary table of net Sharpe by cost level"
+      ]
+    }
+  ]
+}
