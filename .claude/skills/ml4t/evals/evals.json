@@ -13,6 +13,14 @@
         "Flags that a single fixed train/val/test split with model and hyperparameter selection on it needs walk-forward evaluation and multiple-testing control (Deflated Sharpe Ratio, BH-FDR, or probability of backtest overfitting)",
         "Each finding cites a concrete location in baseline.py (file:line or function name) and gives a specific fix",
         "Checks whether any preprocessing (scaling, winsorizing, median fill) is fitted on data outside the training window"
+      ],
+      "hard_expectations": [
+        "The audit must recognise that the random-Top-10 baseline at baseline.py:590-594 (mean of 1000 draws) is numerically the equal-weight-universe return and must not recommend adding an equal-weight-universe benchmark as if it were absent; check by grepping the audit for a statement linking random_top10_return to the equal-weight universe.",
+        "The audit must state, for each cross-asset series actually in the FINAL feature set (baseline.py:361-366, included via :376), whether its stamp date is its publication date, and must specifically flag the EIA WTI spot series read at build_market_macro.py:89 as weekly-published and therefore a lookahead in the headline model with a recommended available_at lag; an audit that classifies the cross-asset block as clean fails.",
+        "The audit must ship a script that, run from its own directory with a 120 s timeout using only files under reproduction/results, exits 0 and writes a CSV containing every statistic quoted in the audit text (Sharpe SE, HAC and bootstrap p-values, DSR, breakeven); each quoted number must match the regenerated CSV to three significant figures.",
+        "The audit must report the exact rebalance-gap distribution in sessions derived from test_daily_ic.csv (19x8, 20x14, 21x20, 22x10, 23x7), the number of windows overlapping the next by one session (8), the total idle sessions (61), and must state that max_drawdown (baseline.py:530-533) is computed on 60 window endpoints and is therefore a lower bound on the implementable strategy's drawdown.",
+        "The audit must compute a Deflated Sharpe (or PSR against E[max null Sharpe]) with an explicit trial count derived from the repository's own tables (at minimum 6 learners in comparison_with_paper.md Table 3 x 4 feature sets in paper_reference.json table9 = 24, plus the 4 seed sets in results/seed_sensitivity), state the cross-trial dispersion used, and give a pass/fail against a pre-declared threshold; naming DSR without a number fails.",
+        "The audit must flag the GOOG/GOOGL share-class duplication (both in TICKERS at baseline.py:60; build_fundamentals.py:54 FUND_ALIAS = {'GOOGL': 'GOOG'}) and state its effect on Top-10 concentration (a 20% single-issuer weight is possible)."
       ]
     },
     {
@@ -26,6 +34,13 @@
         "Decision dates are aligned to a monthly (month-end) calendar rather than every trading day",
         "PROTOCOL.md reserves a final holdout window that is evaluated once, after all model selection, and says so explicitly",
         "PROTOCOL.md states that selection across configurations will be corrected (Deflated Sharpe Ratio, BH-FDR, or an explicit count of trials) rather than reporting the best validation result as-is"
+      ],
+      "hard_expectations": [
+        "Holdout sealed on the label endpoint for every test-row type the protocol allows: run the generator on a holiday-stripped calendar, take every development fold's full daily test window (not just decision dates), compute label_end = pos + h, and assert max(label_end) < pos(holdout_start). A fails (20 rows in the 2020 fold), B passes.",
+        "Holdout exposure must be disclosed against the repository: PROTOCOL.md must list every script under reproduction/code whose TEST_START/TEST_END overlaps the proposed holdout (grep for TEST_START) and either move the holdout outside those dates or label it 'exposed' with the list. A fails (names only the paper's numbers), B passes.",
+        "The embargo parameter must be load-bearing where it is claimed to apply: diff the fold table for embargo=0 vs embargo=50 and require either a boundary change or an explicit statement plus a code path (e.g. a CPCV/backward layout) where it changes row masks; additionally, any embargo in a pure forward layout must be justified as a post-test buffer or set to 0. B's main generator fails the diff (no-op but hash changes), A's embargo is on the train side of the seam.",
+        "Every numeric constant in PROTOCOL.md that cites a repo file must match that file: cost sweep vs transaction_costs.py TRANSACTION_COST_BPS_LIST, feature count vs paper_reference.json, fold counts vs the generator's output for the stated parameters and calendar, and the number of boundary sessions whose labels cross a seam (20 for h=20). B fails on the sweep (20 vs 25), the fold count (15 vs 14) and the 'last 19 sessions'; A passes.",
+        "A pre-registered disconfirming outcome with a numeric threshold, the baseline it is measured against, and the metric's net-of-cost status must appear in PROTOCOL.md, and the selection metric must be net of a stated base-case cost; costs must appear with a breakeven quantity in the reporting list. A fails all three, B passes but states no capacity."
       ]
     },
     {
@@ -39,6 +54,14 @@
         "Reports breakeven cost in basis points (the cost level at which net return or net Sharpe reaches zero or the benchmark)",
         "Reports a capacity/AUM estimate derived from the impact model rather than a fixed guess",
         "The __main__ demo runs standalone on synthetic data and prints a summary table of net Sharpe by cost level"
+      ],
+      "hard_expectations": [
+        "Fill-timing convention is explicit and admissible: the module defines what the weights `date` means and exposes a decision-to-fill lag whose default fills at the session after the decision close (or prints an explicit same-bar/look-ahead warning when it fills at the decision close). Check: grep the docstring and CLI for the lag parameter and run a two-row synthetic case where the only price move is on the day after the weight date; a NEXT_BAR default must capture that move, a same-close fill must be accompanied by a printed warning.",
+        "Capacity is reported as a constraint, not a formula: next to the AUM at which impact consumes half the gross alpha, the report must print the maximum single-order participation of ADV at that AUM and, if it exceeds the stated validity limit (20-30%), either cap the headline at the participation-ceiling AUM (min over orders of limit*ADV*sessions/|dw|) or print an 'extrapolated beyond validity' flag on the same line. Check: recompute max(|dw|*AUM_half/ADV) from the saved trades/ledger CSV and compare with what the summary says.",
+        "Impact coefficient stress covers the literature range: the scenario grid or sensitivity table must include eta >= 0.5 (library default; literature 0.5-1.0 for sigma_daily*sqrt(participation)) and report net Sharpe at the reference AUM under it, or the report must state net Sharpe at eta = 1.0 explicitly. Check: scenario table in the printed output or CSV contains a row with eta >= 0.5.",
+        "Breakeven definition and consistency: the breakeven line states (a) per-leg vs round-trip, (b) Sharpe = 0 vs CAGR = rf, (c) whether impact at the reference AUM is included; and the printed cost sweep must bracket the quoted breakeven with a sign change in net return/CAGR between adjacent grid points. Check: parse the sweep CSV and the breakeven value.",
+        "Benchmark/alpha inputs are validated: if a benchmark is supplied as returns, the module must raise when the series has more observations than rebalances or does not align exactly to the holding periods; if supplied as prices it must compute holding-period returns itself. Check: pass a daily benchmark series and expect either an error or alpha equal to the per-period computation.",
+        "Summary claims match saved artifacts: every quantitative statement in summary.md about the real portfolio (turnover, Sharpe) or about seed variability must be reproducible from files in the repo or outputs (e.g. repo results show sum|dw| 1.513 / one-way 0.756; a seed-range claim must match a saved sweep). Check: re-run the cited seeds or read the cited results CSV."
       ]
     },
     {

@@ -328,7 +328,6 @@ Case studies that naturally feed these models (inference): `case_studies/us_firm
 
 Reader uncertainty retained from the notes: training-loop bodies were not read (optimizer type, exact `_sae_loss` and `robust_sharpe_loss` formulas, SDF GAN alternation); `CrossSectionBatch.factor_returns` has shape `(T, N_slots)` and its role (possibly precomputed managed-portfolio returns for CAE) is unverified; the 3rd-edition chapter mapping is inferred.
 
-
 ## Related references
 
 - `libraries/ml4t_engineer.md` -- builds the characteristic panels and forward-return labels that become `CrossSectionBatch` / `PortfolioSequenceBatch`.

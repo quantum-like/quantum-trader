@@ -292,7 +292,6 @@ No notebooks for this library were in the digest; the usage patterns above are r
 
 Reader uncertainty retained from the notes: `ContinuityDisposition` members, `FeedQueueSnapshot` fields and `MarketEvent` payload module are not confirmed; the 30 s order timeout appears only in the wrappers docstring; recommended live-stage limit values are inferences, not library defaults.
 
-
 ## Related references
 
 - `chapters/25_live_trading.md` — the workflow stage this library implements (shadow -> paper -> live, reconciliation, kill switches).
