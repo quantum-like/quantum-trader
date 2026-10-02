@@ -406,7 +406,7 @@ net = reference_pnl - slippage_cost - commission
 assert np.isclose(net, final_value - initial_cash)
 break_even = reference_gross_pnl / one_way_reference_notional   # NaN if gross <= 0
 ```
-Random-signal plumbing test (guardrails pre-flight 26(d); the case studies call `case_studies/utils/backtest_runner.run_plumbing_test(case_study, prices, strategy_spec, top_k=20, seed=42)` with `PLUMBING_SHARPE_TOLERANCE = 1.5`; the library-level form needs no registry)
+Random-signal plumbing test (guardrails pre-flight 26(d); the case studies call `case_studies/utils/backtest_runner.run_plumbing_test(case_study, prices, strategy_spec, top_k=20, seed=42)` and score it against `PLUMBING_SHARPE_TOLERANCE = 1.5` (defined in `case_studies/us_firm_characteristics/11_backtest.py`, not in the runner); the library-level form needs no registry)
 ```python
 rng = np.random.default_rng(42)                                                         # SEED = 42
 noise = signals.with_columns(pl.Series("prediction", rng.standard_normal(signals.height)))

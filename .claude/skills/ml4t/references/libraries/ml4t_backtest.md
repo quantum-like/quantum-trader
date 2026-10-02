@@ -230,7 +230,7 @@ result = Engine(feed, strategy, config).run()
 assert result.metrics["total_commission"] > 0 and result.metrics["total_slippage"] > 0   # "confirm something moved" (keys verified engine.py)
 ```
 
-Random-signal plumbing test (guardrails pre-flight 26(d); the companion's `case_studies/utils/backtest_runner.run_plumbing_test(case_study, prices, strategy_spec, top_k=20, seed=42)` does the same through the registry): same feed, strategy, config, dates, costs and sizing, with the prediction column replaced by seeded noise. PASS iff `|Sharpe| < 1.5` (`PLUMBING_SHARPE_TOLERANCE`); after costs a random signal should be clearly negative at intraday cadence; a NaN Sharpe means the random book went bankrupt, which points at sizing or the short leg, not the signal.
+Random-signal plumbing test (guardrails pre-flight 26(d); the companion's `case_studies/utils/backtest_runner.run_plumbing_test(case_study, prices, strategy_spec, top_k=20, seed=42)` does the same through the registry): same feed, strategy, config, dates, costs and sizing, with the prediction column replaced by seeded noise. PASS iff `|Sharpe| < 1.5` (`PLUMBING_SHARPE_TOLERANCE` in `case_studies/us_firm_characteristics/11_backtest.py`); after costs a random signal should be clearly negative at intraday cadence; a NaN Sharpe means the random book went bankrupt, which points at sizing or the short leg, not the signal.
 ```python
 import math, numpy as np, polars as pl
 rng = np.random.default_rng(42)                                                           # SEED = 42
@@ -256,7 +256,7 @@ class MyStrategy(Strategy):
     def on_data(self, timestamp, data, context, broker):
         self.rm.update(broker.get_account_value(), {a: p.market_value for a, p in broker.get_positions().items()},
                        timestamp, broker=broker)
-        if self.rm.is_halted or not self.rm.can_open_position(): return   # halt persists until rm.reset_halt(); re-entry rule: chapters/19_risk_management.md
+        if self.rm.is_halted or not self.rm.can_open_position(): return   # halt persists until rm.reset_halt() (after a liquidation re-base the HWM with rm.initialize(...), else MaxDrawdownLimit re-fires); re-entry rule: chapters/19_risk_management.md
 ```
 
 Target-weight rebalancing with a causal schedule:

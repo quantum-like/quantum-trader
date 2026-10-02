@@ -260,14 +260,14 @@ Portfolio layer (`PortfolioState` from equity, initial_equity, high_water_mark, 
 | `MaxDrawdownLimit` | `max_drawdown=0.20, warn_threshold=0.15` | Warn, then liquidate |
 | `DailyLossLimit` | `max_daily_loss_pct=0.02` | vs current equity (tightens as the book shrinks); straight to liquidation, no warning band |
 | `MaxPositionsLimit` | `max_positions=10` | Halt new trading |
-| `GrossExposureLimit` | `max_gross_exposure=1.5` | sum of |positions| |
+| `GrossExposureLimit` | `max_gross_exposure=1.5` | sum of \|positions\| |
 | `NetExposureLimit` | `max_net_exposure=0.10, min_net_exposure=-0.10` | signed sum |
 
 Library defaults for a bare constructor (repo-verified in `ml4t/backtest/risk/portfolio/limits.py`; not in the notes): `MaxDrawdownLimit(max_drawdown=0.20, warn_threshold=None)`, `DailyLossLimit(max_daily_loss_pct=0.02)`, `MaxPositionsLimit(max_positions=10)`, `GrossExposureLimit(max_gross_exposure=1.0)`, `NetExposureLimit(max_net_exposure=1.0, min_net_exposure=-1.0)`. The 1.5 gross, +-0.10 net and 15% warn values in the table are what notebook 10 passes explicitly; `GrossExposureLimit()` yields 1.0, not 1.5.
 
 Demo contract (`first_trigger(frame, rule_name, rule)`, SPY 2020, `N_BARS=252`): entry after first close of 2020; entry bar never tested; current-bar OHLC observable to active stops; water marks advance only after a bar completes without an exit. Rules compared on the path: StopLoss 5%, TrailingStop 3%, TakeProfit 15%. Priority grid on constructed states: `RuleChain([StopLoss(0.05), TakeProfit(0.10), TimeExit(20)])`; escalation surface: `MaxDrawdownLimit(20%, warn 15%)` x `DailyLossLimit(2%)`, reporting the more severe action. In production the backtester reconstructs `PortfolioState` from the broker every bar — test the halt-and-resume path. Not a backtest.
 
-**Halt and re-entry in backtests** (guardrails §9 "Adaptive logic and halts"; `RiskManager` verified in `risk/portfolio/manager.py`): keep portfolio limits as governance, never as sweep variants. Once a limit returns `halt` or `liquidate`, `rm.is_halted` stays True and `can_open_position()` False across sessions until `rm.reset_halt()` (which also re-arms the one-shot liquidation), so a run without a reset reports a book that never trades again. Write the re-entry rule before the run and implement it in `on_data`: after `liquidate` equity is frozen, so only a time rule (N sessions) or a lagged market-state rule (the regime label of `06`) can re-enter; after `halt` (positions kept) `rm.current_drawdown < warn_threshold` works. Report halted sessions beside the overlay's Sharpe, count flattened sessions as `(overlay == 0) & (baseline != 0)`, and leave them inside the reported drawdown (equity stays at the halted level; a post-halt tracked index is not money anyone made).
+**Halt and re-entry in backtests** (guardrails §9 "Adaptive logic and halts"; `RiskManager` verified in `risk/portfolio/manager.py`): keep portfolio limits as governance, never as sweep variants. Once a limit returns `halt` or `liquidate`, `rm.is_halted` stays True and `can_open_position()` False across sessions until `rm.reset_halt()` (which also re-arms the one-shot liquidation but keeps the high-water mark, so a `MaxDrawdownLimit` re-fires on the very next `update()` while equity sits below `(1 - max_drawdown) x HWM`; `rm.initialize(equity, timestamp)` re-bases the HWM, the daily start and the halt in one call), so a run without a reset reports a book that never trades again. Write the re-entry rule before the run and implement it in `on_data`: after `liquidate` equity is frozen, so only a time rule (N sessions) or a lagged market-state rule (the regime label of `06`) can re-enter, and the re-entry must re-base the mandate on the surviving capital (`rm.initialize(...)`, logged as a new mandate) or the drawdown limit halts again at once; after `halt` (positions kept) `rm.current_drawdown < warn_threshold` then `reset_halt()` alone works. Report halted sessions beside the overlay's Sharpe, count flattened sessions as `(overlay == 0) & (baseline != 0)`, and leave them inside the reported drawdown (equity stays at the halted level; a post-halt tracked index is not money anyone made).
 
 ```python
 def on_data(self, timestamp, data, context, broker):
@@ -276,7 +276,8 @@ def on_data(self, timestamp, data, context, broker):
     if self.rm.is_halted:
         self.halted_sessions += 1                                            # a flattened session in the overlay row
         if self.halted_sessions < REENTRY_SESSIONS: return                    # re-entry rule fixed before the run (demo: 21 sessions)
-        self.rm.reset_halt(); self.halted_sessions = 0; self.reentries += 1   # log every re-entry
+        self.rm.initialize(broker.get_account_value(), timestamp)              # re-bases HWM + clears the halt; reset_halt() alone re-halts next bar
+        self.halted_sessions = 0; self.reentries += 1                          # log every re-entry as a new mandate
     ...                                                                       # normal sizing
 ```
 
