@@ -83,9 +83,12 @@ results most often; treat a violation as a bug to fix before any other work.
    publication delay; use point-in-time universes, not today's constituents.
 2. **Purge and embargo.** With a label horizon of *h* sessions, purge every training row whose label
    window overlaps the test window (purge = *h* sessions on the market calendar, verified with
-   `va[0] - tr[-1] - 1 == h`); add an embargo of at least the feature lookback wherever training rows
-   can follow the test block (CPCV, k-fold, nested inner loops); pure forward walk-forward needs none.
-   Overlapping labels also shrink effective sample size: use HAC or block-bootstrap inference.
+   `va[0] - tr[-1] - 1 == h`; for variable horizons purge by label-interval overlap, not by a count).
+   Pure forward walk-forward needs no embargo. Wherever training rows can follow the test block
+   (CPCV, k-fold, nested inner loops) purge the overlap in both directions and add an embargo that
+   covers the longer of the feature lookback and the maximum label horizon (the library convention
+   `embargo_pct` of about 0.01 of the sample is the shorthand when lookbacks are short relative to the
+   sample). Overlapping labels also shrink effective sample size: use HAC or block-bootstrap inference.
 3. **Walk-forward, chronological, calendar-aware splits.** No shuffled K-fold on time series. Nested
    walk-forward when hyperparameters are tuned; CPCV when you need a distribution of paths.
 4. **One sealed holdout, opened once.** Everything (model, allocator, overlay, costs) is frozen before
@@ -138,6 +141,12 @@ results most often; treat a violation as a bug to fix before any other work.
   (rationale, source of edge, the disconfirming result) before any test, then run the idea promotion
   gate and frontier allocation in `references/chapters/27_systematic_edge.md`; keep the research log of rejected
   ideas. A strategy is promoted on the full reporting stack and the holdout, never on one number.
+- **Writing for readers who do not have this skill.** Deliverables (audits, protocols, code
+  docstrings) cite the book chapter, the companion-repo notebook path, or the library function with
+  its package name (`ml4t.diagnostic.compute_ic_hac_stats`); never cite `.claude/skills/...` paths,
+  "Recipe 5" or "guardrails item 16", which an outside reader cannot resolve. Apply a stage only if
+  its object exists: no feature screen means no BH-FDR over features, no sweep means no PBO; say
+  which stages were skipped and why.
 - **"Use an LLM / agent for research."** Ground in retrieved, point-in-time filings with citations;
   evaluate retrieval and synthesis separately; typed state, tool contracts, replay, read-only
   boundary; score forecasts with proper scoring rules (`references/chapters/22_rag_financial_research.md`, `references/chapters/23_knowledge_graphs.md`, `references/chapters/24_autonomous_agents.md`).
@@ -151,7 +160,12 @@ list), Ch7 (overlapping 20-day labels, purge/embargo, IC inference), Ch6 (walk-f
 embargo instead of a single split, trial accounting), Ch7 (BH-FDR on the feature screen), Ch9 (HMM regime
 features refit inside folds, filtered not smoothed), Ch12 (GBM tuning and SHAP), Ch16 (backtest protocol,
 DSR/PBO for the model/seed search), Ch17-19 (allocation, costs, overlays), Ch20 (holdout discipline).
-When asked to extend or validate that work, run the audit pattern above first.
+Repository conventions to keep: Sharpe uses `RISK_FREE_RATE = 0.04` (see `reproduction/code/baseline.py`
+and `transaction_costs.py`), turnover is reported as the sum of absolute weight changes over all names
+(two-sided; halve it for one-way), the `random_top10` baseline is numerically the equal-weight universe
+return, and the 2021-2025 window has already been read by several scripts, so a sealed holdout must be
+declared outside it or labelled as exposed. When asked to extend or validate that work, run the audit
+pattern above first.
 
 ## Reference index
 
@@ -205,7 +219,7 @@ Case studies (`references/case_studies/`), each with setup contract, stage table
 - `references/case_studies/us_equities_panel.md` — broad daily US long-short panel; eligibility screens.
 
 Libraries (`references/libraries/`), each with install, API map, data contracts, built-in guardrails, usage patterns and defaults. All six share contracts from `ml4t-specs` (`FeedSpec`, `ArtifactSpec`, Lifecycle V1), a dependency rather than a documented library here:
-- `references/libraries/ml4t_data.md` — 23 providers, canonical UTC Polars OHLCV, point-in-time guardrails, Hive storage, continuous futures.
+- `references/libraries/ml4t_data.md` — 24 advertised providers plus a mock, canonical UTC Polars OHLCV, point-in-time guardrails, Hive storage, continuous futures.
 - `references/libraries/ml4t_engineer.md` — feature registry, alternative bars, labels, train-only scalers, dataset builder.
 - `references/libraries/ml4t_diagnostic.md` — look-ahead audits (`assert_causal`), purged walk-forward and CPCV splitters, IC with HAC, DSR/PBO, drift, tearsheets.
 - `references/libraries/ml4t_models.md` — latent factors, SDF, supervised autoencoder, portfolio learners.
