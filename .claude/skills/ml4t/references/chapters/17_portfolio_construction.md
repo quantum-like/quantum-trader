@@ -183,6 +183,7 @@ HRP's case is N approaching or exceeding T; with 5 selected assets over 252 obse
 - Inference: `annualized_sharpe_se(sharpe, n, periods_per_year=252)` = sqrt((P + SR^2/2)/T); `build_comparison_table(period_results)`. For a gap, Var(S1)+Var(S2)-2Cov(S1,S2) -> paired block bootstrap (resample date blocks, recompute both Sharpes on the same dates).
 - Regime diagnostic: threshold = median trailing 63-day SPY vol over the selection region, frozen, applied to holdout.
 - Sequence: select allocator once on pre-holdout data -> describe holdout -> regime slice -> `PortfolioTearSheet` (SPY benchmark; `.show()` / `.save_html(path)`; `style_diagnostic_figures`) and engine replay (`AllocatorComparisonStrategy`, NEXT_BAR, 10 bp + 5 bp) for the pre-selected allocator only.
+- "Identical inputs and protocol" is the paired reference rule of `chapters/20_strategy_synthesis.md`: the EW / IV / risk-parity baseline runs under exactly the challenger's caps, sizing, rebalance schedule and costs, any tie-break is stated and orthogonal to the signal, and a baseline that cannot run under those caps makes the comparison unpaired.
 
 ### Execution bridge (three rows in 02 and 03) and cost-aware replay (06, 08, 09)
 
@@ -285,7 +286,7 @@ DeePM run order (13). The `deepm` package functions are keyword-only after their
 | Rule | Default |
 |---|---|
 | Which allocator needs what | Max Sharpe / Kelly: mu + Sigma; Min Variance, Risk Parity, HRP: Sigma only; Min CDaR: realized path; EW: nothing (the benchmark) |
-| Go/no-go for a sophisticated allocator | Must beat EW / IV / risk parity on identical inputs and protocol, net of the execution bridge |
+| Go/no-go for a sophisticated allocator | Must beat EW / IV / risk parity on identical inputs and protocol (baseline under the challenger's exact caps, sizing and schedule; tie-break stated and signal-orthogonal; ch20 paired reference rule), net of the execution bridge |
 | Use HRP when | N approaches or exceeds T (sample covariance singular at N > T); with N=5, T=252 its property is not exercised; shrinkage is the alternative when still inverting |
 | Covariance / mu for optimizers | Ledoit-Wolf (`method_cov="ledoit"`); training sample mean (`method_mu="hist"`) |
 | Hurdle rate | Declared per experiment: 0.04 (02, 08), 0 (03), 0.02 (04); set to a cash rate for real reports |

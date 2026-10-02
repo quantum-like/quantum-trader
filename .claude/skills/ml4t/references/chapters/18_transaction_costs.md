@@ -116,6 +116,7 @@ Steps:
 
 - Baseline law: `impact = eta * sigma * sqrt(Q / ADV)` (x 10,000 for bps); sigma = trailing daily volatility (`VOL_WINDOW = 20`), ADV = trailing `ADV_WINDOW = 20` dollar turnover, participation = Q/ADV. Doubling Q raises cost per dollar ~41%; a 100x order pays 10x impact per dollar. Assumes the order is worked over ~a day at constant rate.
 - `ETA_SCENARIO` (stated, not estimated): ETFs 0.10, S&P 500 0.15, NASDAQ-100 0.12, CME futures 0.08, crypto perps 0.30, FX 0.05. Keep `eta_assumption` and `median_daily_sigma` in separate columns; trust orderings more than levels.
+- Reconciling the two coefficient sets: `ETA_SCENARIO` values are per-asset-class base cases for this same law (daily sigma, participation of ADV); the library default `SquareRootImpact(coefficient=0.5)` is the literature central value for the law ("typical range 0.1-1.0", `ml4t/backtest/execution/impact.py`). Neither is measured. Stress rule: every capacity or cost-sweep report carries a stress row at eta >= 0.5 and states net Sharpe at eta = 1.0 at the reference AUM; eta 0.30 is the crypto base case, not a stress (ch21's `IMPACT_COEFFICIENTS = [0.0, 0.1, 0.3, 0.6]` is the sweep shape to copy, extended to 1.0).
 - `add_impact_features(df, entity_col, time_col="timestamp")` adds returns, native ADV and volatility; `keep_top_symbols(df, entity_col)` with `MAX_SYMBOLS = 50`; `SEED = 42`.
 - Kyle-lambda-style slope (Section 3, `estimate_normalized_lambda(symbol, flow) -> dict | None`): signed flow `Q_t = uptick volume - downtick volume` per minute (tick rule); regress `r_t^bps = lambda_part * (1e4 * Q_t / ADV) + eps_t` per symbol with Huber regression; drop the first minute of each session (overnight move is a different quantity); `NQ100_SYMBOLS = 100`, 2021Q4, regular session restored via `regular_session_mask()`, `load_nq_signed_flow_sample() -> (sample, ledger)`. Accept negative R^2 as a property of the robust criterion.
 - Cross-section: regress log10(lambda) on log10(dollar turnover) (power law); exclude negative-lambda symbols and report the count; read the slope with its covariance-based CI. Representative symbol = slope closest to median; scatter clipped at `PLOT_CLIP_QUANTILE = 0.005` for display only.
@@ -126,7 +127,7 @@ Steps:
 
 1. Net alpha per rebalance = `GROSS_ALPHA_BPS (50) - impact(participation)`; participation = AUM x `TURNOVER_PER_REBALANCE (0.30)` / universe total daily dollar volume, spread pro-rata so participation is equal everywhere (formula is inference from the text).
 2. Curve is NaN beyond `MAX_FEASIBLE_PARTICIPATION = 0.20` (model-validity limit, not an execution limit).
-3. Report two numbers: AUM at the participation ceiling, and AUM where impact = gross return (exists only if inside the ceiling). Deployable AUM = the smaller; if the second does not exist, the ceiling is the binding statement.
+3. Report two numbers: AUM at the participation ceiling (`total_addv_usd x MAX_FEASIBLE_PARTICIPATION / TURNOVER_PER_REBALANCE`), and AUM where impact = gross return (`breakeven_participation = (GROSS_ALPHA_BPS / (sigma x eta x 1e4))^2`; exists only if inside the ceiling). Headline capacity = min of the two with the binding constraint named ("impact-bound at eta = x" or "participation-bound at 20% of ADV"); if the second does not exist, the ceiling is the binding statement. Recompute the impact-bound AUM at the stress eta (>= 0.5, and 1.0) beside the base case; the single-order participation ceiling is the model-validity 20% here, or the desk cap (10-25%, cap ladder) when one is declared, whichever is lower.
 4. Run only on markets with dollar volume (crypto, CME with multipliers, S&P 500, NASDAQ-100). State capital, turnover, participation limit and concentration the number rests on.
 
 ### Shape normalization: linear vs square-root vs power-law (nb 03 Section 7; nb 05 Part 6; nb 06)
@@ -307,6 +308,7 @@ Look-ahead
 
 Impact modeling
 - **Treating eta (or library defaults) as measured** — stated coefficients scale every impact and capacity level; keep `eta_assumption` separate from measured sigma; calibrate from TCA when execution data exists; flag defaults as assumptions.
+- **Base case labelled "stress"** — a 0.10 / 0.15 / 0.30 grid spans the per-asset-class base cases, not a stress; the stress row is eta >= 0.5 (library central value) with net Sharpe stated at eta = 1.0, and the capacity headline names whether impact or the participation ceiling binds.
 - **Same-minute flow/return slope read as impact** — news causes both; label it an association; use post-order paths for attribution.
 - **OLS on minute returns** — a few jump minutes set the slope for a quarter; use Huber; accept negative R^2; do not switch to OLS to make R^2 look better.
 - **Log-regression that drops negative slopes** — selecting on the sign of the dependent variable tilts the sample; report the excluded count; a CI containing zero makes the slope meaningless.
@@ -366,11 +368,11 @@ Frequency, cost stack and cost cliff
 | Spread estimator | validate on quotes first; CS for ranking; distrust either level for backtest subtraction unless identity-line R^2 is acceptable; high zero-share = no level |
 | Dominance check | solve the crossover size; below it spread-only may suffice; above it sqrt impact is required |
 | Breakeven hurdle | `alpha_be = annual one-way turnover x round-trip cost / 1e4`; gross alpha must clear it plus borrow (short side); below it, do not trade at that cadence |
-| Impact coefficients (stated) | nb 03: ETFs 0.10, S&P 500 0.15, NASDAQ-100 0.12, CME 0.08, crypto perps 0.30, FX 0.05; nb 01 grid 0.02-0.10; library `SquareRootImpact` 0.5 (typical 0.1-1.0). Same law: pass the chapter eta as `coefficient`, `volatility` = trailing 20-session daily sigma, `adv_factor=1.0` at daily bars, via `Engine(market_impact_model=...)` |
+| Impact coefficients (stated) | nb 03: ETFs 0.10, S&P 500 0.15, NASDAQ-100 0.12, CME 0.08, crypto perps 0.30, FX 0.05; nb 01 grid 0.02-0.10; library `SquareRootImpact` 0.5 (typical 0.1-1.0). Same law: pass the chapter eta as `coefficient`, `volatility` = trailing 20-session daily sigma, `adv_factor=1.0` at daily bars, via `Engine(market_impact_model=...)`. Chapter values are per-asset-class base cases, 0.5 the literature central value; every capacity / cost-sweep report adds a stress row at eta >= 0.5 and states net Sharpe at eta = 1.0 (0.30 is a base case, not a stress) |
 | Library defaults | `LinearImpact(0.1)`; `SquareRootImpact(0.5, 0.02, 1.0)`; `PowerLawImpact(0.1, 0.5, 0.0)`; `VolumeParticipationLimit(0.10, 0.0)`; `AdaptiveParticipationLimit(0.10, 0.5, 0.25, 0.02, 0.02)` |
 | `adv_factor` | bars per session for intraday bars (26 for 15-min), 1 for daily |
 | Capacity defaults | gross alpha 50 bps per rebalance, 30% turnover per rebalance, participation ceiling 20%, model reference participation 1% |
-| Capacity go/no-go | deployable AUM = min(AUM at participation ceiling, AUM where impact = gross alpha); if the latter is outside the ceiling, the ceiling binds |
+| Capacity go/no-go | headline AUM = min(AUM at participation ceiling, AUM where impact = gross alpha) with the binding constraint named; if the latter is outside the ceiling, the ceiling binds; impact-bound AUM recomputed at the stress eta (>= 0.5, and 1.0) beside the base case |
 | Execution grid | 15-minute child orders (26 per US session); finer tracks the profile with more orders, coarser is easier to supervise |
 | Cap ladder | 5% stealth, 10% standard institutional, 25% aggressive (urgent, very liquid) |
 | Sliced-order persistence | carry ~50% of each child's impact into the next reference price unless measured otherwise |

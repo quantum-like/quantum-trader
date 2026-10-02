@@ -21,6 +21,8 @@
 
 Each stage lists: purpose · inputs → outputs · questions it must answer · gate · references.
 
+Apply a stage only if its object exists: no feature screen means no BH-FDR over features; no sweep means no PBO; a single-horizon, single-configuration study has nothing to deflate beyond the trials it actually logged. Say which stages were skipped and why, and report a skipped stage as "not attempted", never as passed.
+
 The book's own coarse label is the "5-Stage ML4T Workflow" (ch27 calls it the alpha-factory blueprint; that chapter's README does not spell the stage names out). The companion repo's library table is the nearest concrete mapping, and the numbered stages below refine it rather than replace it: Data (`ml4t-data`) → Stage 0; Signal (`ml4t-engineer`) → Stages 1–4; Evaluation (`ml4t-diagnostic`) → Stages 4–5 and 11; Models (`ml4t-models`) → Stage 6; Strategy (`ml4t-backtest`) → Stages 7–10; Deployment (`ml4t-live`) → Stages 12–13.
 
 ### Stage 0. Data infrastructure (Ch2–Ch4)
@@ -61,7 +63,7 @@ The book's own coarse label is the "5-Stage ML4T Workflow" (ch27 calls it the al
 ### Stage 5. Evaluation protocol (Ch6 §6.5)
 - Purpose: a leak-free, chronological protocol that separates model selection from final estimation.
 - Inputs → outputs: label horizon, feature lookbacks, available history and the holdout dates in `setup.yaml` → walk-forward folds (expanding or rolling) with label purge = horizon in sessions, feature embargo where training can follow validation, nested walk-forward for tuning, CPCV paths for robustness, sealed holdout window; all as configuration (`WalkForwardConfig`, `evaluation` block of `setup.yaml`).
-- Must answer: Expanding or rolling (expanding if old data is still relevant, rolling if regimes change), and is the rolling window actually full (early folds are clipped to expanding when history is shorter than `train_size`; check each fold's train length)? Is the purge counted in sessions, not calendar days (pass `calendar="NYSE"` to `WalkForwardCV`: the pandas-market-calendars name the splitter resolves, and what the companion `generate_cv_splits` maps `setup.yaml`'s `NYSE` to; `ml4t-backtest`'s calendar helpers take the MIC `"XNYS"` with `"NYSE"` as an alias; a 21-calendar-day purge is about 14 NYSE sessions and leaves 7 sessions of leakage)? If nested tuning gives a different λ* in each outer fold, which value goes forward (none: the hyperparameter is unstable)? Which leakage channels does the splitter cover (only label leakage; standardization, threshold, survivorship and point-in-time leakage are handled in feature, label and universe construction, not by the CV)?
+- Must answer: Expanding or rolling (expanding if old data is still relevant, rolling if regimes change), and is the rolling window actually full (early folds are clipped to expanding when history is shorter than `train_size`; check each fold's train length)? Is the purge counted in sessions, not calendar days (pass `calendar="NYSE"` to `WalkForwardCV`: the pandas-market-calendars name the splitter resolves, and what the companion `generate_cv_splits` maps `setup.yaml`'s `NYSE` to; `ml4t-backtest`'s calendar helpers take the MIC `"XNYS"` with `"NYSE"` as an alias; a 21-calendar-day purge is about 14 NYSE sessions and leaves 7 sessions of leakage)? If nested tuning gives a different λ* in each outer fold, which value goes forward (none: the hyperparameter is unstable)? Which leakage channels does the splitter cover (only label leakage; standardization, threshold, survivorship and point-in-time leakage are handled in feature, label and universe construction, not by the CV)? What AUM is the protocol designed for, and what is the participation ceiling (maximum single-order share of ADV)? The answer fixes the impact charge every later cost sweep must carry (Stage 9) and belongs in the protocol, not in an appendix written after the results.
 - Gate: purge arithmetic verified (`purged_sessions = va[0] - tr[-1] - 1 == h`, computed on the panel's sorted unique-date vector, never on row positions, so every row of a date lands on one side); calendar-aware; holdout dates declared before any model run.
 - References: `chapters/06_strategy_definition.md`, `libraries/ml4t_diagnostic.md`, `guardrails.md`, `decision_rules.md`.
 
@@ -69,6 +71,17 @@ The book's own coarse label is the "5-Stage ML4T Workflow" (ch27 calls it the al
 - Purpose: earn the right to widen the search. A deliberately narrow configuration (narrow in features and model class, using the setup's own score-to-position mapping) is run end to end through the protocol before any feature or family expansion; skipping it spends broad searches on an invalid setup and inflates trial counts.
 - Inputs → outputs: frozen setup + protocol + a minimal feature and label panel → one registered baseline run with three sanity checks: timing (decisions and fills on the right bars, no lookahead), coverage (predictions exist for the intended universe and periods; cf. the prediction-coverage timeline, Figure 6.5), trading intensity (turnover consistent with the cost class and horizon).
 - Must answer: Do fills land one execution delay after the decision snapshot? Does every asset-period the setup declares receive a prediction? Is implied turnover what the label horizon and cost class imply?
+- Rebalance-gap accounting (trading intensity) whenever a fixed h-session hold sits on a decision calendar, e.g. a 21-session hold on month-ends:
+  ```python
+  import numpy as np
+  # sessions: sorted datetime64 array of every exchange session; decisions: sorted decision sessions; h: hold in sessions
+  pos = np.searchsorted(sessions, decisions)
+  gap = np.diff(pos)                                   # sessions between consecutive decisions (NYSE month-ends: 19..23)
+  print(dict(zip(*np.unique(gap, return_counts=True))))
+  print("windows overlapping the next:", int((gap < h).sum()), "by up to", int(max(h - gap.min(), 0)), "sessions")
+  print("idle sessions:", int(np.clip(gap - h, 0, None).sum()), "of", int(pos[-1] - pos[0]))
+  ```
+  Say whether an overlapping window doubles the position or skips the second trade, and count idle sessions as flat; drawdown measured on window endpoints (one return per decision) is a lower bound on the drawdown of the implementable daily path.
 - Gate: all three checks pass; only then widen features or model class. A failed check is a setup or pipeline bug, not a modeling result.
 - References: `chapters/06_strategy_definition.md` (Recipe 6), `companion_repo.md`.
 

@@ -55,6 +55,8 @@ Write every row down before touching a library; publish it with the result.
 | Benchmark | Same simulator? | 60/40 SPY/AGG or matched buy-and-hold through the same engine, dates, fees, slippage, capital fraction, warmup |
 | Plumbing | Does a no-information signal earn nothing through the same path? | Seeded random predictions through the identical engine, costs and sizing: PASS iff `\|Sharpe\| < 1.5`, negative after costs at intraday cadence (pattern under Code patterns) |
 
+One baseline, not two: the expectation of a random equal-weight top-k portfolio drawn from the universe is the equal-weight universe return (each name enters with probability k/N at weight 1/k), so a random-top-k plumbing baseline (`run_plumbing_test`, `top_k=20`) and an EW-universe benchmark are the same number in expectation. Use one, say which, and read a long-only random book's Sharpe against the EW-universe Sharpe rather than zero; a random long-short book is the one that should sit near zero before costs.
+
 ### First-principles simulator and the ETF baseline (`16_strategy_simulation/01_backtest_first_principles`, §16.2/16.4)
 
 1. Constants: `START_DATE="2010-01-01"`, `END_DATE="2024-01-01"`, `LOOKBACK_PERIOD=126`, `TOP_N=3`, `REGIME_THRESHOLD=0.005` (10Y-2Y spread; just above zero so a flat curve is risk-off), `INITIAL_CASH=100_000.0`, `FEES=0.0005` (5 bps per dollar traded, standing in for commission plus about half the bid-ask on a liquid US ETF), `DEFENSIVE_MIX={"AGG":0.60,"TLT":0.40}`, `BENCHMARK_MIX={"SPY":0.60,"AGG":0.40}`, `MAX_SLOPE_AGE_DAYS=4`. Universe (from NB10): `["SPY","QQQ","IWM","EFA","EEM","AGG","TLT","GLD","VNQ","DBC"]`.
@@ -206,6 +208,18 @@ Settings: `N_SIMULATIONS=5000` (sign draws), `CLASS_PERIODS=252`, `CLASS_CANDIDA
 4. Waterfall from starting capital (not first close): gross-to-net gap in dollars = fees paid + the return those fees would have earned (path effect); assert nothing unaccounted.
 5. `plot_cost_sensitivity` (`ml4t.diagnostic.visualization.backtest.cost_attribution`) deducts a uniform daily drag from gross returns: same shape, different zero crossing; use for report bundles, not for quoting a break-even.
 
+### Break-even cost: one definition (NB09, NB14; ch20 and `decision_rules.md` point here)
+
+The chapter and the companion repo use three estimators; a report must say which one it quotes.
+
+| Estimator | Where | What crosses what |
+|---|---|---|
+| Fixed-path rate | NB09: `reference_gross_pnl / one_way_reference_notional` | per-leg cost at which the fixed trade path earns zero gross-minus-cost P&L; NaN if gross <= 0 |
+| Growth-rate crossing | NB14 sweep: interpolate the simulated growth-rate (CAGR) curve between the last positive and first non-positive fee | per-leg bps at which net CAGR crosses the benchmark; NB14's benchmark is zero growth (rf = 0 convention), so state the hurdle (rf or the declared baseline) whenever another is used |
+| Sharpe crossing | ch20 NB06 `_breakeven(curve)` | per-leg bps at which the sweep's net Sharpe (rf = 0) crosses zero; censored `(grid[-1], False)` when still positive at the ceiling |
+
+Reporting rules: (1) report both the CAGR-vs-benchmark crossing and the net-Sharpe-zero crossing, label which one the headline quotes, and never label a "net CAGR = rf" solution as "net Sharpe ~ 0"; (2) state per-leg vs round-trip (the grid is per leg; round-trip = 2x) and whether impact at the reference AUM is inside the sweep or added to the denominator afterwards; (3) the printed sweep must bracket the quoted value with a sign change (`v_lo > 0 >= v_hi`); a crossing above the grid is censored and reported as "> ceiling", never as the ceiling. Cost margin, defined once: `cost_margin_ratio = breakeven_bps / all_in_assumed_bps`, with `all_in_assumed_bps` = per-leg commission + half-spread + impact at the reference AUM (ch18 taxonomy; break-even bounds the whole allowance, so headroom read against commission alone is overstated). The companion repo's `compute_cost_bps(setup)` (`case_studies/utils/strategy_analysis.py`: mean of `setup.yaml` `costs.per_leg_cost_bps_range`, else the fee-schedule average, else a flagged 10 bps fallback; no impact term) is the narrower repository convention behind ch20's resilience bands; name which denominator a ratio used.
+
 ### Cross-framework parity audit (`16_strategy_simulation/15_lean_engine_parity`, `16_case_study_lean_parity`, `17_backtrader_zipline_engine_parity`, `18_vectorbt_engine_parity`, §16.3)
 
 - Protocol: model fitting and target construction happen before any engine; each engine in a required pair gets the same content-addressed data and frozen targets (bundle hash covers data, targets, strategy spec, contract/funding inputs); transaction costs and position rules disabled on both sides. Notebooks read the committed `16_strategy_simulation/resources/framework_parity_audit.json`; regenerating needs LEAN, Backtrader, Zipline Reloaded and both VectorBT editions (outside the `ml4t` image).
@@ -310,7 +324,7 @@ Inference and overfitting
 | Pre-registered thresholds | DSR pass >= 0.95; PBO reject >= 0.25; RAS pass iff annualized lower bound > hurdle (0.5 grid; IC hurdle 0.01); delta = 0.05. Set before computing |
 | Sharpe inference sequencing | Before: define target SR, plan power (alpha 0.05, power 0.80), count variants. After: observed SR with PSR/CI; adjust skew/kurtosis; DSR if more than one strategy; compare with canonical MinTRL. A target needing a decade of data is a reason to seek a stronger effect |
 | Overfitting checklist | Count every variant incl. abandoned; measure Sharpe variance across variants; measure selected skew/kurtosis; compute DSR; compute PBO from complementary CSCV (even block count, e.g. 10); compare the three and investigate disagreements; apply thresholds written beforehand |
-| Cost sweep | Grid 0-200 bps per leg; quote break-even from the simulated crossing; carry "annual drag ~ turnover x fee"; read the slope at the baseline fee; headroom vs commission + spread + impact; read with benchmark and regime split before concluding economic value |
+| Cost sweep | Grid 0-200 bps per leg; quote break-even from the simulated crossing; carry "annual drag ~ turnover x fee"; read the slope at the baseline fee; headroom vs commission + spread + impact; read with benchmark and regime split before concluding economic value; break-even and `cost_margin_ratio` as defined under "Break-even cost: one definition" (both crossings reported, per-leg, impact stated, sign change bracketed) |
 | Parity pass | All four criteria (fills to 8/5 decimals incl. commission; identical valuation timestamps; cents on every account and terminal value; negative control detected); timing only for passing pairs |
 
 Numeric defaults by notebook
@@ -406,7 +420,7 @@ net = reference_pnl - slippage_cost - commission
 assert np.isclose(net, final_value - initial_cash)
 break_even = reference_gross_pnl / one_way_reference_notional   # NaN if gross <= 0
 ```
-Random-signal plumbing test (guardrails pre-flight 26(d); the case studies call `case_studies/utils/backtest_runner.run_plumbing_test(case_study, prices, strategy_spec, top_k=20, seed=42)` and score it against `PLUMBING_SHARPE_TOLERANCE = 1.5` (defined in `case_studies/us_firm_characteristics/11_backtest.py`, not in the runner); the library-level form needs no registry)
+Random-signal plumbing test (guardrails pre-flight 26(d); the case studies call `case_studies/utils/backtest_runner.run_plumbing_test(case_study, prices, strategy_spec, top_k=20, seed=42)` and score it against `PLUMBING_SHARPE_TOLERANCE = 1.5` (defined in `case_studies/us_firm_characteristics/11_backtest.py`, not in the runner); the library-level form needs no registry; a long-only random top-k book is the EW-universe benchmark in expectation, so do not add a second EW row beside it)
 ```python
 rng = np.random.default_rng(42)                                                         # SEED = 42
 noise = signals.with_columns(pl.Series("prediction", rng.standard_normal(signals.height)))
@@ -488,7 +502,7 @@ Running: `uv run python 16_strategy_simulation/<notebook>.py`; tests `uv run pyt
 - **Activation frequency / state-transition frequency** — share of symbol-date rows active / share where state differs from the prior row; neither is turnover.
 - **Trailing percentile rule / cross-sectional rule** — hold when a score beats the p-th percentile of its own last L scores / is in the top (100-p)% of symbols quoted that date.
 - **Reference-price P&L** — P&L at the un-slipped execution base price, before slippage and commission.
-- **Break-even cost rate** — gross reference-price P&L / total one-way reference notional.
+- **Break-even cost rate** — gross reference-price P&L / total one-way reference notional (NB09 fixed-path estimator); the sweep estimators (net CAGR vs benchmark, net Sharpe = 0) and `cost_margin_ratio` are defined under "Break-even cost: one definition".
 - **One-way turnover** — traded notional per side, including the entry of an open end-of-sample position.
 - **Gross / net exposure** — sum |positions| / signed sum; equal for long-only.
 - **MAE / MFE** — maximum adverse / favourable excursion of a completed trade.

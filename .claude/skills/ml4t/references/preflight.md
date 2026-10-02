@@ -10,9 +10,9 @@ Extracted from the ML4T guardrail catalog so it can be loaded on its own. Answer
 5. Are bar-open stamps advanced to bar close before any as-of join, and are timestamp units identical on both sides of every join? (ch02, ch03, cs_crypto)
 
 **Point-in-time**
-6. Are fundamentals, macro, filings, COT and 13F keyed on availability (announcement, acceptance, release, `available_from`) with vintages where revisions exist, never on period end or report date? (ch01, ch02, ch04, ch22, ch23, lib_data)
+6. Are fundamentals, macro, filings, COT and 13F keyed on availability (announcement, acceptance, release, `available_from`) with vintages where revisions exist, never on period end or report date, including daily-frequency series that are released in weekly batches (EIA spot prices, fixings, surveys): stamp each observation by its release date, not its observation date? (ch01, ch02, ch04, ch22, ch23, lib_data)
 7. Is the universe point-in-time (eligibility from trailing data, effective the following period) and is residual list survivorship declared rather than claimed away? (ch08, ch14, cs_etfs, cs_usequities)
-8. Are entities keyed on permanent identifiers (CIK, CUSIP, `sec_id`, LEI), not tickers or free-text names? (ch04, ch22, ch23, cs_sp500eo)
+8. Are entities keyed on permanent identifiers (CIK, CUSIP, `sec_id`, LEI), not tickers or free-text names, with one row per issuer: dual share classes (GOOG/GOOGL, BRK.A/BRK.B) collapse to one issuer before ranking and sizing, otherwise a top-k portfolio double-weights one company and an alias table indexes one filing twice? (ch04, ch22, ch23, cs_sp500eo)
 
 **Labels**
 9. Is the label anchored where the fill happens (next open / next-bar VWAP), not at the same close that generated the signal? (ch07, ch16, ch19, ch26, cs_nasdaq)
@@ -26,8 +26,8 @@ Extracted from the ML4T guardrail catalog so it can be loaded on its own. Answer
 15. Are text and news signals lagged to the next session after acceptance/publication, deduplicated, and scored by a checkpoint whose training cutoff precedes the evaluation window? (ch10, ch13, ch22)
 
 **Splits and protocol**
-16. Does every split purge `label_horizon` sessions counted on the market calendar (not calendar days) and embargo at least the feature lookback wherever training can follow test? (ch06, ch11, ch12, lib_diagnostic, cs_etfs)
-17. Are splits made by date rather than row position, and is the holdout boundary set by label END date (`holdout_start − horizon` on each instrument's sessions)? (ch12, ch13, cs_fx, cs_sp500eo, cs_usequities)
+16. Does every split purge `label_horizon` sessions counted on the market calendar (not calendar days), with `va[0] - tr[-1] - 1 == h` as the only boundary rule in pure forward walk-forward (embargo 0); and wherever training can follow a test block (CPCV, k-fold, nested inner folds), is the purge by label-interval overlap in both directions with an embargo of max(feature lookback, maximum label horizon) after the block, or `embargo_pct=0.01` of T when that span is short relative to T, and are variable horizons purged by interval overlap rather than a fixed count? (ch06, ch11, ch12, lib_diagnostic, cs_etfs)
+17. Are splits made by date rather than row position, with `holdout_start`/`holdout_end` snapped to exchange sessions (a holiday as `holdout_start` is a bug), and is every row assigned to development or holdout by its label END (settlement) date, which for a fixed h-session label means decisions at or before `holdout_start − h − 1` sessions and for variable horizons (held to expiry, event resolution) means the settlement date itself; is the holdout scored once, on a date >= the last holdout decision + the horizon cap (+ settlement or dispute allowance), with a pre-declared rule for positions still unresolved on that date (mark at bid and list separately, or exclude)? (ch06, ch12, ch13, cs_fx, cs_sp500eo, cs_usequities, cs_sp500opt)
 18. Were scalers, imputers, encoders, winsor bounds and percentile thresholds fit on training rows per fold only? (ch05, ch07, ch11, ch13, lib_engineer)
 19. Is the holdout sealed: boundaries fixed at the start, opened once for confirmation, with no selection, ensemble rescue, threshold refit or second configuration after seeing it? (ch06, ch14, ch17, ch20, cs_fx, cs_nasdaq)
 
@@ -49,7 +49,7 @@ Extracted from the ML4T guardrail catalog so it can be loaded on its own. Answer
 
 **Portfolio and costs**
 28. Are covariance conditioning, effective positions and solver status validated, and allocators compared against equal weight on common support under a cost sweep? (ch17, cs_sp500eo, cs_usequities)
-29. Are costs in commensurable units, turnover one-way, borrow/financing charged as time-held rates, impact coefficients labelled as assumptions, and the breakeven reported against the assumed cost rather than the top of the grid? (ch18, ch20, cs_etfs)
+29. Are costs in commensurable units, turnover one-way, borrow/financing charged as time-held rates, impact coefficients labelled as assumptions with a stress row at eta >= 0.5, and the breakeven labelled (net-CAGR-vs-benchmark or net-Sharpe-zero crossing; per leg or round trip) and reported as a ratio to the all-in assumed per-leg cost (commission + half-spread + impact at the reference AUM) rather than against the top of the grid? (ch16, ch18, ch20, cs_etfs)
 
 **Risk, live, MLOps**
 30. Risk — (a) are VaR models exception-backtested (Kupiec at the stated level, clustering inspected); (b) are stops evaluated stop-first on the prior bar's water mark with entry-time ATR; (c) are sizing inputs (volatility, conviction) lagged one session; (d) are drift thresholds calibrated on a period with known drift and joined to realised performance? (ch19, ch26, lib_backtest)

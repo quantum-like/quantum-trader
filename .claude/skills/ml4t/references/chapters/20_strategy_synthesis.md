@@ -108,6 +108,8 @@ Six pair types (`benchmark_kind`):
 
 A stage that does not carry the previous stage's configuration yields no pair. CSs pinned at the signal stage (sp500_options, whose allocation and risk stages are declared not applicable) surface zero transition rows. The notes and an NB01 comment label this "rung 2", but `RUNG_PINS["sp500_options"]` selects `universe_filter == "liquid"` (rung 3, the registered strategy) and NB01's holdout query says the same; the "Rung-2" label in that comment is stale, and only the full-universe rung-2 rows survive for the §18.8 cascade comparison.
 
+Paired reference rule (every row above, and any non-ML reference such as the EW universe, a random top-k book or a fixed rule): the reference runs under exactly the strategy's caps, sizing, rebalance schedule, costs and warmup; any tie-break (e.g. `symbol` ascending on an all-equal cross-section, ch16) is stated and orthogonal to the hypothesis's conditioning variables (never a sort on the signal, its inputs or a correlate); if the reference cannot run under those caps (a position cap that only binds for the concentrated book, a short leg the reference cannot hold), the comparison is unpaired, the report says so, and `compute_paired_uncertainty` is not the tool. The same rule is the ch17 "identical inputs and protocol" condition for allocator baselines.
+
 ### Stage attrition funnel — independent (NB01) vs cumulative (NB08)
 
 NB01 counts each gate independently against `bt_df` / `holdout_df`; `stage_attrition.json` keys in NB01's own order (the order is irrelevant for independent counts, but it differs from NB08's):
@@ -199,8 +201,8 @@ NB08 is cumulative, five gates in pipeline order; each gate is applied to the su
 
 1. Read the release configuration's cost sweep (commission + slippage grid, signal and allocation constant) from Ch18 `cost_sensitivity`-stage rows, only where the sweep sits on the carrier's training lineage AND runs the carrier's strategy. The loader prints which check dropped each absent CS.
 2. Net Sharpe at assumed cost: `_sharpe_at(curve, cost_bps)` — linear interpolation on the grid; clamp beyond grid ends (reported by equal bracket); report bracketing points.
-3. Breakeven: `_breakeven(curve)` interpolates between the last positive and first non-positive grid point with `w = v_lo / (v_lo - v_hi)`; still positive at ceiling → `(grid[-1], False)` censored; never positive → `(0.0, True)`.
-4. `cost_margin_bps = breakeven_bps - assumed_cost_bps`; `cost_margin_ratio = breakeven_bps / clip(assumed_cost_bps, lower=1)`.
+3. Breakeven: `_breakeven(curve)` interpolates between the last positive and first non-positive grid point with `w = v_lo / (v_lo - v_hi)`; still positive at ceiling → `(grid[-1], False)` censored; never positive → `(0.0, True)`. This is the net-Sharpe-zero crossing; the single definition lives in ch16 "Break-even cost: one definition" (CAGR-vs-benchmark and Sharpe-zero crossings both reported, per-leg, impact stated, sign change bracketed) and reports here follow it.
+4. `cost_margin_bps = breakeven_bps - assumed_cost_bps`; `cost_margin_ratio = breakeven_bps / clip(assumed_cost_bps, lower=1)`. `assumed_cost_bps` is `compute_cost_bps(setup)` (declared per-leg bps, no impact term): the repository convention, narrower than ch16's all-in denominator (commission + half-spread + impact at the reference AUM); name which one a ratio used.
 5. Resilience by `cost_margin_ratio`:
 
 | Ratio | Label |
@@ -240,6 +242,7 @@ NB08 is cumulative, five gates in pipeline order; each gate is applied to the su
 | else | `other` |
 
 - Reduce each CS to its single highest-Sharpe overlay ROW (not name). Baseline = allocation-stage strategy, signal-stage fallback; record which baseline was used.
+- Deployed overlay = a row of the declared sweep grid, never an off-grid default; print its rank in the sweep (1 = best validation Sharpe) and the population median; if the row sits in the top 5% of the sweep, say so and quote the median as the headline. Freeze date and `precommitted` flag follow the precommitment pattern in `chapters/19_risk_management.md` (`frozen_as_of` in the config; the evaluation window must start after it).
 - Outputs: Sharpe delta vs baseline; mean delta per category; category × CS heatmap of max delta (cells with more configs are higher for that reason alone); drawdown-reduction table; quadrant plot (Sharpe delta, drawdown reduction) with four outcomes: both improve / drawdown falls at Sharpe cost (ordinary insurance) / Sharpe rises at drawdown cost / both worsen; panel (b) overlay benefit vs baseline drawdown depth.
 - Validation-vs-holdout decay (Figure 20.6) read through the three mechanisms: prediction-quality drift (holdout IC falls), portfolio-translation drift (IC holds, Sharpe falls), structural break / regime change.
 
@@ -294,6 +297,8 @@ Next-iteration handles (inside the Ch6 iterative workflow):
 - **Holdout CI spanning zero treated as failure** — the window cannot distinguish the strategy from no edge, which differs from finding it wanting. Print the interval beside the point estimate; classify "Statistically unresolved".
 - **Fallback baseline for overlays** — a delta against a signal-stage fallback is not comparable with one against an allocation baseline. Record which baseline was used.
 - **Max drawdown has no interval** — single realized-path statistic; a few percentage points are indistinguishable. Do not rank overlays on small drawdown differences.
+- **Deployed default outside its own sweep** — a default that is not a grid row was chosen somewhere the sweep cannot see, and a rank-1 default is best-of-sweep by construction. Require membership in the declared grid, print the rank, disclose top-5% rows and quote the median as headline (precommitment pattern, ch19).
+- **Unpaired reference called paired** — an EW or random-top-k reference run without the strategy's caps, sizing or schedule, or with a tie-break that leans on the conditioning variable, measures protocol differences. Apply the paired reference rule (NB01 section); label the comparison unpaired otherwise.
 - **Per-family IC means with unequal sweep counts** — 28 vs 150 configurations give incomparable precision and no interval is attached. Report counts; keep `ic_best` and `ic_mean` on separate axes.
 - **Validation IC is in-sample to the selection process** — configurations were chosen by looking at it. The holdout comparison in NB01 is where that selection is priced.
 - **Pair #3 window mismatch** — validation and holdout windows are disjoint and of different length; `compute_paired_uncertainty` refuses unequal lengths (returns `{}`, no truncation). NB01 routes the pair through `_populate_pair(..., disjoint_windows=True)` → `compute_independent_diff_uncertainty` (each window resampled on its own block length, draws differenced). Its interval covers the difference between the two windows' own Sharpes, not "is this decay noise?"; `val_rank1_self` always carries that caveat. The notes' "truncate to `min(len)`" recipe is a stale NB01 comment, not what the code does.
@@ -308,14 +313,15 @@ Next-iteration handles (inside the Ch6 iterative workflow):
 |---|---|
 | Skill claim over passive baseline | Requires all three: paired-bootstrap CI for `sharpe_diff` excludes zero; `prob_challenger_wins` close to 1; small `p_value`. CI straddling zero → report "within block-bootstrap sampling error", not failure |
 | Paired bootstrap | `n_boot=2000`, `seed=42`; block length from `rebalance_step` (never below label horizon); min series length 6 (monthly), 12 (weekly), 21 (daily or faster) |
+| Paired reference | The non-ML reference (EW universe, random top-k, fixed rule) runs under the strategy's exact caps, sizing, schedule, costs and warmup; tie-break stated and orthogonal to the conditioning variables; cannot run under those caps → unpaired, labelled as such |
 | Cluster reading | Thick top if rank1 − rank10 spread is small relative to fold-SE; stable if folds-positive ≈ n_folds |
 | Feature triage | `FDR_ALPHA = 0.05` (BH); per-CS effect-size floor \|mean IC\| 0.003–0.01 plus fold sign consistency; decisions PROCEED / REVISE / STOP |
-| Cost resilience | `cost_margin_ratio = breakeven / max(assumed, 1)`: < 1 does not survive; ≥ 10 very robust; ≥ 3 robust; ≥ 1.5 marginal; else fragile |
+| Cost resilience | `cost_margin_ratio = breakeven / max(assumed, 1)`: < 1 does not survive; ≥ 10 very robust; ≥ 3 robust; ≥ 1.5 marginal; else fragile (assumed = `compute_cost_bps(setup)`, no impact; breakeven = net-Sharpe-zero crossing; the all-in denominator and the crossing to quote are defined in ch16 "Break-even cost: one definition") |
 | Turnover vs daily | 15min 26x; hourly 6.5x; 8h 3x; weekly 1/5; monthly 1/21 |
 | Cumulative gates (NB08), in order | IC > 0 → validation ML Sharpe > 0 → net Sharpe at actual cost > 0 (or cost n/a) → holdout Sharpe > 0 → managed Sharpe > 0 (or risk n/a) and evidence resolved. Drop only on a genuine negative at an applicable stage |
 | Evidence profile | holdout decay `(val − ho)/val < 0.50` = modest; `\|worst_drawdown_pct\| > 50` = unacceptable; holdout CI spanning zero = statistically unresolved; gates counted as passed/applicable |
 | Allocation uplift breadth | `broad` if > 50% of non-EW allocators beat EW (trustworthy); `moderate` if > 25%; `narrow` if ≤ 25% (possible selection bias); `none` if 0 (NB05 code; notes give a three-level broad / narrow / none scale). Wide best−worst spread → construction is load-bearing and was chosen on validation; tight spread → decide on turnover, capacity, explicability |
-| Overlay deployment | Default none; deploy only from the win-win quadrant (Sharpe up AND drawdown down) confirmed out of sample; judge by the population (median configuration), not best-of-sweep |
+| Overlay deployment | Default none; deploy only from the win-win quadrant (Sharpe up AND drawdown down) confirmed out of sample; judge by the population (median configuration), not best-of-sweep; the deployed configuration is a row of the declared grid with its rank printed, top-5% rows disclosed and the median quoted as headline; `frozen_as_of` precedes the evaluation window (ch19 precommitment pattern) |
 | Cost model choice | Proportional bps sweep where fees scale with notional; executable quote-based backtest where the bid-ask spread dominates (single-name options, intraday equities) |
 | Comparability | IC comparable within a CS row (same label), not across CSs; never put `ic_mean` and `ic_best` on one axis; never put validation max-IC and holdout IC on one axis |
 | Full-mode run checklist | All nine registries readable with backtests (else refuse); triage ledgers present (else stop); spine resolved per CS (null → name and exclude); subset run writes paired metrics only |
@@ -475,8 +481,8 @@ Further reading:
 - **`benchmark_kind`** — label of a pair type (`equal_weight_holdout_side_artifact`, `val_rank1_self`, `signal_leader`, `allocation_leader`, `risk_overlay_leader`).
 - **Stage attrition funnel** — count of CSs passing each pipeline gate; independent (NB01) or cumulative (NB08).
 - **Holdout decay** — (validation Sharpe − holdout Sharpe) / validation Sharpe; modest if < 0.50.
-- **Breakeven cost** — per-leg bps at which the cost-sweep Sharpe crosses zero; censored if still positive at the grid ceiling.
-- **Cost margin ratio** — breakeven / assumed cost (headroom); drives the resilience label.
+- **Breakeven cost** — here, per-leg bps at which the cost-sweep net Sharpe crosses zero (`_breakeven`); censored if still positive at the grid ceiling. Single definition, with the CAGR-vs-benchmark crossing, in ch16 "Break-even cost: one definition".
+- **Cost margin ratio** — breakeven / assumed cost (headroom); drives the resilience label. Repo denominator `compute_cost_bps(setup)` (no impact); the all-in denominator is defined in ch16.
 - **Uplift breadth** — share of non-EW allocators beating equal weight; NB05 labels `broad` (> 0.5) / `moderate` (> 0.25) / `narrow` (≤ 0.25) / `none` (0).
 - **Exclusion taxonomy** — data-assigned failure types in three buckets: signal invalidity, implementation infeasibility, evidence-quality failure.
 - **PROCEED / REVISE / STOP** — triage ledger decisions; PROCEED via `fdr_significant` or `stable_and_above_threshold`.
