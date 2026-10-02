@@ -40,6 +40,34 @@
         "Reports a capacity/AUM estimate derived from the impact model rather than a fixed guess",
         "The __main__ demo runs standalone on synthetic data and prints a summary table of net Sharpe by cost level"
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "I want to research a systematic strategy on Polymarket (binary outcome markets on politics, sports, crypto and macro events; prices are probabilities in [0, 1]; the CLOB has a taker fee and a bid-ask spread; markets resolve at a known time). Before any data is downloaded or any model is fit, write the research plan the way a careful quant would: reproduction/polymarket/SETUP.md containing (a) a pre-registered hypothesis with its economic rationale and the result that would disprove it, (b) a versioned trading setup contract (universe rule, decision schedule, admissible information at decision time, score-to-position mapping, cost class, benchmark), (c) the label definition and how predictions become trades, (d) the point-in-time data pipeline plan (what is stored, with which timestamps, and how resolution information is kept out of features), (e) the evaluation protocol (splits, purge/embargo, holdout rule, trial accounting), and (f) the non-ML baselines the strategy must beat. Keep it concrete: every section should be specific enough that another researcher could implement it without asking you questions.",
+      "expected_output": "A SETUP.md whose sections form a falsifiable, implementable research plan: a hypothesis with a stated disconfirming outcome; a setup contract with all six fields filled with Polymarket-specific choices; labels anchored to decision time with resolution timing respected (no feature can use information after the decision timestamp, resolution/outcome known only at resolution time); a point-in-time storage plan with ingestion/observation timestamps distinct from event timestamps; chronological walk-forward or similar with a purge at least the label horizon, a sealed holdout, and a trial log with a multiple-testing correction; baselines such as the market price itself (calibration / Brier score), a fee-aware do-nothing, and a simple rule; costs expressed as the taker fee plus spread with a breakeven edge.",
+      "files": [],
+      "expectations": [
+        "States a falsifiable hypothesis with an economic or behavioral rationale and names the concrete result that would disprove it",
+        "Trading setup contract specifies all six fields (universe rule, decision schedule, admissible information, score-to-position mapping, cost class, benchmark) with Polymarket-specific content rather than placeholders",
+        "Label is anchored to the decision timestamp and the plan explicitly keeps resolution/outcome information and post-decision price moves out of features (point-in-time with observation timestamps distinct from event timestamps)",
+        "Evaluation protocol is chronological (walk-forward or equivalent) with a purge or embargo of at least the label horizon, a sealed holdout touched once, and a trial log with a multiple-testing correction (BH-FDR, Deflated Sharpe Ratio, or PBO)",
+        "Names non-ML baselines the strategy must beat, including the market price as a forecast (calibration or Brier/log score) and a cost-aware simple rule",
+        "Costs are modeled as taker fee plus spread (and impact or liquidity limits) and the plan states the breakeven edge or minimum mispricing required per trade"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Our monthly-rebalanced Top-10 long-only equity strategy (from the ranking model in reproduction/) has monthly gross returns over 2005-2025 and we want a risk layer before anyone trades it. Write reproduction/code/risk_overlay.py with: (1) a volatility-targeting overlay (target annualized vol, leverage cap) and (2) a drawdown-based kill switch (de-risk at a drawdown threshold, re-enter under a stated rule), both implemented so that every parameter and every scaling decision uses only information available before the period it is applied to; include a self-test under `if __name__ == '__main__':` on synthetic monthly returns that asserts the overlay has no lookahead (e.g. shifting future returns does not change past scalings) and that the kill switch fires and resets as specified. Also write reproduction/RISK.md with the VaR/CVaR measurement plan (method, horizon, confidence level, how it will be backtested), the written kill criteria for live trading, and how the overlay's effect will be reported (with and without overlay, gross and net).",
+      "expected_output": "A runnable risk_overlay.py whose vol-targeting scaler uses trailing (lagged) realized volatility and a leverage cap, whose kill switch de-risks on a trailing drawdown threshold and re-enters under an explicit rule, with a passing self-test that demonstrates no lookahead; a RISK.md that specifies VaR/CVaR (method, horizon, confidence level), an exception-count backtest such as Kupiec, explicit numeric kill criteria for live trading with reset/half-open logic, and a reporting plan that shows performance with and without the overlay, gross and net of costs, so that the overlay is precommitted rather than tuned on the test period.",
+      "files": [],
+      "expectations": [
+        "risk_overlay.py runs without error and its self-test passes (exit code 0)",
+        "Volatility targeting uses only trailing (lagged) realized volatility for each period's scaling and applies a leverage cap; the self-test demonstrates no lookahead (changing future returns leaves earlier scalings unchanged)",
+        "Kill switch de-risks at an explicit drawdown threshold computed from past equity only and re-enters under a stated rule; the self-test shows it firing and resetting",
+        "RISK.md specifies VaR/CVaR method, horizon and confidence level and names an exception-count backtest (Kupiec or equivalent) for validating it",
+        "RISK.md states that the overlay and kill parameters are precommitted or calibrated in-sample only (not tuned on the test/holdout period) and requires reporting with and without the overlay, gross and net of costs",
+        "RISK.md gives explicit numeric kill criteria for live trading (e.g. drawdown, loss-per-day, divergence from backtest) with a reset or half-open recovery rule"
+      ]
     }
   ]
 }
