@@ -134,13 +134,53 @@ When asked to extend or validate that work, run the audit pattern above first.
 
 ## Reference index
 
-- `references/workflow.md` — the end-to-end process, gates, artifacts, run-log discipline.
-- `references/guardrails.md` — pre-flight checklist and the full stage-grouped guardrail catalog.
-- `references/decision_rules.md` — numeric defaults, thresholds and sequencing rules with sources.
+Cross-cutting (open these first for any multi-stage task):
+- `references/workflow.md` — the end-to-end process: 14 stages with purpose, outputs, gate questions and which file to open; run-log discipline; how the nine case studies instantiate it; common failure modes.
+- `references/guardrails.md` — pre-flight checklist and the stage-grouped catalog of every guardrail with detection and prevention.
+- `references/decision_rules.md` — numeric defaults, thresholds and sequencing rules in tables, with sources.
 - `references/evidence.md` — what the nine case studies found; what generalizes and what did not.
 - `references/glossary.md` — vocabulary and abbreviations.
-- `references/chapters/NN_slug.md` — one file per chapter (01 … 27), named after the repo directories.
-- `references/case_studies/<name>.md` — one file per case study: setup contract, stage table, results, how to adapt.
-- `references/libraries/ml4t_<pkg>.md` — API maps for ml4t-data, -engineer, -models, -diagnostic, -backtest, -live.
-- `references/companion_repo.md` — repository layout, utils, research package, registry, configs, scripts, Docker.
+- `references/companion_repo.md` — repo layout, install and run, `utils/` and `case_studies/utils` APIs, registry identity scheme, config layers, data loaders, scripts, Docker; "where to find code for X".
+
+Chapters (`references/chapters/`), each with when-to-use triggers, recipes, guardrails, defaults, APIs, evidence:
+- `01_process_is_edge.md` — the workflow thesis and evidence boundary; GMM regime detection on factor and macro data: cluster selection, naming, validation, perturbation.
+- `02_financial_data_universe.md` — dataset conventions, corporate-action and futures-roll adjustment, session bars, point-in-time joins, data-quality framework, survivorship, provider stitching, storage and engine choice.
+- `03_market_microstructure.md` — feed selection (L1/L2/L3/TAQ), ITCH/DataBento/IEX order-book reconstruction, order-flow features and markouts, Lee–Ready, bar sampling and calibration, jump detection, intraday data-quality invariants.
+- `04_fundamental_alternative_data.md` — point-in-time fundamentals (XBRL as-of, Form 4/13F), entity resolution, macro/COT/on-chain alignment, alt-data four-question evaluation, prediction markets (Kalshi, Polymarket), filing-text extraction.
+- `05_synthetic_data.md` — classical simulators and bootstraps, GAN/diffusion/LLM/DP generators, and the fidelity–utility–privacy validation protocol.
+- `06_strategy_definition.md` — strategy map and source of edge, versioned trading setup, metric roles, walk-forward with purge/embargo, nested CV and CPCV, baseline checkpoint, trial accounting; all nine setup contracts.
+- `07_defining_the_learning_task.md` — split-aware preprocessing, execution-consistent labels (fixed-horizon, percentile, triple-barrier, trend-scanning, MFE/MAE calibration), IC triage with HAC inference, multiple-testing corrections, causal sanity checks.
+- `08_financial_features.md` — feature-spec grammar; price, microstructure, cross-instrument, options, fundamental, macro and calendar recipes; HAC-IC + BH-FDR selection; robustness sweeps; event studies; breadth vs IC.
+- `09_model_based_features.md` — stationarity diagnostics, breaks, fractional differencing, Kalman, spectral, signatures, ARIMA/GARCH/HAR, uncertainty, HMM and Wasserstein regimes, panel features, point-in-time refit rules.
+- `10_text_feature_engineering.md` — TF-IDF, Word2Vec, asset embeddings, FinBERT, NER, and the point-in-time workflow from news and filings to screened factors.
+- `11_ml_pipeline.md` — leakage-safe linear baselines: OLS diagnostics, Ridge/LASSO/Elastic Net, nested CV, logistic calibration, linear SHAP, conformal intervals, IC vs net Sharpe.
+- `12_gradient_boosting.md` — GBM selection and objectives, Optuna walk-forward HPO, TreeSHAP and its limits, conformal intervals, TabPFN/TabM, cross-case GBM evidence.
+- `13_dl_time_series.md` — RNN, N-BEATS, linear vs transformer debate, PatchTST, iTransformer, TCN, TSMixer, Mamba, image CNNs, foundation models, uncertainty calibration, when depth helps.
+- `14_latent_factors.md` — PCA and eigenportfolios, yield-curve factors, IPCA, RP-PCA, conditional and supervised autoencoders, adversarial SDF, the three-stage forecast adapter.
+- `15_causal_estimation.md` — DoWhy backdoor validation, panel-safe DML with block permutation, BSTS event studies, PCMCI/NOTEARS/VAR-LiNGAM discovery, post-double-selection factor zoo.
+- `16_strategy_simulation.md` — backtesting as falsification: protocol spec, vectorized vs event-driven engines and parity, baseline, reporting stack, regime and cost diagnostics, Sharpe inference, DSR/PBO/RAS.
+- `17_portfolio_construction.md` — allocator metrics, baseline allocators, MVO instability and shrinkage, Kelly, HRP, conformal sizing, fair allocator comparison, deep allocators.
+- `18_transaction_costs.md` — cost taxonomy and units, OHLCV spread estimation, square-root impact and capacity, TWAP/VWAP/Almgren–Chriss/RL execution, ml4t cost models, breakeven turnover, cost cliff, TCA.
+- `19_risk_management.md` — VaR/CVaR with Kupiec backtests, drawdowns, exits and sizing, factor and SHAP attribution, stress tests, drift monitoring, deep hedging, `ml4t.backtest.risk` rules and kill switches.
+- `20_strategy_synthesis.md` — selection rule, rank-1 cluster, paired block bootstrap vs equal weight, cumulative gate funnel, exclusion taxonomy, cost breakeven, overlay quadrant, holdout decay.
+- `21_rl_execution_hedging.md` — MDP design, GARCH-calibrated simulators, DQN/PPO/A2C/SAC, paired benchmarking vs TWAP and Almgren–Chriss, market making, deep hedging, IRL, sim-to-real guardrails.
+- `22_rag_financial_research.md` — point-in-time filings ingestion, embeddings, hybrid retrieval and re-ranking, cited generation, four-failure-mode evaluation, security.
+- `23_knowledge_graphs.md` — LLM extraction with identity/schema/provenance contracts, deterministic Graph RAG, graph-derived leakage-safe features, three-timestamp temporal integrity, network portfolios.
+- `24_autonomous_agents.md` — read-only forecasting agents: ReAct, tool contracts, typed state and gates, aggregation, debate, supervisor, proper scoring, security, the research operator.
+- `25_live_trading.md` — unified strategy/engine parity, IB/Alpaca/OKX/QuantConnect integration, order state machine, SafeBroker controls, staged rollout.
+- `26_mlops_governance.md` — drift monitoring (PSI/K-S, ADWIN/DDM), shadow-mode promotion gate, circuit breakers, feature stores, registry as experiment tracker.
+- `27_systematic_edge.md` — process-as-edge thesis, idea promotion gate, frontier allocation, research-log practice.
+
+Case studies (`references/case_studies/`): `etfs.md` (long-only monthly rotation, broadest family comparison), `crypto_perps_funding.md` (8-hour funding clock, availability-clock shift), `nasdaq100_microstructure.md` (intraday cost floor and cost-feasible screens), `sp500_equity_option_analytics.md` (equity ranking on option-surface features), `us_firm_characteristics.md` (monthly characteristics panel, latent factors), `fx_pairs.md` (small dependent cross-section, session calendars), `cme_futures.md` (carry, two price series, scheduled refits), `sp500_options.md` (premium-denominated costs, honest null result), `us_equities_panel.md` (broad daily long-short, eligibility screens).
+
+Libraries (`references/libraries/`): `ml4t_data.md` (23 providers, canonical UTC Polars OHLCV, PIT guardrails, Hive storage, continuous futures), `ml4t_engineer.md` (feature registry, alternative bars, labels, train-only scalers, dataset builder), `ml4t_diagnostic.md` (look-ahead audits, purged CV, IC/HAC, DSR/PBO, drift, tearsheets), `ml4t_models.md` (latent factors, SDF, supervised autoencoder, portfolio learners), `ml4t_backtest.md` (Engine, DataFeed, Strategy, BacktestConfig, execution and cost models, risk rules), `ml4t_live.md` (LiveEngine, SafeBroker, IB/Alpaca adapters, shadow-to-live promotion).
+
 - `evals/evals.json` — test prompts used to validate this skill.
+
+## Provenance and limits
+
+Built on 2026-10-02 from the companion repository at that date (3rd-edition chapter READMEs and
+Jupytext notebooks) and the PyPI releases ml4t-data 0.2.0, ml4t-engineer 0.1.6, ml4t-models 0.1.4,
+ml4t-diagnostic 0.1.8, ml4t-backtest 0.1.12, ml4t-live 0.1.2. The book's prose was not available;
+where a reference says "(inference)" the point was reconstructed from code and notebook text. Numbers
+quoted from notebooks are the repository's current values and can move when notebooks are re-run.
