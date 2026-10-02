@@ -269,24 +269,6 @@ Other defaults by component:
 
 No notebooks for this library were in the digest; the usage patterns above are reconstructed from the README, docstrings and signatures. The library is the implementation substrate for the book's backtest-to-live migration and deployment/production material (3rd edition live-trading and MLOps chapters), and its risk controls (drawdown kill switch, daily loss, position and exposure caps) operationalize the risk-management chapter's concepts (inference; chapter numbers not in this digest). The OKX funding feed pairs naturally with the crypto perpetuals / funding case study (inference).
 
-Related references:
-- `chapters/25_live_trading.md` — the workflow stage this library implements (shadow -> paper -> live, reconciliation, kill switches).
-- `chapters/26_mlops_governance.md` — audit journal, state persistence, drift and operational monitoring context.
-- `chapters/19_risk_management.md` — daily loss, drawdown, exposure caps and kill-switch rationale behind `LiveRiskConfig`.
-- `chapters/16_strategy_simulation.md` — the backtest engine that shares the portable lifecycle V1 `Strategy`.
-- `chapters/18_transaction_costs.md` — execution assumptions that `default_live_execution_policy` makes explicit (opening auction disabled).
-- `chapters/21_rl_execution_hedging.md` — execution logic that would sit behind target intents and child orders.
-- `libraries/ml4t_backtest.md` — `Strategy`, `Order`, `OrderSide`, `OrderStatus`, `OrderType`, `Position`, `BacktestConfig` consumed here.
-- `case_studies/crypto_perps_funding.md` — the stable `OKXFundingFeed` serves funding-rate strategies.
-- `case_studies/cme_futures.md` — DataBento `GLBX.MDP3` / `ES.FUT` live feed example.
-- `workflow.md` — where the live stage sits in the end-to-end process.
-- `guardrails.md` — cross-cutting list; the live-stage guardrails above are the production subset.
-- `glossary.md` — shared vocabulary (lifecycle, intents, kill switch).
-
-Further reading:
-- ml4t-live docs: installation, backtest-to-live, risk, brokers, feeds, cli, api, qualification (https://www.ml4trading.io/docs/live/).
-- `ml4t-specs` for `LifecycleVersion`, `LIFECYCLE_V1`, `LifecyclePhase`, `ExecutionPolicy`, `ExecutionBehavior`, `ExecutionCapability`, `CanonicalTargetIntent`, `CanonicalChildOrderIntent`, `IntentReconciliation`, `PositionRule`, `PositionRuleState`, `ExitReason`, `RoundingPolicy`, `MarketEvent`, `MarketEventKind`, `EventCompletion`, `GapEvidence` (exact module is an inference).
-
 ## Glossary
 
 | Term | Meaning |
@@ -309,3 +291,22 @@ Further reading:
 | Replacement gap | Cancel succeeded but replacement not accepted; tracked in `replacement_gaps()` |
 
 Reader uncertainty retained from the notes: `ContinuityDisposition` members, `FeedQueueSnapshot` fields and `MarketEvent` payload module are not confirmed; the 30 s order timeout appears only in the wrappers docstring; recommended live-stage limit values are inferences, not library defaults.
+
+
+## Related references
+
+- `chapters/25_live_trading.md` — the workflow stage this library implements (shadow -> paper -> live, reconciliation, kill switches).
+- `chapters/26_mlops_governance.md` — audit journal, state persistence, drift and operational monitoring context.
+- `chapters/19_risk_management.md` — daily loss, drawdown, exposure caps and kill-switch rationale behind `LiveRiskConfig`.
+- `chapters/16_strategy_simulation.md` — the backtest engine that shares the portable lifecycle V1 `Strategy`.
+- `chapters/18_transaction_costs.md` — execution assumptions that `default_live_execution_policy` makes explicit (opening auction disabled).
+- `chapters/21_rl_execution_hedging.md` — execution logic that would sit behind target intents and child orders.
+- `libraries/ml4t_backtest.md` — `Strategy`, `Order`, `OrderSide`, `OrderStatus`, `OrderType`, `Position`, `BacktestConfig` consumed here.
+- `case_studies/crypto_perps_funding.md` — the stable `OKXFundingFeed` serves funding-rate strategies.
+- `case_studies/cme_futures.md` — DataBento `GLBX.MDP3` / `ES.FUT` live feed example.
+- `workflow.md` — where the live stage sits in the end-to-end process.
+- `guardrails.md` — cross-cutting list; the live-stage guardrails above are the production subset.
+- `glossary.md` — shared vocabulary (lifecycle, intents, kill switch).
+- Further reading:
+  - ml4t-live docs: installation, backtest-to-live, risk, brokers, feeds, cli, api, qualification (https://www.ml4trading.io/docs/live/).
+  - `ml4t-specs` for `LifecycleVersion`, `LIFECYCLE_V1`, `LifecyclePhase`, `ExecutionPolicy`, `ExecutionBehavior`, `ExecutionCapability`, `CanonicalTargetIntent`, `CanonicalChildOrderIntent`, `IntentReconciliation`, `PositionRule`, `PositionRuleState`, `ExitReason`, `RoundingPolicy`, `MarketEvent`, `MarketEventKind`, `EventCompletion`, `GapEvidence` (exact module is an inference).

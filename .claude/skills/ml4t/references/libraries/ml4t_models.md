@@ -307,24 +307,6 @@ The 3rd-edition chapter mapping for these models was not available in the digest
 
 Case studies that naturally feed these models (inference): `case_studies/us_firm_characteristics.md` and `case_studies/us_equities_panel.md` (characteristic panels -> `CrossSectionBatch` for IPCA/CAE/SDF/SAE); `case_studies/etfs.md`, `case_studies/cme_futures.md`, `case_studies/fx_pairs.md` (fixed universes -> `PersistentPanelBatch` and `PortfolioSequenceBatch`).
 
-Related references:
-- `libraries/ml4t_engineer.md` -- builds the characteristic panels and forward-return labels that become `CrossSectionBatch` / `PortfolioSequenceBatch`.
-- `libraries/ml4t_backtest.md` -- consumes `PredictionsFrame` / `SignalsFrame` / `WeightsFrame` / `ContextFrame` via `backtest_datafeed_inputs` and `DataFeed`.
-- `libraries/ml4t_diagnostic.md` -- the full evaluation of `PredictionsFrame` / `SignalsFrame` ("diagnostic-ready"); `summarize_predictions` and `mean_cross_sectional_spearman` mirror its metrics.
-- `libraries/ml4t_data.md` -- point-in-time data feeding the panels.
-- `chapters/14_latent_factors.md` -- the methods this library implements.
-- `chapters/11_ml_pipeline.md` -- purged/embargoed splits to build before fitting.
-- `chapters/07_defining_the_learning_task.md` -- forward-return alignment for `returns` fields.
-- `chapters/17_portfolio_construction.md`, `chapters/18_transaction_costs.md` -- weight constraints, turnover and `gamma_cost`.
-- `chapters/16_strategy_simulation.md` -- backtest hand-off.
-- `chapters/26_mlops_governance.md` -- `FitRunRecord` provenance and versioned artifacts.
-- `guardrails.md`, `decision_rules.md`, `workflow.md`, `glossary.md` -- cross-cutting rules this library enforces in code.
-- Further reading:
-  - Kelly, Pruitt, Su -- Instrumented principal component analysis (IPCA).
-  - Lettau, Pelger -- Factors that fit the time series and cross-section of stock returns (RP-PCA).
-  - Gu, Kelly, Xiu -- Autoencoder asset pricing models (CAE).
-  - Chen, Pelger, Zhu -- Deep learning in asset pricing (GAN SDF).
-
 ## Glossary
 
 | Term | Meaning |
@@ -345,3 +327,23 @@ Related references:
 | raw vs processed weights | model output before vs after `WeightConstraintPostprocessor` in `PortfolioAllocationPipeline` |
 
 Reader uncertainty retained from the notes: training-loop bodies were not read (optimizer type, exact `_sae_loss` and `robust_sharpe_loss` formulas, SDF GAN alternation); `CrossSectionBatch.factor_returns` has shape `(T, N_slots)` and its role (possibly precomputed managed-portfolio returns for CAE) is unverified; the 3rd-edition chapter mapping is inferred.
+
+
+## Related references
+
+- `libraries/ml4t_engineer.md` -- builds the characteristic panels and forward-return labels that become `CrossSectionBatch` / `PortfolioSequenceBatch`.
+- `libraries/ml4t_backtest.md` -- consumes `PredictionsFrame` / `SignalsFrame` / `WeightsFrame` / `ContextFrame` via `backtest_datafeed_inputs` and `DataFeed`.
+- `libraries/ml4t_diagnostic.md` -- the full evaluation of `PredictionsFrame` / `SignalsFrame` ("diagnostic-ready"); `summarize_predictions` and `mean_cross_sectional_spearman` mirror its metrics.
+- `libraries/ml4t_data.md` -- point-in-time data feeding the panels.
+- `chapters/14_latent_factors.md` -- the methods this library implements.
+- `chapters/11_ml_pipeline.md` -- purged/embargoed splits to build before fitting.
+- `chapters/07_defining_the_learning_task.md` -- forward-return alignment for `returns` fields.
+- `chapters/17_portfolio_construction.md`, `chapters/18_transaction_costs.md` -- weight constraints, turnover and `gamma_cost`.
+- `chapters/16_strategy_simulation.md` -- backtest hand-off.
+- `chapters/26_mlops_governance.md` -- `FitRunRecord` provenance and versioned artifacts.
+- `guardrails.md`, `decision_rules.md`, `workflow.md`, `glossary.md` -- cross-cutting rules this library enforces in code.
+- Further reading:
+  - Kelly, Pruitt, Su -- Instrumented principal component analysis (IPCA).
+  - Lettau, Pelger -- Factors that fit the time series and cross-section of stock returns (RP-PCA).
+  - Gu, Kelly, Xiu -- Autoencoder asset pricing models (CAE).
+  - Chen, Pelger, Zhu -- Deep learning in asset pricing (GAN SDF).

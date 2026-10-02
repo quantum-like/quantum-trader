@@ -1,6 +1,6 @@
-# ml4t-data library (market-data acquisition, 19+ providers)
+# ml4t-data library (market-data acquisition, 24 providers)
 
-> `ml4t-data` (dist `ml4t_data` 0.2.0, import `ml4t.data`) is the **data-acquisition stage** of the ML4T workflow: it pulls market, macro, factor, prediction-market, tick and synthetic data from 23 advertised providers, normalizes every OHLCV response to ONE canonical Polars frame, validates it, and persists it in atomic, versioned Parquet storage with incremental updates. `ml4t-engineer` (features) and `ml4t-backtest` (simulation) consume its stacked frames and `session_date`; `ContractSpec` (multiplier, tick value, settlement) is what backtest P&L needs. Neither downstream package is required. Point-in-time (PIT) correctness is built in where the book warns of leakage: COT release schedules, FRED vintages, lagged roll selection, corporate-action rebasing. Treat it as the place where "garbage in" is stopped before features are built.
+> `ml4t-data` (dist `ml4t_data` 0.2.0, import `ml4t.data`) is the **data-acquisition stage** of the ML4T workflow: it pulls market, macro, factor, prediction-market, tick and synthetic data from 24 advertised providers (`advertised_provider_specs()` in `providers/registry.py`; `mock` is the 25th entry, `advertised=False`), normalizes every OHLCV response to ONE canonical Polars frame, validates it, and persists it in atomic, versioned Parquet storage with incremental updates. `ml4t-engineer` (features) and `ml4t-backtest` (simulation) consume its stacked frames and `session_date`; `ContractSpec` (multiplier, tick value, settlement) is what backtest P&L needs. Neither downstream package is required. Point-in-time (PIT) correctness is built in where the book warns of leakage: COT release schedules, FRED vintages, lagged roll selection, corporate-action rebasing. Treat it as the place where "garbage in" is stopped before features are built.
 
 ## Install and import
 
@@ -40,7 +40,7 @@
 | `ProviderManager` | `(config)`; `get_provider(name, *, required_capability=None)`, `available_providers()`, `is_available(name)`, `register_provider(name, cls)`, `close_all()` | Lazy, cached provider instances | refuses a provider lacking the capability |
 | `ConfigManager` | `(config_path=None, output_format="polars", providers=None, **kw)` | props `default_frequency`, `timezone`; `get_provider_config(name)`, `get_routing_patterns()`, `has_api_key(name)`, `apply_overrides(...)` | |
 
-### Providers (registry `ml4t.data.providers.registry`; 23 advertised + `mock`)
+### Providers (registry `ml4t.data.providers.registry`; 24 advertised + `mock`)
 
 | Name (class) | Capabilities | Credentials / config | Notes |
 |---|---|---|---|
