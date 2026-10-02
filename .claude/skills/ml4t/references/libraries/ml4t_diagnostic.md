@@ -1,0 +1,345 @@
+# ml4t-diagnostic library (feature validation, strategy diagnostics, Deflated Sharpe)
+
+> `ml4t-diagnostic` (v0.1.8, MIT, import root `ml4t.diagnostic`) is the *validation* layer of the ML4T stack: "signal diagnostics, statistical validation, and backtest evaluation." It sits downstream of ml4t-data / ml4t-engineer / ml4t-models / ml4t-backtest and upstream of ml4t-live; artifact contracts come from ml4t-specs. Use it at four workflow stages: (1) **before modelling** — look-ahead audit of feature extractors, stationarity/ACF/distribution/drift checks, data-quality gate; (2) **signal research** — IC with HAC errors, quantile spreads, turnover, triple-barrier hit rates, multi-signal FDR screening, RAS; (3) **model evaluation** — purged/embargoed walk-forward and CPCV splitters, importance/interaction/trade-SHAP diagnostics; (4) **strategy validation** — PSR/DSR/MinTRL/PBO/Reality Check, block-bootstrap CIs, portfolio and factor tear sheets, backtest tearsheets with statistical-validity verdicts. The root docstring calls this a "Four-Tier Validation Framework" (the `evaluation` docstrings say "Three-Tier"; the tiers are not enumerated). Internal engine is Polars; pandas and NumPy inputs are accepted and converted.
+
+## Install and import
+
+```bash
+uv add ml4t-diagnostic                 # core: numpy, pandas, polars, pyarrow, scipy, statsmodels, scikit-learn, arch, pydantic v2, joblib, pandas-market-calendars
+uv add 'ml4t-diagnostic[viz]'          # plotly, kaleido, matplotlib, seaborn, pypdf  (tear sheets, HTML/PDF export)
+uv add 'ml4t-diagnostic[ml]'           # lightgbm, xgboost, shap  (importance, trade-SHAP, domain-classifier drift)
+# other extras: perf (numba), backtest (ml4t-backtest bridge), data/factors (ml4t-data: Fama-French, sessions), dashboard (streamlit+shap), all
+```
+
+- Python `>=3.12,<3.15`. SHAP and Numba are excluded on Intel macOS + Python 3.14; LightGBM needs OpenMP on macOS; Kaleido static export may need local Chrome/Chromium. Core signal analysis needs none of the optional runtimes; Numba falls back to plain NumPy (identity `jit`).
+- Stable surface: `from ml4t.diagnostic.api import ...` (canonical re-exports) or `from ml4t.diagnostic import analyze_signal, ValidatedCrossValidation, FeatureSelector, BarrierAnalysis, audit_lookahead, assert_causal, DiagnosticConfig, ...`. Semantic versioning applies to `__all__`.
+- Dev loop: `uv sync --all-extras --dev`, `ruff check`, `ty check`, `pytest tests/ -q -n auto --timeout 120`.
+- Optional deps: `from ml4t.diagnostic.utils.dependencies import DEPS, check_dependency`; `DEPS.lightgbm.require("trade-SHAP")` raises `ImportError` with the install command.
+
+## API map by task
+
+### Leakage audit and data gates
+
+| Function / class | Signature | Purpose | Notes |
+|---|---|---|---|
+| `audit_lookahead` | `(extract, frame, cutoffs="auto", corruptions=("nan","shuffle","noise"), keys=("symbol","timestamp"), feature_cols=None, *, quantiles=(0.4,0.6,0.8), seed=0, atol=1e-9, noise_multiplier=5.0) -> CausalityReport` | Model-agnostic look-ahead audit of a feature extractor `Callable[[pl.DataFrame], pl.DataFrame]` | Destroys inputs after each cutoff, re-runs, flags features at `t <= cutoff` that changed |
+| `assert_causal` | same args `-> CausalityReport` | CI gate; raises `CausalityError(message, report, context)` on any leak | `report.summary()/to_html()/to_markdown()/to_json()`; `LeakEvent` per (column, cutoff, corruption) |
+| `DataQualityReport.is_acceptable` | `(min_completeness=0.95, max_critical=0, max_errors=5) -> bool` | Gate on ml4t-data quality report before feature engineering | `integration/data_contract.py`; `DataAnomaly`, `Severity`, `AnomalyType` |
+| `validate_dataframe` / `validate_returns` / `validate_timeseries` | `(df, required_columns=None, numeric_columns=None, allow_nulls=True, min_rows=1)`; `(returns, column=None, bounds=None, allow_nulls=False, check_finite=True)`; `(df, index_col="date", require_sorted=True, check_duplicates=True, max_gap_days=None)` | Chainable Polars validators (`DataFrameValidator`, `ReturnsValidator`, `TimeSeriesValidator`) | Raise `ValidationError(message, context)`; README example `validate_returns(bounds=(-0.5, 0.5))` |
+
+### Feature diagnostics (stationarity, distribution, volatility, drift)
+
+| Function / class | Signature | Purpose | Notes |
+|---|---|---|---|
+| `FeatureDiagnostics` | `(config: DiagnosticConfig | None)`; `.run_diagnostics(data, name="feature") -> FeatureDiagnosticsResult`; `.run_batch_diagnostics(df, feature_names=None)` | Orchestrates stationarity, ACF, vol clustering, distribution; health score 0-1, flags, recommendations | `result.stationarity.consensus`; `FeatureDiagnosticsResultSchema.to_engineer_config()` feeds ml4t-engineer `PreprocessingPipeline` |
+| `analyze_stationarity` | `(data, alpha=0.05, include_tests=None -> ["adf","kpss","pp"], **kw) -> StationarityAnalysisResult` | ADF + KPSS + PP consensus | `adf_test(regression="c", autolag="AIC")`, `kpss_test(nlags="auto")`, `pp_test(test_type="tau")` (needs `arch`) |
+| `analyze_autocorrelation` | `(data, max_lags=None, alpha=0.05, acf_method="standard", pacf_method="ywadjusted")` | ACF/PACF, `suggested_arima_order -> (p,d,q)`, `is_white_noise` | `compute_acf(..., missing="none")`, `compute_pacf`; `significant_lags` = CI excludes 0 |
+| `analyze_distribution` | `(data, alpha=0.05, compute_tails=True) -> DistributionAnalysisResult` | Moments (D'Agostino-Pearson SEs), Jarque-Bera, Shapiro-Wilk, Hill tail index | Shapiro-Wilk for n < 2000; Hill alpha <= 2 heavy, 2-4 medium, > 4 thin |
+| `analyze_volatility` | `(returns, arch_lags=12, fit_garch_model=True, garch_p=1, garch_q=1, alpha=0.05)` | ARCH-LM (`arch_lm_test`) + `fit_garch(p=1,q=1, mean_model="Zero", dist="normal")` | `GARCHResult.persistence = alpha+beta` (inference) should be < 1; `.converged` |
+| `analyze_drift` | `(reference, test, features=None, *, methods=None, consensus_threshold=0.5, psi_config=None, wasserstein_config=None, domain_classifier_config=None) -> DriftSummaryResult` | Multi-method drift consensus; `.drifted_features`, `.to_dataframe()` | `compute_psi(n_bins=10, psi_threshold_yellow=0.1, psi_threshold_red=0.2)`, `compute_wasserstein_distance(p=1, n_permutations=1000)`, `compute_domain_classifier_drift(model_type="lightgbm", threshold=0.6, cv_folds=5)` |
+
+### Signal / IC evaluation and selection
+
+| Function / class | Signature | Purpose | Notes |
+|---|---|---|---|
+| `analyze_signal` | `(factor, prices, *, periods=(1,5,21), quantiles=5, filter_zscore=3.0, quantile_method="quantile", ic_method="spearman", compute_turnover_flag=True, autocorrelation_lags=10, min_assets=10, factor_col="factor", date_col="date", asset_col="asset", price_col="price") -> SignalResult` | Alphalens-style tear sheet: IC, quantile returns, spread, monotonicity, turnover | `result.ic["1D"]`, `.ic_t_stat`, `.spread`; `.summary()`, `.to_json()`, `.to_tear_sheet(name).save_html()` |
+| `cross_sectional_ic_series` | `(predictions, returns, pred_col="prediction", ret_col="forward_return", date_col="date", entity_col=None, method="spearman", min_obs=10)` | Per-date IC frame | `cross_sectional_ic` aggregates; `information_coefficient`, `pooled_ic` |
+| `compute_ic_hac_stats` | `(ic_series, ic_col="ic", maxlags=None, label_horizon=None, kernel="bartlett", use_correction=True, allow_naive_fallback=False) -> ICHACStats` | Newey-West mean-IC inference for overlapping labels | Reports `effective_lags`; pass `label_horizon=h` |
+| `compute_ic_decay` / `compute_ic_by_horizon` | `(predictions, prices, horizons=[1,2,5,10,21], ..., estimate_half_life=True)` | IC term structure, half-life, `optimal_horizon` (max |IC|) | `compute_ic_ir(annualization_factor=sqrt(252), n_bootstrap=10000)` |
+| `compute_conditional_ic` | `(feature_a, feature_b, forward_returns, n_quantiles=5, min_periods=10)` | IC of A within quantiles of B | returns `cannot_compute=True` payload below min |
+| `analyze_feature_outcome` | `(predictions, prices, ..., horizons=None, n_quantiles=5, include_decay=True, include_monotonicity=True, include_hac=True)` | One-call feature-outcome profile ("FR-C1-C4") | `quantile_profile(panel, *, feature, label, n_quantiles=5, by="timestamp", min_per_bucket=20)` |
+| `stationary_bootstrap_ic` / `robust_ic` | `(predictions, returns, n_samples=1000, block_size=None, confidence_level=0.95, seed=0)` | Block-bootstrap IC CI | Block size auto (Politis-Romano) |
+| `compute_ic_uncertainty` / `compute_auc_uncertainty` | `(daily_ic, horizon=1, *, alpha=0.05, n_boot=2000, block_size=None, kernel="bartlett", seed=0)` | Naive vs HAC vs block-bootstrap SEs of daily IC/AUC | `cross_sectional_auc_series(min_obs=10)` |
+| `MultiSignalAnalysis` | `(signals: dict[str, DataFrame], prices, config=None)`; `.compute_summary() -> MultiSignalSummary`; `.correlation_matrix(method="returns"|"ic")`; `.compare(selection="top_n"|"uncorrelated"|"pareto"|"cluster"|"manual", n=10)` | Batch 50-200 signals with BH-FDR and Holm FWER | `summary.get_significant_signals(method="fdr")`, `.filter_signals(min_ic, min_ic_ir, max_turnover, significant_only)` |
+| `SignalSelector` | `.select_top_n(df, n=10, metric="ic_ir", filter_significant=False)`; `.select_uncorrelated(df, corr, n=5, max_correlation=0.7)`; `.select_pareto_frontier(df, x_metric="turnover_mean", y_metric="ic_ir")`; `.select_by_cluster(corr, df, n_clusters=5, linkage_method="ward")` | Pick signals from the summary | |
+| `FeatureSelector` | `(outcome_results, correlation_matrix=None)`; `.filter_by_ic(threshold, min_periods=1)`, `.filter_by_importance(threshold, method="mdi")`, `.filter_by_correlation(threshold, keep_strategy="higher_ic")`, `.filter_by_drift(threshold=0.2, method="psi")`, `.run_pipeline(steps)`, `.get_selection_report()` | Systematic feature screen | Docstring thresholds: ic 0.02, corr 0.8, importance 0.01 |
+| `rademacher_complexity` / `ras_ic_adjustment` / `ras_sharpe_adjustment` | `(X, n_simulations=10000)`; `(observed_ic, complexity, n_samples, delta=0.05, kappa=0.02)` | Rademacher Anti-Serum haircut for number of correlated signals tried | `RASICResult`, `plot_ras_analysis` |
+
+### Labels: triple-barrier, binary signals, thresholds, excursions
+
+| Function / class | Signature | Purpose | Notes |
+|---|---|---|---|
+| `BarrierAnalysis` | `(signal_data: pl.DataFrame, barrier_labels: pl.DataFrame, config: BarrierConfig | None)`; `.compute_hit_rates()`, `.compute_profit_factor()`, `.compute_precision_recall()`, `.compute_time_to_target()`, `.create_tear_sheet(include_time_to_target=True, include_figures=True, theme=None) -> BarrierTearSheet` | Evaluate a signal against triple-barrier labels by signal quantile | Chi-square independence test; `_analyze_monotonicity -> (is_monotonic, direction, strength)` |
+| `binary_classification_report` | `(signals, labels, returns=None, confidence=0.95) -> BinaryClassificationReport` | precision, recall, coverage, lift, F1, specificity, balanced accuracy, Wilson CIs | `.is_significant` (p<0.05 vs base rate), `.is_sparse` (coverage<5%); `format_classification_report` |
+| `evaluate_threshold_sweep` / `find_optimal_threshold` | `(indicator, labels, thresholds, direction="above", returns=None)`; `(results_df, metric="lift", min_coverage=0.01, max_coverage=1.0, require_significant=False, min_signals=1)` | Sweep indicator cutoffs; `check_monotonicity`, `analyze_threshold_sensitivity(stability_threshold=0.2)` | `evaluate_percentile_thresholds`, `find_threshold_for_target_coverage(tolerance=0.05)` |
+| `analyze_excursions` | `(prices, horizons=None, return_type="pct", percentiles=None, high=None, low=None) -> ExcursionAnalysisResult` | MFE/MAE percentiles to choose TP/SL for `triple_barrier_labels` | `.get_percentile(horizon, percentile, side="mfe")`; **forward-looking, never a feature** |
+| `compute_fold_percentiles` | `(predictions, percentiles, fold_col="fold_id", iteration_col="iteration", prediction_col="prediction")` | Leakage-safe per-fold signal thresholds | Never pool OOS predictions for cutoffs |
+
+### Splits (purged / embargoed CV)
+
+| Function / class | Signature | Purpose | Notes |
+|---|---|---|---|
+| `WalkForwardCV` | `(config=None, *, n_splits=5, test_size=None, train_size=None, gap=0, label_horizon=0, embargo_size=None, embargo_pct=None, expanding=True, consecutive=False, calendar=None, align_to_sessions=False, session_col="session_date", timestamp_col=None, isolate_groups=False, test_period=None, test_start=None, test_end=None, fold_direction="forward")` | Walk-forward with purge, embargo, held-out test, backward folds, calendar-first sizing | `split(X, y=None, groups=None)`; post-split `test_indices_`, `fold_summary_` (DataFrame), `fold_summary_to_csv(path)`; `from_config(WalkForwardConfig)` |
+| `CombinatorialCV` | `(config=None, *, n_groups=8, n_test_groups=2, label_horizon=0, embargo_size=None, embargo_pct=None, max_combinations=None, random_state=None, align_to_sessions=False, session_col="session_date", timestamp_col=None, isolate_groups=True)` | CPCV: C(n_groups, n_test_groups) paths with per-asset purging | `get_n_splits()` = number of combinations; reservoir sampling when `max_combinations` set |
+| `apply_purging_and_embargo` | `(train_indices, test_start, test_end, label_horizon=0, embargo_size=None, embargo_pct=None, n_samples=None, timestamps=None, calendar=None) -> ndarray` | Manual purge + embargo + test exclusion for one fold | `calculate_purge_indices`, `calculate_embargo_indices` in `core/purging.py` |
+| `TradingCalendar` | `(config: CalendarConfig | str = "CME_Equity")`; `.get_sessions(ts)`, `.get_sessions_and_mask(ts)`, `.trading_days_between(start, end)`, `.previous_trading_day/next_trading_day(from_date, n=1)` | pandas-market-calendars wrapper; `trading_days_to_timedelta(n, calendar, reference_date, direction="backward")` | ids `"NYSE"`, `"CME_Equity"`, `"LSE"` |
+| `assign_session_dates` | `(df, calendar="CME_Equity", timezone="UTC", session_column="session_date")` | Session column for session-aligned splits | or `ml4t.data.sessions.SessionAssigner.from_exchange("CME").assign_sessions(df)` |
+| `save_folds` / `load_folds` / `verify_folds` | `(folds, X, filepath, *, metadata=None, include_timestamps=True)`; `(filepath) -> (folds, metadata)`; `(folds, n_samples) -> dict` | Cache and audit splits as JSON | `save_config`/`load_config(filepath, config_class)` |
+| `validate_group_isolation` / `isolate_groups_from_train` | `(train_idx, test_idx, groups) -> (bool, set)`; `-> ndarray` | Assert / enforce no asset in both train and test | |
+| `plot_cv_folds` | `(cv, X=None, *, show_test_period=True, show_purge_gaps=True, show_sample_counts=True, ...) -> go.Figure` | Fold timeline incl. purge gaps | |
+| `block_bootstrap`, `stratified_sample_time_series`, `event_based_sample`, `balanced_subsample`, `sample_weights_by_importance` | `core/sampling.py` | Temporal-structure-preserving sampling | `event_based_sample(min_event_spacing=...)` prevents overlapping events |
+
+### Multiple testing and Sharpe inference
+
+| Function / class | Signature | Purpose | Notes |
+|---|---|---|---|
+| `deflated_sharpe_ratio` | `(returns | list[returns], frequency="daily", benchmark_sharpe=0.0, confidence_level=0.95, periods_per_year=None, *, skewness=None, excess_kurtosis=None, autocorrelation=None, effective_trials=None, correlation_method=None, min_k_eff=1.0) -> DSRResult` | DSR for best-of-K; pass ALL trial series as a list | `DSRResult`: `probability`, `is_significant`, `z_score`, `p_value`, `deflated_sharpe`, `expected_max_sharpe`, `n_trials`, `n_trials_raw`, `n_trials_effective`, `variance_trials`, `min_trl`, `min_trl_years`, `has_adequate_sample`; `.interpret()` |
+| `deflated_sharpe_ratio_from_statistics` | `(observed_sharpe, n_samples, n_trials=1, variance_trials=0.0, benchmark_sharpe=0.0, skewness=0.0, excess_kurtosis=0.0, autocorrelation=0.0, ...)` | DSR from summary stats | |
+| `probabilistic_sharpe_ratio` | `(observed_sharpe, benchmark_sharpe=0.0, n_samples=1, skewness=0.0, kurtosis=3.0, return_components=False)` | PSR; **raw** kurtosis (normal = 3.0) | returns 0.5 when degenerate |
+| `compute_min_trl` / `min_trl_fwer` | `(returns=None, observed_sharpe=None, target_sharpe=0.0, confidence_level=0.95, frequency="daily", ...)` | Minimum Track Record Length | |
+| `effective_number_of_trials` | `(returns, method="effective_rank", *, random_state=None) -> EffectiveTrialsResult(k_eff, variance_trials)` | Correlation-aware K_eff (effective rank, Marchenko-Pastur, clustering) | |
+| `compute_pbo` | `(is_performance, oos_performance) -> PBOResult` | Probability of Backtest Overfitting (CSCV) | `.interpret()`; model-selection diagnostic, not inference |
+| `benjamini_hochberg_fdr` / `holm_bonferroni` / `multiple_testing_summary` | `(p_values, alpha=0.05)` | FDR / FWER control | |
+| `whites_reality_check` | `(returns_benchmark, returns_strategies, bootstrap_samples=1000, block_size=None, random_state=None) -> dict` | Best-of-many vs benchmark after data snooping | |
+| `compute_backtest_uncertainty` | `(daily_returns, *, periods_per_year=252, block_length=None, rebalance_step=None, horizon=None, n_boot=2000, seed=0, alpha=0.05) -> BacktestUncertaintyResult` | Block-bootstrap CIs for Sharpe/Sortino/CAGR/MDD/Calmar + `psr_p_value`, `bootstrap_block_length` | `pick_block_length(returns, *, explicit, rebalance_step, horizon)` |
+| `compute_paired_uncertainty` | `(challenger, baseline, *, ...same) -> PairedUncertaintyResult` | Paired bootstrap of Sharpe diff, IR, `probability_challenger_wins`, `p_value` | Same length required; no warm-up stripping |
+| `compute_selection_adjustment` | `(returns_by_variant: dict, *, periods_per_year=252, pbo_returns_by_fold=None) -> SelectionAdjustmentResult` | Cohort DSR: `leader`, `dsr`, `dsr_p_value`, `expected_max_sharpe`, `min_trl_periods`, `pbo`, `pbo_n_combinations` | Pass every variant tried |
+| `compute_reality_check` | `(challengers: dict, benchmark, *, n_bootstrap=2000, block_size=None, seed=0) -> RealityCheckResult` | `p_value`, `test_statistic`, `best_strategy` | |
+| `ValidatedCrossValidation` | `(config: ValidatedCrossValidationConfig | None, statistical_config: StatisticalConfig | None)`; `.fit_evaluate(X, y, model, times=None, returns_fn=None) -> ValidationResult`; `.evaluate_sharpes(list)` | CPCV + DSR in one call | `ValidationResult`: `fold_results`, `n_folds`, `mean_sharpe`, `std_sharpe`, `dsr`, `dsr_zscore`, `expected_max_sharpe`, `is_significant`, `interpretation`; `validated_cross_val_score(model, X, y, times=None, n_groups=10, embargo_pct=0.01)` |
+| `Evaluator` | `(splitter=None, metrics=None, statistical_tests=None, tier=None, confidence_level=0.05, bootstrap_samples=1000, random_state=None, n_jobs=1)`; `.evaluate(x, y, model, strategy_func=None) -> EvaluationResult`; `.batch_evaluate`, `.compare_models(primary_metric="sharpe")` | Tiered evaluation framework (tier 1 CPCV+stats, 2 HAC/significance, 3 fast screening) | `MetricRegistry.default().register(name, func, maximize=True)`; `create_evaluation_dashboard(result, output_file)` |
+
+### Model diagnostics (importance, interactions, trade-SHAP)
+
+| Function / class | Signature | Purpose | Notes |
+|---|---|---|---|
+| `analyze_ml_importance` | `(model, X, y, feature_names=None, methods=None, scoring=None, n_repeats=10, random_state=42)` | Consensus ranking across MDI / PFI / MDA / SHAP with method agreement | `compute_mdi_importance(normalize=True)`, `compute_permutation_importance(n_repeats=10)`, `compute_mda_importance(removal_method="mean")`, `compute_shap_importance(check_additivity=True, explainer_type="auto")` |
+| `analyze_interactions` | `(model, X, y, feature_pairs=None, methods=None, n_quantiles=5, grid_resolution=20, max_samples=200)` | Friedman H-statistic + SHAP interactions | `compute_h_statistic(n_samples=100)`, `compute_shap_interactions(top_k=None)` |
+| `compute_fold_shap` | `(boosters: dict[fold_id, model], predictions_df, features_df, feature_names, *, entity_col="symbol", date_col="timestamp", explainer_type="auto", max_samples_per_fold=None)` | SHAP from the booster that produced each row (no cross-fold explanation) | |
+| `TradeShapAnalyzer` | `(model, features_df, shap_values=None, config: TradeConfig | None, explainer_type="auto", *, background_data=None, performance_warning=True)`; `.explain_worst_trades(worst_trades, n=None) -> TradeShapResult`; `.cluster_patterns`, `.characterize_pattern`, `.generate_hypothesis` | Cluster losing trades' SHAP vectors, characterize (Welch t, Mann-Whitney, BH-FDR), match YAML hypothesis templates, emit actions | `TradeAnalysis.from_config(trades, TradeConfig).analyze(n_worst=10, n_best=10)`; `run_diagnostics_dashboard(result)` (Streamlit) |
+
+### Portfolio, factor, event study, backtest integration
+
+| Function / class | Signature | Purpose | Notes |
+|---|---|---|---|
+| `PortfolioAnalysis` | `(returns, benchmark=None, positions=None, transactions=None, dates=None, risk_free=0.0, periods_per_year=252)`; `.compute_summary_stats()`, `.compute_rolling_metrics(windows=None)`, `.compute_drawdown_analysis(top_n=5, threshold=0.01)`, `.create_tear_sheet(theme=None, cost_info=None)` | pyfolio replacement | Standalone: `calmar_ratio`, `omega_ratio`, `tail_ratio`, `max_drawdown`, `value_at_risk(0.95)`, `conditional_var`, `alpha_beta`, `information_ratio`, `up_down_capture`, `sharpe_ratio(confidence_intervals=False, bootstrap_samples=1000)`, `sortino_ratio`, `maximum_drawdown` |
+| `FactorAnalysis` | `(returns, factor_data: FactorData, periods_per_year=252)`; `.static_model(method="ols", hac=True, max_lags=None)`, `.rolling_model(window=63)`, `.attribution(window=63, lag=1)`, `.risk_attribution(shrinkage="ledoit_wolf")`, `.kalman_model()`, `.factor_timing(window=63)`, `.validate_model(max_acf_lags=10)` | Factor exposure / attribution (Paleologo) | `FactorData.from_dataframe(df, rf_column=None, timestamp_column="timestamp")`, `.from_fama_french(dataset="ff3")`, `.from_aqr(...)`, `load_fama_french_5factor(frequency="daily")` need `[data]` |
+| `EventStudyAnalysis` | `(returns, events, benchmark, config: EventConfig | None)`; `.compute_abnormal_returns()`, `.aggregate() -> EventStudyResult`, `.create_tear_sheet()` | MacKinlay market model, t-test and BMP (1991) test on CAAR | `EventRejectionReason` records excluded events |
+| `analyze_backtest_result` | `(result: BacktestResult, calendar=None, benchmark=None, confidence_intervals=False, quote_coverage_threshold=0.8) -> BacktestProfile` | Lazy analytics: `performance/edge/activity/occupancy/attribution/drawdown/ml`, `availability`, `daily_returns`, `summary()` | needs `[backtest]`; `profile_from_run_artifacts(backtest_dir, predictions_path=None, signals_path=None, ...)` |
+| `generate_tearsheet_from_result` | `(result, template="full", theme="default", title=None, output_path=None, include_statistical=True, calendar=None, benchmark=None, benchmark_name="Benchmark", report_metadata=None) -> str` | HTML backtest tearsheet from a `BacktestResult` | templates `quant_trader | hedge_fund | risk_manager | full`; `generate_tearsheet_from_run_artifacts(backtest_dir, ...)`; `compute_metrics_from_result`, `portfolio_analysis_from_result` |
+| `generate_backtest_tearsheet` | `(profile=None, trades=None, returns=None, equity_curve=None, metrics=None, predictions=None, output_path=None, template="full", theme="default", benchmark_returns=None, n_trials=None, shap_result=None, factor_data=None, interactive=True, include_plotlyjs=True) -> str` | Tearsheet from raw surfaces; builder `BacktestTearsheet(template).add_returns(r).set_n_trials(n).generate(path)` | `_enrich_validation_metrics` computes DSR/MinTRL/CIs when absent; set `n_trials` |
+| `PromotionWorkflow.evaluate_promotion` | `(comparison_result) -> bool`; `ComparisonRequest(strategy_id, backtest_results, live_results, comparison_type="bayesian")` | Rule-based paper-to-live gate | `EvaluationExport.to_json()` for ml4t-backtest storage |
+
+### Reporting, visualization, config, caching
+
+| Function / class | Signature | Purpose | Notes |
+|---|---|---|---|
+| `ReportFactory` | `.render(result: BaseResult, ReportFormat.HTML | JSON | MARKDOWN, **options) -> str`; `.create(fmt).save(content, path)` | Generic renderers for any `BaseResult` | `generate_html_report(result, include_plots=True)`, `generate_markdown_report`, `save_report(content, path, overwrite=False)` for feature diagnostics |
+| Signal plots | `plot_ic_ts(ic_result, period=None, rolling_window=21, significance_level=0.05)`, `plot_ic_histogram`, `plot_ic_qq`, `plot_monthly_ic_heatmap`, `plot_quantile_returns_bar`, `plot_cumulative_returns`, `plot_spread_timeseries`, `plot_top_bottom_turnover`, `plot_autocorrelation`, `plot_caar`, `plot_ic_ridge(summary, max_signals=50)`, `plot_signal_ranking_bar(metric="ic_ir", top_n=20, color_by="fdr_significant")`, `plot_signal_correlation_heatmap(cluster=True)`, `plot_pareto_frontier(x_metric="turnover_mean", y_metric="ic_ir")` | Layer-2 Plotly figures from result objects | `SignalDashboard(theme="light").save(path, tear_sheet, include_events=False)`; `MultiSignalDashboard().save(path, summary, correlation_matrix=None, comparison=None)` |
+| Statistical-validity plots | `plot_dsr_gauge(dsr_probability, observed_sharpe, expected_max_sharpe=None, n_trials=None)`, `plot_pbo_gauge(pbo)`, `plot_minimum_track_record(observed_sharpe, current_periods, sr_benchmark=0.0, confidence=0.95)`, `plot_sharpe_bootstrap(returns, observed_sharpe, n_bootstrap=5000, block_size=21)`, `plot_ras_analysis(..., kappa=0.02)`, `plot_confidence_intervals(metrics)` | `visualization/backtest/statistical_validity.py` | Cost: `plot_cost_waterfall`, `plot_cost_sensitivity(base_costs_bps=10.0, trades_per_year=252, show_breakeven=True)`, `plot_cost_by_asset`; tail: `plot_tail_risk_analysis(confidence_levels=(0.95, 0.99))` |
+| Importance / interaction plots | `plot_importance_bar(results, top_n=20)`, `plot_importance_heatmap`, `plot_importance_summary(top_n=15)`, `plot_interaction_bar`, `plot_interaction_heatmap`, `plot_interaction_network(threshold=None, top_n=None)`; `generate_importance_report(results, *, output_file, export_pdf=False)`, `generate_combined_report`; `combine_figures_to_html(figures, *, title, sections, output_file)`, `export_figures_to_pdf` | Layer 3 reports | `FeatureImportanceDashboard(n_top_features=10)`, `FeatureInteractionDashboard(min_interaction_strength=0.1)` |
+| Portfolio plots | `create_portfolio_dashboard(analysis, theme=None, include_benchmark=True) -> PortfolioTearSheet` (`.save_html(path, include_plotlyjs="cdn")`), `plot_cumulative_returns`, `plot_drawdown_underwater`, `plot_drawdown_periods(top_n=5)`, `plot_rolling_sharpe`, `plot_rolling_beta(window=126)`, `plot_monthly_returns_heatmap` | pyfolio-style | Factor: `plot_factor_betas_bar`, `plot_rolling_betas`, `plot_return_attribution_waterfall`, `plot_residual_diagnostics`, `plot_vif_bar`, `plot_risk_attribution_pie` |
+| Configs | `DiagnosticConfig`, `StatisticalConfig`, `PortfolioConfig`, `TradeConfig`, `SignalConfig`, `EventConfig`, `BarrierConfig`, `ReportConfig`, `RuntimeConfig`, `ValidatedCrossValidationConfig`, `MultiSignalAnalysisConfig`, splitter `WalkForwardConfig` / `CombinatorialConfig` | Pydantic v2 `BaseConfig`: `to_dict/to_json/from_json/to_yaml/from_yaml/from_file`, `validate_fully() -> list[str]`, `diff(other)` | Presets: `DiagnosticConfig.for_quick_analysis/for_research/for_production`; `StatisticalConfig.for_quick_check` (PSR+DSR only) / `for_research` / `for_publication` (very conservative); `TradeConfig.for_quick_diagnostics/for_deep_analysis/for_production`; `ReportConfig.for_quick_report/for_publication/for_programmatic_access` |
+| Caching | `Cache(CacheConfig(enabled=True, ttl_seconds=3600))`; `SmartCache(max_items=100, ttl_seconds=3600).make_key(signal_name, signal_df, config)`, `.get/.set/.invalidate_signal(name)/.hit_rate()`; `@cached(cache=None, config=None, key_func=None)` | Content-hash (sha256; Polars `hash_rows` seed 42) + TTL cache | Stale results impossible on changed data/config |
+| Logging | `get_logger(__name__)`, `configure_logging(level=LogLevel.INFO, output_json=False)`, `logger.info("msg", n_samples=100)`, `with logger.timed("op"):`, `PerformanceTracker`, `ProgressBar(total, width=50)` | Structured JSON logging + timing | |
+| Polars backend | `fast_rolling_correlation(x, y, window)`, `fast_multi_horizon_ic(predictions, returns_matrix, window)`, `fast_quantile_assignment(data, column, n_quantiles, by_group=None)`, `fast_time_aware_split(data, time_column, test_start, test_end, buffer_before=None, buffer_after=None) -> (train, test, buffer)`, streaming variants `chunk_size=50000`, `adaptive_chunk_size(total_samples, target_memory_mb=500)` | Hot-path primitives | `to_polars(data) -> (pl.DataFrame, None)` |
+
+## Data contracts
+
+- **Long-format signal panel** (`analyze_signal`): `factor` frame with `date, asset, factor`; `prices` frame with `date, asset, price`; one row per (date, asset); Polars or pandas (`SignalConfig.return_pandas=False` controls output). Horizons `periods` = tuple of positive ints; results keyed by strings `"1D"`, `"5D"`, `"21D"` (`_normalize_period(int|str)` canonicalizes; accessors accept either). Whether keys are always `"{n}D"` regardless of bar frequency is inferred from the README only.
+- **Column conventions differ by subpackage** (recurring trap): `metrics/` uses `pred_col="prediction"`, `ret_col="forward_return"`, `price_col="close"`, `date_col="date"`, `entity_col=None`, forward returns `fwd_ret_{period}`; `signal/` uses `factor`, `date`, `asset`, `price`, quantile column `"quantile"`; `trade_shap/fold_shap` and `quantile_profile` use `entity_col="symbol"`, `date_col="timestamp"`; `percentiles` uses `fold_id`, `iteration`, `prediction`; `metrics/uncertainty` uses `label`, `auc`, `ic`; causality audit keys `("symbol", "timestamp")`; splitters `session_col="session_date"`.
+- **Triple-barrier label contract** (produced by ml4t-engineer): `label: int` (-1 stop-loss, 0 timeout, 1 take-profit; `BarrierLabel(int, Enum)`), `label_return: float` (return at exit), `label_bars: int` (bars to exit). `BarrierConfig.columns` defaults `signal/date/asset/label/label_return/label_bars`, must be non-empty and unique. **Binary signal contract**: `signals`, `labels` are 0/1 `pl.Series`, optional `returns`.
+- **Causality frame**: long `pl.DataFrame`; last key is the time axis, preceding keys are groups; every non-key column is an input to corrupt; extractor output must carry the keys with unique (symbol, timestamp); feature columns must not overlap keys; `cutoffs="auto"` = 0.4/0.6/0.8 quantiles of the time column.
+- **Timestamps in purging** (`core/purging.py`): with `timestamps`, `test_start`/`test_end` must be tz-aware `pd.Timestamp` (naive -> `ValueError`); everything is normalized to UTC; `test_end` exclusive; nanosecond-integer searches (pandas 3.0 `searchsorted`). `label_horizon` as `pd.Timedelta` is used as-is; as int it counts trading days only when a `TradingCalendar` is passed, else calendar days (with a `UserWarning`). Integer-index mode requires `n_samples`. `calculate_embargo_indices` time mode ignores `calendar` (int embargo is always calendar days there — observed, not confirmed intentional).
+- **Splitter sizes**: `label_horizon` / `embargo_td` accept int (bars, >= 0), timedelta-like, or strings parsed by `pd.Timedelta` (`'5D'`, `'1W'`, `'8h'`); `label_horizon` also accepts `'1M'`/`'P1M'` = `pd.Timedelta(days=30*n)` (30-day approximation; prefer `'30D'`). `test_size`/`train_size`: int = samples (sessions when `align_to_sessions=True`), float in (0,1) = proportion, str = time-based (rejected with session alignment), None = auto / expanding. `test_period` int = trading days (needs `calendar_id`) or str; `test_start`/`test_end` ISO dates. `groups` = per-row asset id. Polars frames need `timestamp_col` for time-based sizes; pandas falls back to the `DatetimeIndex`; timestamps must be sorted ascending (inference; use `TimeSeriesValidator.check_sorted`). Splits yield `(train_idx, test_idx)` positional `NDArray[np.intp]`.
+- **Return series**: `frequency` in `{"daily","weekly","monthly"}` -> `DEFAULT_PERIODS_PER_YEAR = {252, 52, 12}`; annualization = `sqrt(periods_per_year)`. `evaluation/uncertainty._coerce_returns` reduces a `pl.DataFrame` to the first of `daily_return | ret | return | value` (else last column), drops non-finite values, strips leading zeros (warm-up) for single-series helpers only.
+- **Backtest surfaces** (`BacktestProfile`): six Polars surfaces `trades, fills, portfolio_state, equity, predictions?, signals?` plus `BacktestAvailability` (per surface/family/metric `AvailabilityState`); run-artifact dirs hold a spec file plus `equity.parquet`, `portfolio_state.parquet`, `fills.parquet`, a trades frame, optional daily returns and `weights` (weights can synthesize signals/state/fills). All timestamps cast to microsecond precision before joins. Trade-frame columns used by plots: `pnl, pnl_pct, mfe, mae, exit_reason, bars_held, exit_time, symbol, cost, quantity, notional, direction` (tolerant candidate lookups). `TradeRecord` validators: positive duration, PnL consistent with prices/direction, `entry_timestamp <= exit_timestamp`.
+- **Result objects**: Pydantic `BaseResult` (`to_dict`, `to_json_string`, `get_dataframe(name)`, `list_available_dataframes`, `summary()`, `interpret()`); `SignalResult` is a frozen dataclass converting via `to_ic_result()/to_quantile_result()/to_tear_sheet()`; uncertainty results are frozen dataclasses with `to_dict()`. `SignalTearSheet` fields: `ic_analysis` (`SignalICResult`: `ic_mean, ic_std, ic_ir, ic_t_stat, ic_positive`, optional `ras_adjusted_ic`, `ras_significant`), `quantile_analysis` (`spread_mean, spread_t_stat, is_monotonic`), `turnover_analysis` (`mean_turnover, half_life, autocorrelation`), `ir_tc_analysis` (`ir_gross, ir_tc, cost_drag`). `MultiSignalSummary.get_dataframe()` has at least `ic_mean, ic_ir, ic_t_stat, turnover_mean, fdr_significant, fwer_significant`.
+- **Themes / templates**: plot themes `default | dark | print | presentation` (global `set_plot_theme`); dashboards `light | dark`; tearsheet templates `quant_trader | hedge_fund | risk_manager | full`; HTML defaults `html_self_contained=True`, `html_include_plotlyjs="cdn"`, `export_data=False`. Four-layer viz architecture: `compute_*/analyze_*` -> `plot_*` (go.Figure) -> `generate_*_report` (HTML/PDF) -> Streamlit dashboards (lazy).
+- **Integration contracts**: `EngineerConfig.to_dict() -> {feature: {"transform", "params"}}` for ml4t-engineer; `DataQualityReport` from `DataManager.load_with_quality`; `EvaluationExport`, `ComparisonRequest/Result`, `BacktestReportMetadata.resolve_title()/resolve_benchmark_name(fallback="Benchmark")`.
+
+## Built-in guardrails
+
+**Leakage and look-ahead**
+1. **Future-perturbation invariance** (`audit_lookahead`): runs the extractor twice on clean data to get a per-column noise floor, then for each (cutoff, corruption) destroys inputs at `t > cutoff` (`nan`; `shuffle` = non-identity permutation within group via `np.roll`, singleton groups nulled; `noise` = per-group N(mean, std), non-numeric nulled) and flags any feature at `t <= cutoff` with |delta| > `max(noise_floor*5.0, 1e-9)`. Keys are never corrupted; no-op probes are reported; every cutoff needs >= 1 effective probe or it is a coverage gap. Catches smoothed-HMM states, full-sample PCA/autoencoders, full-window GARCH targeting, time-axis z-scores. **Not caught**: same-timestamp label leakage and per-fold train/val seal — use label checks and the splitters.
+2. **Purge** removes training rows in `[test_start - label_horizon, test_start)`; `label_horizon=0` (default) purges nothing — always pass the true horizon (e.g. 20 for 20-day returns). Example: `n=100, test [50,60), h=5 -> [45..49]` purged. CPCV purges around every test group on both sides using merged `TimeWindow`s; with `groups`, per asset.
+3. **Embargo** removes `[test_end, test_end + embargo)`; `embargo_size`/`embargo_td` and `embargo_pct` are mutually exclusive (`ValueError`); neither = no embargo. Only matters when training can follow test chronologically (CPCV, backward folds); no effect for standard forward walk-forward. Example: 100 samples, test [50,60), h=5, embargo 5 -> 85 training rows.
+4. **Group isolation**: `isolate_groups` default False (walk-forward) / True (CPCV); `validate_group_isolation` for assertions.
+5. **Excursions are forward-looking**: "DO NOT use excursion values as ML features" — only to pick TP/SL for `triple_barrier_labels`.
+6. **Leakage-safe thresholds and SHAP**: `compute_fold_percentiles` computes cutoffs per fold from training predictions; `compute_fold_shap` explains each row with its own fold's booster.
+7. **Lagged betas**: `compute_return_attribution(lag=1)` and factor timing (`beta_k[t]` vs `F_k[t+1]`) avoid look-ahead.
+8. **Calendar/session integrity**: int `label_horizon`/`test_period` with timestamps but no calendar warn "interpreting as calendar days"; `align_to_sessions=True` + string sizes raise; `align_to_sessions` + `calendar_id` emits `DeprecationWarning` (calendar-first subsumes it); `filter_non_trading=True` drops non-trading rows; sessions are atomic so a "4-session" fold is 4 sessions regardless of row count (activity bars vary 65K-100K rows/week). Fixed-sample-count CV is wrong for activity-based bars.
+9. **Minimum cross-sections**: IC/AUC series skip dates with `< min_obs=10` entities; `analyze_signal(min_assets=10)`; conditional IC `min_periods=10`; `quantile_profile(min_per_bucket=20)` suppresses its score; `analyze_signal(filter_zscore=3.0)` drops |z| > 3 factor values per date (`None` disables).
+
+**Multiple testing and inference**
+10. **DSR deflates by expected max Sharpe**: threshold = `benchmark_sharpe + sqrt(variance_trials) * [(1-gamma) Phi^-1(1-1/K) + gamma Phi^-1(1-1/(K e))]`, `gamma = 0.5772156649`; K may be replaced by `K_eff` (floored at `min_k_eff`); `effective_trials` and `correlation_method` are mutually exclusive; `correlation_method` needs a 2-D multi-strategy matrix; SR variance rescaled by `get_variance_rescaling_factor(K)^2` when `n_trials > 1`. PSR `variance = 1 - skew*SR + (kurt-1)/4 * SR^2`, `std_sr = sqrt(variance/(n-1))`. `compute_selection_adjustment` feeds ALL variants, so pass every variant tried, not survivors. `DSRSettings.check_n_trials` warns on suspiciously low `n_trials`.
+11. **PBO is kept separate from DSR** (model-selection diagnostic, not inference); CSCV needs >= 2 folds and >= 2 variants, odd fold counts drop the last fold, `C(n, n/2)` combinations.
+12. **PSR for a single strategy, DSR for a selected one**: the dashboard Statistical Validation tab uses PSR because one strategy has no selection to deflate; tearsheets compute undeflated DSR unless you pass `n_trials`.
+13. **HAC lag floor for overlapping labels**: `nw_auto = max(1, floor(4*(T/100)^(2/9)))`; with horizon `lag = max(horizon-1, nw_auto)`, capped at `T//2` (T=100 -> 4, T=252 -> 4, T=500 -> 5). No `maxlags`/`label_horizon` -> warning that bandwidth may be too small; HAC failure raises `RuntimeError` unless `allow_naive_fallback=True`. Date is the unit of observation (never pool asset rows).
+14. **Block bootstrap, never i.i.d.**: `pick_block_length`: explicit > `rebalance_step` > data-driven `_optimal_block_size`, floored at `horizon`; `bootstrap_block_length` echoed in every result. Paired tests reuse one index draw for both series; `p_value` is the centered two-sided bootstrap p-value. Reality Check and IC CIs use stationary bootstrap.
+15. **Minimum-sample refusals**: `< 4` finite returns or `std <= 1e-10` -> `ValueError` / variant dropped; autocorrelation zeroed at `|rho| >= 0.999`; `psr_p_value` NaN on numeric failure. Barrier: `min_observations_per_quantile=30`, `hit_rate_min_observations=20`, `profit_factor_epsilon=1e-10`.
+16. **FDR/FWER on batches**: `MultiSignalAnalysis.compute_summary` applies BH and Holm; `FDRSettings` warns when BH is used with `independent_tests=False` (default) since BH assumes independence/PRDS; trade-SHAP pattern tests use BH at 0.05; `SignalSelector.select_top_n(filter_significant=True)` filters on `fdr_significant`. RAS (`delta=0.05`, `kappa=0.02`) haircuts IC for correlated signals; dashboards show the RAS verdict beside raw IC and gray out non-significant signals.
+17. **Binary-signal significance**: `is_significant` = precision beats base rate at p < 0.05 (one-sided binomial / z-test); `is_sparse` = coverage < 5%; Wilson intervals for small n.
+18. **Stationarity consensus needs opposite nulls**: `strong_stationary` only when ADF/PP reject and KPSS fails to reject; both reject -> `inconclusive`; labels `strong_stationary | likely_stationary (2/3) | inconclusive | likely_nonstationary | strong_nonstationary`.
+19. **Drift consensus**: PSI < 0.1 green, 0.1-0.2 yellow (monitor), >= 0.2 red (investigate); PSI bins are reference quantiles so test outliers cannot redefine bins; Wasserstein threshold via permutation test; domain-classifier AUC ~0.5 none, 0.6 weak, 0.7-0.8 moderate, > 0.9 strong, cross-validated; a feature is flagged only when the fraction of methods agreeing exceeds `consensus_threshold=0.5`.
+20. **Event-study robustness**: BMP (1991) standardized test guards against event-induced variance; events lacking full windows are rejected with an `EventRejectionReason`, not silently dropped.
+
+**Display honesty and config invariants**
+21. **Tearsheet verdicts**: DSR probability > 0.95 green, >= 0.5 yellow, else red (None -> red); track record > 5 y green, >= 2 y yellow; MinTRL `min_trl <= 0` green, else ratio > 1.0 green, > 0.5 yellow. Note: `_mintrl_color` computes `observed_sr / min_trl`, which looks dimensionally inconsistent (inference: intended `current_periods / min_trl`) — verify before relying on it.
+22. **IC band is a CI for the mean**: `plot_ic_ts` draws `±z * ic_std / sqrt(N)`; a daily IC series outside the band is not evidence; rolling mean needs >= `rolling_window // 2` valid points; non-finite metrics render "N/A", never 0. Badges: |IC| > 0.05 Strong, > 0.02 Moderate; IC-IR > 0.5 Good, > 0.2 Moderate; |t| > 2 Significant; turnover > 0.30 High, > 0.15 Moderate.
+23. **Provenance**: tearsheet sections built from reconstructed surfaces carry an HTML warning and methodology notes; `BacktestProfile.availability` downgrades surfaces when quote coverage < 0.8; artifact loading trims pre-activity warm-up rows.
+24. **Config validators**: at least one stationarity test / correlation method / portfolio metric / report format; `ICSettings.check_lag_structure`, `VolatilitySettings.check_window_sizes`, `SignalConfig.validate_quantile_labels_count`, `AnalysisSettings.validate_periods`, `EventConfig` window ordering, `BarrierConfig.validate_column_uniqueness`, `validate_significance_level` (standard alphas only); trade: Ward linkage requires Euclidean, `warn_small_cluster_size`, `warn_low_min_trades`, `AlignmentSettings.warn_large_tolerance`. CPCV: `n_test_groups < n_groups`, `n_groups > 1`; `_validate_no_param_conflicts` refuses config + conflicting kwargs; alias resolution keeps the canonical key (`label_buffer -> label_horizon`, `feature_buffer -> embargo_td`, `val_size -> test_size`, `holdout_start/end -> test_start/end`, `calendar -> calendar_id`). `TradeShapExplainer(tolerance_seconds=0.0, missing_value_strategy="skip")` returns `TradeExplainFailure` rather than approximating; `HierarchicalClusterer(min_trades_for_clustering=10)`.
+25. **Data-quality and promotion gates**: `DataQualityReport.is_acceptable()` must pass before feature engineering; `PromotionWorkflow.evaluate_promotion` makes paper-to-live rule-based.
+
+## Usage patterns
+
+Look-ahead audit as a CI gate, then feature health:
+```python
+import polars as pl
+from ml4t.diagnostic import audit_lookahead, assert_causal, DiagnosticConfig
+from ml4t.diagnostic.evaluation.feature_diagnostics import FeatureDiagnostics
+def extract(df: pl.DataFrame) -> pl.DataFrame:
+    return df.with_columns(pl.col("ret").rolling_mean(20).over("symbol").alias("mom20"))
+print(audit_lookahead(extract, panel).summary()); assert_causal(extract, panel)   # raises CausalityError
+res = FeatureDiagnostics(DiagnosticConfig()).run_diagnostics(panel["mom20"], name="mom20")
+assert res.stationarity.consensus in ("strong_stationary", "likely_stationary")
+```
+
+Signal tear sheet and HAC-adjusted IC for 21-day labels:
+```python
+from ml4t.diagnostic import analyze_signal
+from ml4t.diagnostic.api import cross_sectional_ic_series, compute_ic_hac_stats
+result = analyze_signal(factor_df, prices_df, periods=(1, 5, 21), quantiles=5, filter_zscore=3.0, min_assets=10)
+print(result.ic["21D"], result.ic_t_stat["21D"], f"{result.spread['21D']:.2%}")
+result.to_tear_sheet("mom_12_1").save_html("mom.html")
+ic_ts = cross_sectional_ic_series(preds, rets, pred_col="prediction", ret_col="forward_return", date_col="date")
+stats = compute_ic_hac_stats(ic_ts, ic_col="ic", label_horizon=21)   # effective_lags >= 20
+```
+
+Purged walk-forward and CPCV:
+```python
+from ml4t.diagnostic.splitters import WalkForwardCV, CombinatorialCV, WalkForwardConfig
+cv = WalkForwardCV(n_splits=5, test_period=126, test_size=42, train_size=252, label_horizon=21)
+for tr, te in cv.split(df, groups=df["symbol"]): ...
+cv.fold_summary_.pipe(print); cv.test_indices_                      # held-out test rows
+cpcv = CombinatorialCV(n_groups=8, n_test_groups=2, label_horizon=5, embargo_size=2, max_combinations=20)
+# intraday: label_horizon=pd.Timedelta(minutes=30), embargo_size=pd.Timedelta(minutes=15), align_to_sessions=True
+WalkForwardConfig(n_splits=5, test_size=4, align_to_sessions=True).to_json("cv_config.json")
+```
+
+CPCV + DSR in one call, and cohort selection adjustment:
+```python
+from ml4t.diagnostic.api import validated_cross_val_score
+from ml4t.diagnostic.evaluation.uncertainty import (compute_backtest_uncertainty,
+    compute_paired_uncertainty, compute_selection_adjustment, compute_reality_check)
+vr = validated_cross_val_score(model, X, y, times=timestamps, n_groups=10, embargo_pct=0.01)
+print(vr.mean_sharpe, vr.expected_max_sharpe, vr.dsr, vr.is_significant)
+unc = compute_backtest_uncertainty(daily_returns, rebalance_step=5, horizon=5, n_boot=2000, seed=0)
+pair = compute_paired_uncertainty(challenger, baseline, horizon=5)      # pre-aligned, same length
+sel = compute_selection_adjustment({"v1": r1, "v2": r2, "v3": r3}, pbo_returns_by_fold={"v1": f1, "v2": f2, "v3": f3})
+rc = compute_reality_check({"v1": r1, "v2": r2}, benchmark=bench)
+print(sel.leader, sel.dsr, sel.pbo, rc.p_value, unc.sharpe_ci_lower, unc.bootstrap_block_length)
+```
+
+Multi-signal screen, selection, drift:
+```python
+from ml4t.diagnostic.evaluation.multi_signal import MultiSignalAnalysis
+from ml4t.diagnostic.evaluation.signal_selector import SignalSelector
+from ml4t.diagnostic.evaluation.drift.analysis import analyze_drift
+msa = MultiSignalAnalysis(signals={"mom": f1, "rev": f2, ...}, prices=prices)
+summary = msa.compute_summary(); corr = msa.correlation_matrix(method="ic")
+keep = SignalSelector.select_uncorrelated(summary.get_dataframe(), corr, n=5, metric="ic_ir", max_correlation=0.7)
+drift = analyze_drift(train_df, live_df, methods=["psi", "wasserstein", "domain_classifier"], consensus_threshold=0.5)
+print(drift.drifted_features)
+```
+
+Barrier labels, TP/SL selection, backtest tearsheet:
+```python
+from ml4t.diagnostic import BarrierAnalysis, BarrierConfig
+from ml4t.diagnostic.evaluation.excursion import analyze_excursions
+from ml4t.diagnostic.integration import analyze_backtest_result, generate_tearsheet_from_result
+tp = analyze_excursions(prices, horizons=[30, 60, 120]).get_percentile(horizon=60, percentile=75, side="mfe")
+sheet = BarrierAnalysis(signal_df, labels_df, config=BarrierConfig()).create_tear_sheet(); sheet.save_html("bar.html")
+profile = analyze_backtest_result(bt_result, calendar="NYSE", benchmark=spy, confidence_intervals=True)
+html = generate_tearsheet_from_result(bt_result, template="hedge_fund", theme="dark", output_path="ts.html")
+# raw surfaces: BacktestTearsheet("risk_manager").add_returns(r).set_n_trials(50).generate("r.html")
+```
+
+Trade-SHAP debugging loop:
+```python
+from ml4t.diagnostic.evaluation import TradeShapAnalyzer, TradeAnalysis
+from ml4t.diagnostic.evaluation.trade_shap.fold_shap import compute_fold_shap
+features_df, shap_values = compute_fold_shap(boosters, predictions, features, feature_cols)
+worst = TradeAnalysis(trades).worst_trades(n=20)
+for p in TradeShapAnalyzer(model, features_df, shap_values).explain_worst_trades(worst).error_patterns:
+    print(p.hypothesis, p.actions, p.separation_score)
+```
+
+## Defaults and configuration keys
+
+| Key | Default | Notes |
+|---|---|---|
+| `ValidatedCrossValidationConfig` | `n_groups=10` (ge 2), `n_test_groups=2`, `embargo_pct=0.01` (0..0.2), `label_horizon=0`, `sharpe_star=0.0`, `significance_level=0.95`, `annualization_factor=252.0`, `random_state=None` | `is_significant` from DSR over CPCV folds |
+| `SplitterConfig` | `n_splits=5`, `label_horizon=0`, `embargo_td=None`, `align_to_sessions=False`, `session_col="session_date"`, `timestamp_col=None`, `filter_non_trading=True`, `isolate_groups=False` | JSON/YAML via `BaseConfig` |
+| `WalkForwardConfig` | `test_size=None`, `train_size=None` (expanding), `step_size=None` (= test_size), `test_period=None`, `test_start/test_end=None`, `fold_direction="forward"`, `calendar_id="NYSE"` (None disables) | constructor extras `gap=0, expanding=True, consecutive=False` have no config counterpart (unverified mapping) |
+| `CombinatorialConfig` | `n_groups=8` (typical 8-12), `n_test_groups=2` (typical 2-3), `max_combinations=None`, `contiguous_test_blocks=False`, `embargo_pct=None` (0..1), `isolate_groups=True`, `random_state=None` | C(8,2) = 28 folds |
+| `DSRSettings` / `PSRSettings` / `MinTRLSettings` | `n_trials=100`, `prob_zero_sharpe=0.5`, `variance_inflation=1.0`, `expected_max_sharpe="auto"`; `confidence_level=0.95`, `target_sharpe=0.0` | `FDRSettings(alpha=0.05, method=BENJAMINI_HOCHBERG, independent_tests=False)` |
+| DSR / MinTRL functions | `frequency="daily"`, `benchmark_sharpe=0.0`, `confidence_level=0.95`, `min_k_eff=1.0`, `target_sharpe=0.0`; PSR `kurtosis=3.0` raw | `variance_trials = var(sharpes, ddof=1)` across supplied series |
+| `SignalConfig.analysis` | `quantiles=5` (2..20), `periods=(1,5,10)`, `zero_aware=False`, `ic_method=SPEARMAN`, `ic_by_group=False`, `hac_lags=None`, `cumulative_returns=True`, `compute_turnover=True`, `autocorrelation_lags=5` (1..20), `cost_per_trade=0.001` (0..0.05) | `analyze_signal` function defaults differ: `periods=(1,5,21)`, `autocorrelation_lags=10` |
+| `SignalConfig.ras` / `.multi` | `delta=0.05`, `kappa=0.02`; `fdr_alpha=0.05`, `fwer_alpha=0.05`, `min_ic_threshold=0.0`, `min_observations=100`, `n_jobs=-1`, `backend="loky"`, `cache_max_items=200`, `cache_ttl=3600`, `max_signals_summary=200`, `max_signals_comparison=20`, `max_signals_heatmap=100`, `default_selection_metric="ic_ir"`, `default_correlation_threshold=0.7` | `SignalConfig.visualization`: `width=1000`, `ic_rolling_window=21`, `ic_heatmap_freq="M"` |
+| `BarrierConfig.analysis` | `n_quantiles=10`, `decile_method=QUANTILE`, `min_observations_per_quantile=30`, `filter_zscore=3.0`, `drop_timeout=False`, `significance_level=0.05`, `bootstrap_n_resamples=1000`, `hit_rate_min_observations=20`, `profit_factor_epsilon=1e-10` | confirmed in source |
+| Causality | `cutoffs="auto"` (0.4/0.6/0.8), `corruptions=("nan","shuffle","noise")`, `keys=("symbol","timestamp")`, `seed=0`, `atol=1e-9`, `noise_multiplier=5.0` | |
+| Stationarity / distribution | `alpha=0.05`; ADF `regression="c"`, `autolag="AIC"`; KPSS `nlags="auto"`; PP `test_type="tau"`; ACF `max_lags=40` plots | `arch_lags=12`, GARCH `(1,1)`, `mean_model="Zero"`, `dist="normal"` |
+| Drift | PSI `n_bins=10`, yellow 0.1, red 0.2, `missing_category_handling="separate"`; Wasserstein `p=1`, `n_permutations=1000`; domain classifier `lightgbm`, `n_estimators=100`, `max_depth=5`, `threshold=0.6`, `cv_folds=5`, `random_state=42`; `consensus_threshold=0.5` | `FeatureSelector.filter_by_drift(threshold=0.2, method="psi")` |
+| Bootstraps | `n_boot=2000` (uncertainty, IC/AUC CIs, Reality Check), `n_bootstrap=10000` (`compute_ic_ir`), `bootstrap_samples=1000` (`sharpe_ratio`, `whites_reality_check`), `seed=0`; `plot_sharpe_bootstrap(n_bootstrap=5000, block_size=21)` | Newey-West kernel `"bartlett"` (also `uniform`, `parzen`) |
+| Cross-section minimums | `min_obs=10`, `min_assets=10`, `min_periods=10`, `min_per_bucket=20`, `min_cluster_size=5`, `min_trades_for_clustering=10` | |
+| Importance / interactions | `n_repeats=10`, `random_state=42`, MDI `normalize=True`, MDA `removal_method="mean"`, SHAP `check_additivity=True`, KernelExplainer background `max_samples=100`; H-stat `n_samples=100`, `grid_resolution=20`, `max_samples=200` | |
+| Factor | `window=63`, `lag=1`, `hac=True`, Andrews bandwidth `4*(T/100)^(2/9)`, `shrinkage="ledoit_wolf"`, `max_acf_lags=10`, `qlike_window=21`, regularized `alpha=1.0`, `l1_ratio=0.5`, `n_bootstrap=100` | quality metric: % of factor |t| > 2; Durbin-Watson 2.0 = no autocorrelation |
+| Portfolio | `periods_per_year=252`, `risk_free=0.0`, VaR/CVaR `confidence=0.95`, drawdown `top_n=5`, `threshold=0.01`, omega `threshold=0.0`, rolling beta `window=126` | |
+| Threshold analysis | `metric="lift"`, `min_coverage=0.01`, `max_coverage=1.0`, `min_signals=1`, `tolerance=0.05`, `stability_threshold=0.2`, `direction="above"` | |
+| Trade / trade-SHAP | `n_worst=10`, `n_best=10`, `tolerance_seconds=0.0`, `alignment_mode="entry"`, `missing_value_strategy="skip"`, `top_n=5` features, template library `"comprehensive"`, Welch t + Mann-Whitney, BH `alpha=0.05` | |
+| Tearsheets / plots | `template="full"`, `theme="default"`, `include_statistical=True`, `benchmark_name="Benchmark"`, `include_plotlyjs="cdn"`, PNG `1200x600 @ scale 2.0`; `plot_cost_sensitivity(base_costs_bps=10.0)`, `plot_cost_over_time(rolling_window=63)`, `plot_ic_ridge(max_signals=50)`, `plot_signal_ranking_bar(top_n=20)`, importance `top_n=20` | `Evaluator(confidence_level=0.05, bootstrap_samples=1000, n_jobs=1)` |
+| Data quality / profile | `min_completeness=0.95`, `max_critical=0`, `max_errors=5`; `quote_coverage_threshold=0.8` | |
+| Caching / backend | `Cache(ttl_seconds=3600)`, `SmartCache(max_items=100, ttl_seconds=3600)`, fingerprint seed 42; `to_numpy_batch(batch_size=10000)`, streaming `chunk_size=50000`, `adaptive_chunk_size(target_memory_mb=500, min=10000, max=100000)` | `RuntimeConfig(cache_enabled=True, verbose=False, random_state=None)` |
+| Calendars / sessions | `TradingCalendar("CME_Equity")`, `assign_session_dates(calendar="CME_Equity", timezone="UTC")`, `get_complete_sessions(min_samples=100)`, schedule buffer 1 week, month = 30 days | |
+
+## Where the book uses it
+
+The notes for this unit were extracted from the library digest, not from companion-repo notebooks, so chapter mapping is **(inference)**:
+- `chapters/07_defining_the_learning_task.md` — `BarrierAnalysis`, `analyze_excursions` (TP/SL selection), `binary_classification_report`, threshold sweeps; repo notebooks `07_defining_the_learning_task/03_label_methods` (triple-barrier labels this library evaluates).
+- `chapters/08_financial_features.md` / `chapters/09_model_based_features.md` — `FeatureDiagnostics`, `analyze_stationarity`, `analyze_volatility`, `audit_lookahead` (smoothed-HMM / full-sample PCA / GARCH leaks are exactly the model-based-feature failure modes it names).
+- `chapters/11_ml_pipeline.md` — `WalkForwardCV`, `CombinatorialCV`, purge/embargo, `ValidatedCrossValidation`, `analyze_signal` IC tear sheets, `MultiSignalAnalysis` with FDR, `FeatureSelector`, HAC IC inference.
+- `chapters/12_gradient_boosting.md` — `analyze_ml_importance` (MDI/PFI/MDA/SHAP), `analyze_interactions`, `compute_fold_shap`, `TradeShapAnalyzer`.
+- `chapters/14_latent_factors.md` — `FactorAnalysis`, `FactorData.from_fama_french`, Kalman betas, risk attribution.
+- `chapters/16_strategy_simulation.md` / `chapters/27_systematic_edge.md` — DSR/PSR/MinTRL/PBO/Reality Check, `compute_backtest_uncertainty`, `compute_selection_adjustment`, backtest tearsheets with validity verdicts.
+- `chapters/18_transaction_costs.md` — `IRtcResult` (`cost_per_trade=0.001`), `plot_cost_sensitivity`, Pareto IC-IR vs turnover.
+- `chapters/26_mlops_governance.md` / `chapters/25_live_trading.md` — `analyze_drift` (PSI/Wasserstein/domain classifier), `DataQualityReport`, `PromotionWorkflow`, `ComparisonRequest` (backtest vs live).
+- Event-study (`EventStudyAnalysis`) supports the news/earnings material in `chapters/04_fundamental_alternative_data.md` and `chapters/10_text_feature_engineering.md` (inference).
+- Literature anchors from the code: López de Prado (2018) AFML ch. 3 (barriers), 7 (purged k-fold/embargo), 12 (CPCV), 14 (DSR/PSR/MinTRL/PBO); Bailey & López de Prado (2012, 2014); López de Prado, Lipton & Zoonekynd (2025) "How to Use the Sharpe Ratio" (Eq. 11, Eq. 29); Bailey, Borwein, López de Prado & Zhu (2014) PBO; Paleologo (2024/2025) ch. 4.3, 5, 8.3, 14 (RAS, factor models, maximal attribution).
+
+### Related references
+- `libraries/ml4t_engineer.md` — produces the triple-barrier labels, features and `PreprocessingPipeline` this library audits and feeds via `EngineerConfig`.
+- `libraries/ml4t_backtest.md` — `BacktestResult`, run-artifact directories and `TradeMetrics` consumed by `analyze_backtest_result` and tearsheets.
+- `libraries/ml4t_data.md` — `DataQualityReport`, `SessionAssigner`, Fama-French loaders.
+- `libraries/ml4t_models.md` — models evaluated with `Evaluator`, `ValidatedCrossValidation` and importance diagnostics.
+- `libraries/ml4t_live.md` — drift monitoring and `PromotionWorkflow` hand-off.
+- `chapters/11_ml_pipeline.md`, `chapters/16_strategy_simulation.md`, `chapters/27_systematic_edge.md` — CV design, backtest overfitting, DSR.
+- `guardrails.md` — leakage, multiple testing and lookahead rules this library enforces in code.
+- `decision_rules.md` — thresholds (IC, DSR, PSI) to apply with these APIs.
+- `glossary.md` — IC, DSR, PBO, CPCV, PSI definitions.
+- `companion_repo.md` — notebook paths for chapters 7, 11, 12, 16.
+
+Further reading:
+- López de Prado (2018), *Advances in Financial Machine Learning*, ch. 3, 7, 12, 14.
+- Bailey & López de Prado (2012) "The Sharpe Ratio Efficient Frontier"; (2014) "The Deflated Sharpe Ratio".
+- Bailey, Borwein, López de Prado & Zhu (2014) "The Probability of Backtest Overfitting".
+- López de Prado, Lipton & Zoonekynd (2025) "How to Use the Sharpe Ratio".
+- Paleologo (2024/2025) *Elements of Quantitative Investing*.
+- White (2000) Reality Check; Politis & Romano (1994) stationary bootstrap; Newey & West (1987); Andrews (1991); Benjamini & Hochberg (1995); Holm (1979); MacKinlay (1997); Boehmer, Musumeci & Poulsen (1991); Wilson (1927); Yurdakul (2018) PSI; Lopez-Paz & Oquab (2017) domain classifier; Engle (1982); Bollerslev (1986).
+
+## Glossary
+
+- **IC / IC-IR / IC t-stat**: per-date cross-sectional Spearman (default) correlation of signal vs forward return; IR = mean/std (annualized by sqrt(252)); t-stat on the mean, HAC-corrected with `label_horizon`. **RAS IC**: Rademacher Anti-Serum haircut for correlated signals tried. **IR_tc**: IR after transaction costs; `cost_drag`.
+- **Quantile spread / monotonicity / turnover / half-life**: top-minus-bottom quantile return; returns increasing across quantiles; fraction of names changing quantile per period; lags until rank autocorrelation halves.
+- **Purge / embargo / label horizon / group isolation**: drop training rows overlapping test labels; drop rows after the test block; label look-ahead (bars, trading days with calendar, else calendar days); no asset in both train and test.
+- **CPCV**: Combinatorial Purged CV, C(n_groups, n_test_groups) paths; **CSCV/PBO**: probability the IS-best variant is below OOS median.
+- **PSR / DSR / MinTRL / K_eff**: P(true SR > benchmark) given n, skew, kurtosis; PSR with benchmark raised by expected max of K trials; periods needed for significance; correlation-adjusted number of trials.
+- **Reality Check**: White's bootstrap test of best-of-many vs benchmark. **Stationary bootstrap**: geometric random block lengths preserving dependence.
+- **Future-perturbation invariance / noise floor**: features at t <= T unchanged when inputs after T are destroyed; per-column determinism noise scaled by `noise_multiplier`.
+- **PSI / Wasserstein / domain classifier**: bin-based, optimal-transport and AUC-based drift measures; consensus flags.
+- **Triple-barrier outcomes**: -1 SL, 0 timeout, 1 TP; hit rate, precision/recall/lift, profit factor = sum(TP returns)/|sum(SL returns)|, time-to-target (`label_bars`). **MFE/MAE**: max favorable/adverse excursion (forward-looking).
+- **HAC / Newey-West**: autocorrelation-robust SEs with Bartlett weights; lag floored at `horizon-1`.
+- **Trade-SHAP / error pattern / separation score**: clustered SHAP vectors of losing trades, characterized with BH-FDR tests and matched to hypothesis templates; centroid distance to nearest other cluster.
+- **Session alignment / calendar-first splitting**: trading sessions (`session_date`) or exchange trading days (`calendar_id`) as atomic fold units.
+- **BacktestProfile / availability / provenance**: lazy analytics over six backtest surfaces; per-surface computability flags; native vs reconstructed data warnings.
+- **Tearsheet template / theme**: persona layouts `quant_trader | hedge_fund | risk_manager | full`; `default | dark | print | presentation`.
+- **Health score**: 0-1 aggregate of feature diagnostic outcomes with flags and recommendations.
