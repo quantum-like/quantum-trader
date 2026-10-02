@@ -246,10 +246,10 @@ Position layer (`ml4t.backtest.risk.position`): rule takes `PositionState`, retu
 | `TakeProfit` | `pct=0.10` | Static target |
 | `TimeExit` | `max_bars=20` | Holding cap |
 | `TrailingStop` | `pct=0.05` (3% in chains) | From high-water mark through the prior completed bar; ratchets up only |
-| `TighteningTrailingStop` | schedule of (return reached, trail width) pairs (values not visible) | Trail narrows as profit grows |
+| `TighteningTrailingStop` | `schedule=[(0.0, 0.05), (0.10, 0.03), (0.20, 0.02)]`: (unrealized return reached, trail pct) pairs (library docstring demo; nb10's values not visible) | Highest reached threshold sets the trail from the water mark, below the lowest threshold the loosest entry applies; trail narrows as profit grows |
 | `VolatilityStop` / `VolatilityTrailingStop` | ATR multiples | Current-ATR mode widens with ATR; a live position holds one instance that remembers entry ATR |
 | `SignalExit` | signed signal threshold | Signal below negative threshold exits a long |
-| `ScaledExit` | fraction of remainder per target (values not visible) | Stateful: one instance per position, reset before reuse |
+| `ScaledExit` | `targets=[(0.05, 0.25), (0.10, 0.33), (0.15, 0.50)]`: (return reached, fraction of the CURRENT remaining position) (library docstring demo; nb10's values not visible) | Each threshold fires once as `EXIT_PARTIAL`; stateful: one instance per position or per asset via `set_position_rules(rule, asset=...)`, `reset()` before reuse |
 
 Composition: `RuleChain([...])` first non-HOLD wins in declared order; `AllOf` = AND (e.g. `TakeProfit(pct=0.01)` + `TimeExit(max_bars=5)` = gain >= 1% AND held >= 5 bars); `AnyOf` = OR (alias of `RuleChain`).
 
@@ -267,6 +267,42 @@ Library defaults for a bare constructor (repo-verified in `ml4t/backtest/risk/po
 
 Demo contract (`first_trigger(frame, rule_name, rule)`, SPY 2020, `N_BARS=252`): entry after first close of 2020; entry bar never tested; current-bar OHLC observable to active stops; water marks advance only after a bar completes without an exit. Rules compared on the path: StopLoss 5%, TrailingStop 3%, TakeProfit 15%. Priority grid on constructed states: `RuleChain([StopLoss(0.05), TakeProfit(0.10), TimeExit(20)])`; escalation surface: `MaxDrawdownLimit(20%, warn 15%)` x `DailyLossLimit(2%)`, reporting the more severe action. In production the backtester reconstructs `PortfolioState` from the broker every bar — test the halt-and-resume path. Not a backtest.
 
+**Halt and re-entry in backtests** (guardrails §9 "Adaptive logic and halts"; `RiskManager` verified in `risk/portfolio/manager.py`): keep portfolio limits as governance, never as sweep variants. Once a limit returns `halt` or `liquidate`, `rm.is_halted` stays True and `can_open_position()` False across sessions until `rm.reset_halt()` (which also re-arms the one-shot liquidation), so a run without a reset reports a book that never trades again. Write the re-entry rule before the run and implement it in `on_data`: after `liquidate` equity is frozen, so only a time rule (N sessions) or a lagged market-state rule (the regime label of `06`) can re-enter; after `halt` (positions kept) `rm.current_drawdown < warn_threshold` works. Report halted sessions beside the overlay's Sharpe, count flattened sessions as `(overlay == 0) & (baseline != 0)`, and leave them inside the reported drawdown (equity stays at the halted level; a post-halt tracked index is not money anyone made).
+
+```python
+def on_data(self, timestamp, data, context, broker):
+    self.rm.update(broker.get_account_value(), {a: p.market_value for a, p in broker.get_positions().items()},
+                   timestamp, broker=broker)
+    if self.rm.is_halted:
+        self.halted_sessions += 1                                            # a flattened session in the overlay row
+        if self.halted_sessions < REENTRY_SESSIONS: return                    # re-entry rule fixed before the run (demo: 21 sessions)
+        self.rm.reset_halt(); self.halted_sessions = 0; self.reentries += 1   # log every re-entry
+    ...                                                                       # normal sizing
+```
+
+Kill criteria as rules: one row per rule with layer, measured quantity and window, threshold with its source, action and reset / re-entry. The populated sheet is `decision_rules.md` §14c; its numbers come from four layers this chapter alone does not hold: research no-go thresholds (`us_equities_panel` `kill_conditions`: IC 0.01, edge-to-cost 1.2, micro-cap 0.5, net Sharpe 0.3 after borrow), backtest overlays (`MaxDrawdownLimit` / `DailyLossLimit` above), live `SafeBroker` limits (`libraries/ml4t_live.md`: `max_daily_loss`, `max_drawdown_pct`) and ch26 breakers with half-open recovery (`chapters/26_mlops_governance.md`).
+
+### Vol targeting, exposure caps and turnover tightening (19.7 adaptive controls; `ml4t.backtest` wiring, no dedicated notebook)
+
+No library rule implements vol targeting (`ml4t.backtest.risk` holds position rules and portfolio limits only): it is a weight transform applied before `TargetWeightExecutor`, with every input lagged one session (pre-flight 30(c)). Defaults are conventions, not fitted values: target 10-15% annualized (ch17 `12` uses `VOL_TARGET_ANN=0.15`, `VOL_LOOKBACK=63`), lookback 21 or 63 sessions, leverage cap 1.0 on a cash account and 1.0-1.5 on a margin account (`allow_leverage=True`, else the gatekeeper rejects the levered orders).
+
+```python
+VOL_TARGET_ANN, VOL_LOOKBACK, MAX_LEVERAGE = 0.15, 63, 1.5                   # conventions; state them in the term sheet
+port = (w.shift(1) * r).sum(axis=1)                                           # un-scaled weights w (date x asset) x returns r, ch16 NB06 identity
+realized = port.rolling(VOL_LOOKBACK).std() * np.sqrt(252)
+scale = (VOL_TARGET_ANN / realized).shift(1).clip(0.0, MAX_LEVERAGE)         # shift(1): the scale for t uses returns through t-1
+context_df = pl.DataFrame({"timestamp": scale.index, "vol_scale": scale.values})   # DataFeed(prices_df=..., signals_df=..., context_df=context_df)
+# once, in on_start: self.executor = TargetWeightExecutor(RebalanceConfig(max_gross_leverage=MAX_LEVERAGE, min_weight_change=0.01, min_trade_value=100.0))
+# in on_data at a rebalance timestamp, w_t = the model's un-scaled weights for this timestamp:
+s = context.get("vol_scale"); s = 0.0 if s is None or np.isnan(s) else s     # warmup: no scale, no position
+self.executor.execute({a: s * w_t[a] for a in w_t}, data, broker, timestamp=timestamp)
+```
+
+- Per-asset variant (ch17 `12`): `w_i = VOL_TARGET_ANN / (sqrt(252) * max(vol_{i,t-1}, 1e-4) * N) * signal_i`; the 1/N keeps the book at the target rather than sqrt(N) times it.
+- Exposure caps: `RebalanceConfig(max_gross_leverage=...)` rescales the whole vector when `sum|w|` exceeds it and `max_single_weight` clips one name; `GrossExposureLimit` / `NetExposureLimit` are the governance check on the realized book, not the sizing rule.
+- Turnover tightening: sweep `min_weight_change` (0.005-0.02), `min_trade_value` and the cadence (`RebalanceSchedule.fixed_n_sessions(n)`) on the calibration window only; read turnover from fills and net Sharpe against the ch18 break-even curve.
+- Evaluate each control as an overlay row against its own un-scaled parent through the same engine (flattened sessions `(overlay == 0) & (baseline != 0)`); deploy only from the win-win quadrant (Sharpe up and drawdown down) confirmed out of sample (`chapters/20_strategy_synthesis.md`, `07_regime_risk`).
+
 ### Systematic risk sweep (`11_systematic_risk_sweep`; Figures 19.6-19.7; capstone)
 
 Params: `START_DATE="2019-01-02"`, `END_DATE="2023-12-31"`, `CALIBRATION_END="2021-12-31"`, `N_BARS=1260`, `LOOKBACK_BARS=60`, `CADENCE_BARS=21`, `INITIAL_CASH=100_000`, `SYMBOLS=["SPY","QQQ","IWM","XLF","EEM"]`, `top_n=3` (present-day universe, not point-in-time membership).
@@ -281,7 +317,7 @@ Params: `START_DATE="2019-01-02"`, `END_DATE="2023-12-31"`, `CALIBRATION_END="20
 
 ### Parameters not visible in the source notes
 
-Treat these as unknown rather than as values stated elsewhere in this file: the default percentages inside `FixedExitConfig`, `TrailingStopConfig`, `ATRStopConfig`, `HybridExitConfig` and `ScaleOutConfig`; the stop-distance grid passed to `analyze_stop_separation`; GLD shocks for the Rising Rates and EM Crisis scenarios; `MAEMFEAnalyzer`'s threshold method and the `BarrierAnalysis` call signature; the `TighteningTrailingStop` schedule and `ScaledExit` targets/fractions in notebook 10; notebook 11's sweep level lists and MAE/MFE percentile choices; notebook 09's cost-sweep basis-point levels; `DriftMonitorConfig` field names and the Wasserstein threshold parameter name; which exit model and rule won on trade-path metrics in 08. `FixedFractionalConfig` defaults were also absent from the notes and were read from the repo (1% risk per trade, 25% cap), as were the library limit defaults above.
+Treat these as unknown rather than as values stated elsewhere in this file: the default percentages inside `FixedExitConfig`, `TrailingStopConfig`, `ATRStopConfig`, `HybridExitConfig` and `ScaleOutConfig`; the stop-distance grid passed to `analyze_stop_separation`; GLD shocks for the Rising Rates and EM Crisis scenarios; `MAEMFEAnalyzer`'s threshold method and the `BarrierAnalysis` call signature; the `TighteningTrailingStop` schedule and `ScaledExit` targets/fractions in notebook 10 (the nb10 table shows the argument shapes with the library docstring demos instead); notebook 11's sweep level lists and MAE/MFE percentile choices; notebook 09's cost-sweep basis-point levels; `DriftMonitorConfig` field names and the Wasserstein threshold parameter name; which exit model and rule won on trade-path metrics in 08. `FixedFractionalConfig` defaults were also absent from the notes and were read from the repo (1% risk per trade, 25% cap), as were the library limit defaults above.
 
 ## Guardrails and pitfalls
 
@@ -378,6 +414,7 @@ Treat these as unknown rather than as values stated elsewhere in this file: the 
 | Tail model | Run `analyze_distribution`/`analyze_tails` first; Student-t with large excess kurtosis; Cornish-Fisher only if coverage backtest passes; CVaR when severity or aggregation guarantees matter |
 | Volatility forecasts | Rank by QLIKE, not MSE, for sizing |
 | Exit-rule guide | Trend following -> `TrailingStop` + `TimeExit`; mean reversion -> `StopLoss` + `TakeProfit` (symmetric); high volatility -> `VolatilityStop` + `TighteningTrailingStop`; time-sensitive -> `StopLoss` + `TimeExit` (short `max_bars`); conservative -> `AllOf(TimeExit, TrailingStop)`; aggressive profits -> `TighteningTrailingStop` |
+| Adaptive sizing (conventions) | vol target 0.10-0.15 annualized, lookback 21/63 ending t-1, scale clipped to [0, 1.0-1.5] and `RebalanceConfig(max_gross_leverage=...)`; turnover via `min_weight_change` 0.005-0.02 / `min_trade_value` / cadence sweeps on calibration only; deploy from the win-win quadrant |
 | Rule-chain order | stop -> tightening trail -> target -> time cap; first non-HOLD wins; `RuleChain`/`AnyOf` for "any ends the trade", `AllOf` for "exit only when all hold" |
 | Simulation vs library | Manual numpy for mechanics/custom logic/prototyping; `ml4t.backtest.risk` for production (composable, Engine integration, exercised by case-study pipelines) |
 | Notebook holding caps | fixed 20 bars, trailing 50, ATR 30, ML 30, hybrid 30; ML threshold 0.5; adverse label -2% over 5 sessions; test fraction 30%; 100 trades |

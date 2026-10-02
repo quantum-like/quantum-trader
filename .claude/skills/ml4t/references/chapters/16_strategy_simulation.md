@@ -53,6 +53,7 @@ Write every row down before touching a library; publish it with the result.
 | Constraints | Short, leverage, cash? | Long-only, no borrowing (NB01); `allow_short_selling`, `allow_leverage` with margin (NB02); `reject_on_insufficient_cash=True` |
 | Data availability | Point-in-time? | Backward as-of join; matched-observation age <= `MAX_SLOPE_AGE_DAYS=4` |
 | Benchmark | Same simulator? | 60/40 SPY/AGG or matched buy-and-hold through the same engine, dates, fees, slippage, capital fraction, warmup |
+| Plumbing | Does a no-information signal earn nothing through the same path? | Seeded random predictions through the identical engine, costs and sizing: PASS iff `\|Sharpe\| < 1.5`, negative after costs at intraday cadence (pattern under Code patterns) |
 
 ### First-principles simulator and the ETF baseline (`16_strategy_simulation/01_backtest_first_principles`, §16.2/16.4)
 
@@ -261,7 +262,7 @@ Engine configuration and parity
 - **Rank ties, permutation dependence, float residue** — sorting an all-equal cross-section returns file order; rows summing to 1 - 1e-16 under-hold at bp level / equal-weight the whole universe on all-equal dates and count them; secondary sort by symbol; push residue onto one held asset and assert exact row sums.
 - **Parameter-sweep selection** — the highest in-sample Sharpe cell is not a validated choice / read the surface for flatness; no holdout means no deployment claim; DSR/RAS.
 - **Feedback loops that never fire** — adaptive code that never updates looks adaptive / report the realized range of signal-time target fractions.
-- **Circuit-breaker permanent halt** — once in cash beyond the halt threshold, equity cannot recover / production needs an explicit reset, external capital or re-entry protocol.
+- **Circuit-breaker permanent halt** — once in cash beyond the halt threshold, equity cannot recover / production needs an explicit reset, external capital or re-entry protocol; the backtest form (`RiskManager.reset_halt()` under a rule written before the run) is in `chapters/19_risk_management.md`, `ml4t.backtest.risk` recipe.
 - **Stationarity assumption in pairs** — high return correlation does not make the price ratio stationary / inspect ratio and z-score panels; count state-machine transitions and unwinds.
 - **MAE/MFE as stop rules** — read from the trades that produced them / diagnostics only.
 - **Parity read as universal equivalence** — the audit tests target replay with costs and position rules disabled under pinned versions / do not apply a pass to production overlays; never approximate an unsupported asset model to add a row; keep synthetic stress rows separate from real-data evidence; do not generalize engine timings.
@@ -404,6 +405,14 @@ Cost reconciliation and break-even (NB09)
 net = reference_pnl - slippage_cost - commission
 assert np.isclose(net, final_value - initial_cash)
 break_even = reference_gross_pnl / one_way_reference_notional   # NaN if gross <= 0
+```
+Random-signal plumbing test (guardrails pre-flight 26(d); the case studies call `case_studies/utils/backtest_runner.run_plumbing_test(case_study, prices, strategy_spec, top_k=20, seed=42)` with `PLUMBING_SHARPE_TOLERANCE = 1.5`; the library-level form needs no registry)
+```python
+rng = np.random.default_rng(42)                                                         # SEED = 42
+noise = signals.with_columns(pl.Series("prediction", rng.standard_normal(signals.height)))
+plumb = Engine(DataFeed(prices_df=prices, signals_df=noise), strategy, config).run()    # same engine, dates, costs, sizing
+sharpe = plumb.metrics["sharpe"]                                                        # NaN = the random book went bankrupt: fix sizing / short leg first
+assert abs(sharpe) < 1.5, f"pipeline is the alpha: random-signal Sharpe {sharpe:.2f}"  # and clearly negative after costs at intraday cadence
 ```
 Point-in-time state (NB10): `expanding_past_median(values)` -> median of finite values strictly before each row; state = indicator vs that median; `shift(1)` before joining returns; `combine_state(vol, trend)`.
 
