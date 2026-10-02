@@ -58,7 +58,21 @@ backtest consequences, or how to cite for readers who do not have the skill.
 The judges proposed stricter, file-checkable assertions per eval (stored as `hard_expectations` in
 `evals.json`). Re-grading the same outputs against them separates the two configurations:
 
-HARD_TABLE_PLACEHOLDER
+| Eval | With skill | Without skill |
+|---|---|---|
+| 1 audit-baseline | 1/6 | 3/6 |
+| 2 walk-forward-protocol | 4/5 | 0/5 |
+| 3 cost-capacity | 4/6 | 1/6 |
+| 4 polymarket-setup | 3/8 | 1/8 |
+| 5 risk-overlay | 1/6 | 0/6 |
+| **Total** | **13/31 (41%)** | **5/31 (16%)** |
+
+The one strict loss (eval 1) is instructive: its strict assertions were written from the facts the
+baseline audit caught and the with-skill audit missed (a weekly-published commodity series stamped
+daily, a duplicated share class, the random-top-10 baseline being the equal-weight universe, drawdown
+on window endpoints as a lower bound). Those four points are now in the references. The with-skill
+audit's strict pass was the one the baseline could not match: a shipped script that regenerates
+every quoted statistic.
 
 ### What was fixed as a result
 
