@@ -41,6 +41,7 @@
 - **Free data is not costless.** Break-even return = annual carrying cost / capital informed; both the cost-recovery bar and the target bar fall with AUM, which is why the same dataset is a reasonable purchase at one firm and not another. "The question is never whether a signal is real on its own."
 - **A column name is a claim like any other.** Polymarket `volume` counts price observations; Kalshi `volume` counts contracts traded. "Nothing errors when the two are compared, and the answer is about neither."
 - **Which price does a feed carry?** Kalshi bars carry `yes_bid` → every price is a lower bound short by the spread; a ladder monotonicity check on bids is a staleness diagnostic, not an arbitrage test.
+- **Venue, regulatory and fee facts are dated facts.** Who may trade, position limits, fee schedules and settlement rules change between snapshots; any such fact that enters the universe, the counterparties or the costs carries an as-of date and a day-1 verification step, or it is an assumption. nb13's venue table says what the venue was at its 2025–26 snapshot, not what it is (inference; the notebooks state the facts, not the rule).
 - **Count how many of a feature's values are real before fitting.** A column defined on every row and non-zero on a handful "is a panel in shape only."
 - **Report a graph's density before believing its edges.** Among widely held names held by large managers every pair shares hundreds of holders; the edge set then describes index membership. The fix is the slice, not the threshold.
 - **Bulk regulatory files are not clean because they are official.** Wrong-unit filings land at the top of any size ranking; the file supplies its own check (value/shares = a price with a knowable range). Say what a screen removed.
@@ -150,6 +151,8 @@ Source: `04_fundamental_alternative_data/07_macro_data_alignment`.
 | pcepi, gdp, gdpc1 | 31 |
 | `DAILY_SERIES` dff, dgs1/2/3/5/7/10/20/30, t10y2y, vixcls | 0 |
 
+Not in the notebook's dict but under the same rule: daily-frequency series distributed in weekly batches (EIA daily spot prices posted in a weekly update; benchmark fixings and surveys redistributed on a weekly file) carry up to a week of release lag on every daily observation. Stamp each observation by the batch release date, recover the true cadence with nb06's value-change count, and never read the observation date as the knowledge date (inference: no ch04 notebook covers these feeds).
+
 1. `published_observations(panel, series, frequency, lag)`: monthly/quarterly → group by `truncate("1mo"/"1q")`, first row = `stamped_on`, `period_end = stamped_on + period − 1d`, `published_on = period_end + lag`. Weekly → `stamp_weekday` = weekday on which the value changes most often (mode); keep every row on that weekday (repeats included), `period_end = stamped_on`, `published_on = + lag`.
 2. `point_in_time_panel`: start from `timestamp` + daily series; for each lagged series `join_asof(releases.sort("published_on"), left_on="timestamp", right_on="published_on", strategy="backward")`.
 3. Staleness: median `published_on − stamped_on` per series (largest GDP, smallest weekly claims). The shipped CPI panel "steps up seven weeks before the release it reports."
@@ -222,7 +225,7 @@ Sources: `04_fundamental_alternative_data/12_kalshi_prediction_markets` (`load_k
 
 | | Kalshi | Polymarket |
 |---|---|---|
-| Regulation / settlement | CFTC-designated; USD; $25,000 position limit per contract; tick 1¢; contract pays $1 if the event occurs else $0 (price = probability), continuous trading; ticker `KXFED-27APR-T4.25` = series-meeting-threshold | none; USDC on Polygon; no limit; closed to US persons (selection effect); user-proposed listings |
+| Regulation / settlement | CFTC-designated; USD; $25,000 position limit per contract; tick 1¢; contract pays $1 if the event occurs else $0 (price = probability), continuous trading; ticker `KXFED-27APR-T4.25` = series-meeting-threshold | none (nb13); USDC on Polygon; no position limit; user-proposed listings; access restricted by jurisdiction — nb13 writes "not available to US persons" for its 2025–26 snapshot and reads that as a selection effect on whose views the price aggregates. Status: fact as of the snapshot, to verify on day 1; never copy it undated into a universe or failure-mode statement |
 | Price carried | `yes_bid` → lower bound short by the spread | snapshot; most markets appear once, none more than twice → cross-section only |
 | `volume` | contracts traded | number of price observations in the day (provider's proxy) — not comparable |
 | Ladder regex | `THRESHOLD_TICKER = r"^KXFED-(?<meeting>[0-9]{2}[A-Z]{3})-T(?<threshold>[0-9]+(?:\.[0-9]+)?)$"` (pays if rate **above** threshold) | `LADDER_TICKER = r"(?i)^BITCOIN-ABOVE-(?<threshold_k>\d+)K-ON-(?<resolves>[A-Z]+-\d+)"` |
@@ -234,6 +237,16 @@ Sources: `04_fundamental_alternative_data/12_kalshi_prediction_markets` (`load_k
 3. Parse tickers with `str.extract_groups` + `unnest`. Count `change_defined`, `change_non_zero`, `zscore_defined` before fitting.
 4. Same-event comparison: Kalshi threshold via `symbol.str.split("-T").list.last()`; Polymarket policy via regex `fed|powell|interest-rate|shelton`; separate axes; compare only genuinely identical contracts.
 5. Live (`LIVE=False` by default): `ml4t.data.providers.polymarket.PolymarketProvider().list_markets(active=True, closed=False, limit=200)` → slug, question, volume, liquidity; `.close()`.
+6. Venue mechanics that enter costs, labels and exposure. None of this is covered by nb12/nb13 or the provider source; every line is a field to fill with an as-of date, not a value this reference supplies.
+
+| Item | Why it matters | Status |
+|---|---|---|
+| Taker/maker fee formula and per-category rates | A fee that scales with `min(p, 1 − p)` or `p(1 − p)` is cents at the tails and a large share of the edge there; express cost as a share of expected edge, not of notional | ASSUMED shape; rates to verify |
+| Tick size and minimum order | Bounds the achievable price near 0 and 1 and decides whether a one-tick ladder difference is tradeable | to verify |
+| Spread behaviour near 0 and 1 | Quotes pin at the tick; a bid-only feed then reads as certainty; a mid at 0.99 is not a fill | measure from the book; to verify |
+| Resolution timing and dispute window | Label END = resolution date plus the dispute/settlement allowance, not the event date; the holdout is scored only after it | to verify per market |
+| Neg-risk / multi-outcome events | Sibling markets of one event resolve together and their YES prices sum near 1; treat siblings as one event for labels, exposure and trial counts | to verify per event |
+| Jurisdiction and access | Decides whose views the price aggregates and whether the feed can be traded at all | fact as of snapshot; verify day 1 |
 
 ### SEC filing text extraction (nb14)
 
@@ -309,7 +322,7 @@ Source: `04_fundamental_alternative_data/01_academic_characteristics`; `load_fir
 ### Macro panels and fills
 
 - **Calendar-day grid mistaken for trading grid** — weekend rows carry Friday's value; daily returns count two zero days a week; 252 rows = 8 months / check row count vs calendar days; name windows in calendar days (365/90/30) or move to the trading grid.
-- **Row count as release cadence** — forward fill makes every series look daily / count value changes per year (lower bound).
+- **Row count as release cadence** — forward fill makes every series look daily; a daily series released in a weekly batch (EIA spot, fixings, surveys) is weekly for PIT purposes / count value changes per year (lower bound); stamp batched observations by the batch release date.
 - **Non-causal fills** — interpolation, backward fill, centred MA, whole-sample seasonal adjustment read the future silently / forward fill, trailing stats, causal forecasts only.
 - **FRED stamp read as knowledge date** — stamp = first day of reference period (March unemployment is published early April); CPI panel steps up ~7 weeks early / re-date: period end + agency lag; backward `join_asof` on `published_on`.
 - **Lag measured from the stamp** — monthly series appears ~4 weeks early / count lags from period end; add period length separately.
@@ -359,6 +372,7 @@ Source: `04_fundamental_alternative_data/01_academic_characteristics`; `load_fir
 - **Features with few real values** — momentum non-zero on a handful of bars / count defined and non-zero values before fitting.
 - **Near-settled contracts dominating a universe** — `extreme` flags every row / select open-question markets first.
 - **Cross-venue comparison without an identical contract** — different questions about the same institution / compare only identical contracts; separate axes otherwise.
+- **Venue facts copied undated** — access, fee, limit and settlement statements change between snapshots; copied verbatim into a universe, cost or failure-mode statement they become wrong without an error / mark each as fact-as-of-<date>, assumed or to-verify and add a day-1 verification step; nb13's "not available to US persons" is a snapshot statement, not a standing one.
 
 ### Text extraction
 
@@ -391,7 +405,7 @@ Source: `04_fundamental_alternative_data/01_academic_characteristics`; `load_fir
 | Entity-resolution sequence | identifiers → dated alias table → fuzzy `token_set_ratio` ≥ 70 (threshold from a precision/recall sweep incl. non-matchable rows) → embeddings only to extend candidates → unresolved stays unresolved |
 | Form 4 gate | code ∈ {P, S}; priced rows only; report unpriced separately; reconciliation asserts must pass first |
 | 13F screens | one filing per CIK by latest `filing_date`; median implied price ∈ [1, 10,000] USD; drop `PutCall` rows for stock concentration; group on CUSIP; `TOP_N = 500` managers; `MIN_SHARED_MANAGERS = 5`, `CO_OWNERSHIP_UNIVERSE = 500`, density grid 5–350; decide the slice before the threshold |
-| Macro release lags (days after period end) | claims 5 (exact); Fed H.4.1 2; employment report 7; CPI 18; industrial production 18; M2 28; PCE 31; GDP advance 31; daily market series 0; weekly stamp weekday = mode of change-weekdays |
+| Macro release lags (days after period end) | claims 5 (exact); Fed H.4.1 2; employment report 7; CPI 18; industrial production 18; M2 28; PCE 31; GDP advance 31; daily market series 0; weekly stamp weekday = mode of change-weekdays; daily series released in weekly batches (EIA spot, fixings, surveys): stamp by batch release date |
 | Calendar-day windows | 365 = year, 90 = quarter, 30 = month |
 | Regime labels | yield curve <0/<0.5/<1.5/else = inverted/flat/normal/steep; VIX <15/<25/<35/else = calm/normal/unsettled/frightened (nb06 chart bands 20, 30); unrate <4.0/<6.0/else = tight/normal/slack; `get_regime(threshold=0.5)` |
 | Fill policy | forward fill, trailing averages, causal forecasts only |
@@ -401,6 +415,7 @@ Source: `04_fundamental_alternative_data/01_academic_characteristics`; `load_fir
 | TVL features | growth 30d; z-score 90d; regime \|z\| > 1; forward 30d; horizons 7/14/30/60; rolling stability 180d; modern era from 2020-01-01; implausible move > 20%/day |
 | Alt-data go/no-go | Legal gate (how obtained, MNPI, licence, jurisdiction) → block on failure; Data gate: vintages reconstructible? → block if restated with no archive (snapshot daily; revisit in a year); Signal: count of relationships, HAC t, rolling sign stability → "unproven" if short; Commercial: `cost_recovery_bps = annual_cost/(AUM×allocation)×10,000`, target = ×3; defaults 40 + 20 h/yr × $150, allocation 10% |
 | Prediction markets | confirm which price the feed carries; repair zero-price artifacts forward only; OHL = close on untraded bars; `CONFIDENT_PROBABILITY = 0.2` → near-certain/extreme when p > 0.8 or p < 0.2; momentum 5d, volatility/z-score 10d; ladder monotone non-increasing in threshold (diagnostic); select open-question markets first; never compare `volume` across venues |
+| Venue / regulatory / fee facts | Carry an as-of date and a day-1 verification step; status ∈ {fact as of <date>, assumed, to verify}; fee formula shape and per-category rates ASSUMED until read from the venue; label END for an event contract = resolution date + dispute allowance |
 | Text extraction | pattern set by form; longest span; quality ok iff 100 ≤ words ≤ 50,000 and no next-item heading; compare only when both pass; `added_paragraphs(min_characters=200)`; key on accession; carry acceptance timestamp; drop tables for sentiment, keep for numeric reading |
 | Academic panel | feature-selection statistics on train only; report HAC and naive t and the gap; redundancy threshold 0.5; no execution/cost claims |
 

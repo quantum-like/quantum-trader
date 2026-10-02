@@ -38,7 +38,7 @@
 
 ### Process-as-edge loop (the chapter's only "algorithm")
 
-1. **State a falsifiable hypothesis.** Give the economic or behavioral rationale and pre-specify the outcome that would disprove it, before touching data.
+1. **State a falsifiable hypothesis.** Give the economic or behavioral rationale and pre-specify the outcome that would disprove it, before touching data. Non-vacuous check: each rejection rule must be satisfiable by one plausible outcome of the primary test, and that outcome is written down beside the rule; a rule that needs every bucket, era or subgroup to disagree before it fires is not a rejection rule (operationalization of the README's falsifiability defense; inference).
 2. **Run the 5-Stage ML4T Workflow end to end.** Stage names are defined in the book's opening chapter, not in this README; see `chapters/01_process_is_edge.md` and `workflow.md`.
 3. **Evaluate strictly out of sample.** In-sample fit is not evidence; never promote on in-sample results.
 4. **Apply multiple-testing corrections before believing any result.** The factory runs many tests by design, so uncorrected winners are expected noise. Specific corrections (Deflated Sharpe, PBO, BH-FDR, Bonferroni-style haircuts) live in the evaluation chapters (inference).
@@ -60,7 +60,7 @@ Treat an idea as an edge only after it passes all three gates in order. Fail any
 
 | Gate | Pass condition | If it fails |
 |---|---|---|
-| 1. Falsifiable hypothesis | A stated rationale and a pre-specified result that would disprove it | Do not test; rewrite the hypothesis first |
+| 1. Falsifiable hypothesis | A stated rationale, a pre-specified result that would disprove it, and one plausible outcome of the primary test that would trigger that result, written down | Do not test; rewrite the hypothesis first — a rejection rule no single plausible outcome can trigger fails this gate |
 | 2. Out-of-sample testing | Survives evaluation on data not used in any fitting or selection step | Reject; log the OOS result |
 | 3. Multiple-testing correction | Survives statistical correction for the number of hypotheses/variants tried | Reject; log the trial count and corrected statistic |
 
@@ -106,6 +106,7 @@ None in this chapter; there are no empirical comparisons, numeric parameters or 
 ## Guardrails and pitfalls
 
 - **Cognitive bias in research** — Confirmation and narrative bias turn noise into "found" alpha. Pre-register a falsifiable hypothesis; let the workflow, not the researcher, decide; keep a log of rejected ideas.
+- **Unfalsifiable rejection rules** — A disconfirming condition phrased so that only a unanimous failure triggers it ("every 0.05 bucket must disagree", every era, every subgroup) cannot fire in practice and leaves the idea unfalsified while looking pre-registered. Before testing, write the one plausible primary-test outcome that would trigger each rule; if none exists, the rule is decoration and the hypothesis fails gate 1 (inference; the README names falsifiability, not this check).
 - **Multiple testing** — Searching many variants guarantees spurious winners, and the alpha factory runs many tests by design. Apply statistical corrections for multiple testing before believing any result (named as one of the three defenses; specific corrections live in the evaluation chapters — inference).
 - **In-sample optimism** — In-sample fit is not evidence. Rigorous out-of-sample testing is the second named defense; never promote a strategy on in-sample results.
 - **Strategy-level thinking** — Any single strategy decays; betting a career on one is fragile. Invest in the process (pipeline, tooling, evaluation discipline) that keeps generating and rejecting candidates.
@@ -127,6 +128,7 @@ None in this chapter; there are no empirical comparisons, numeric parameters or 
 |---|---|
 | Any idea, signal or model | Promote only after: falsifiable hypothesis stated → survives OOS testing → survives multiple-testing correction. Fail any gate → reject and log. |
 | In-sample result looks great | Not evidence. Do not promote; run OOS and correct for trials. |
+| Rejection rule in a pre-registration | Must be satisfiable by one plausible outcome of the primary test, written beside it; a rule that needs every bucket, era or subgroup to disagree is not a rejection rule. |
 | Quantum computing | Monitor only. Horizon for financial advantage = mid-2030s at the earliest. No current investment of time or capital. |
 | DeFi | Engage now (on-chain data, AMM optimization, yield farming) but only with explicit handling of smart-contract and regulatory risk. |
 | Ethical AI / regulated deployment | Non-optional. Build proficiency now in the four capabilities: interpretability, bias detection, robustness testing, auditability. EU AI Act requires explainability for high-risk financial AI. |
@@ -172,6 +174,7 @@ Minimal hypothesis record an agent can keep per idea, derived directly from the 
 idea:            <name>
 rationale:       <economic or behavioral mechanism>
 disconfirming:   <pre-specified result that would reject the idea>
+rejects_if:      <one plausible outcome of the primary test that satisfies the rule above>
 oos_result:      <statistic on data unused in fitting or selection>
 trials:          <number of variants tried>  corrected_stat: <value after correction>
 decision:        reject | promote     logged: <date>
