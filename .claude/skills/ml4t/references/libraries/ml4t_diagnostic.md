@@ -231,15 +231,15 @@ WalkForwardConfig(n_splits=5, test_size=4, align_to_sessions=True).to_json("cv_c
 
 Monthly panel: purge in months, not days (see Splitter sizes):
 ```python
-import polars as pl
-from ml4t.diagnostic.splitters import WalkForwardCV, WalkForwardConfig
+from ml4t.diagnostic.splitters import WalkForwardCV
 months = panel.select("timestamp").unique().sort("timestamp")           # one row per business month-end
-cfg = WalkForwardConfig(n_splits=10, train_size=120, test_size=12, label_horizon=1, calendar_id=None)
-cv = WalkForwardCV(config=cfg)                     # no timestamp_col -> integer mode: label_horizon=1 is one month
+cv = WalkForwardCV(n_splits=10, train_size=120, test_size=12, label_horizon=1, consecutive=True)
+# no timestamp_col -> integer mode: label_horizon=1 is one month and the inherited NYSE calendar is inert;
+# consecutive=True anchors fold 0 after train_size (the default layout spreads folds from test_size onward)
 for tr, te in cv.split(months):
-    assert te[0] - tr[-1] == cfg.label_horizon + 1                    # exactly h month-ends purged
-    tr_m, te_m = months["timestamp"].gather(tr), months["timestamp"].gather(te)
-    train, val = panel.filter(pl.col("timestamp").is_in(tr_m)), panel.filter(pl.col("timestamp").is_in(te_m))
+    assert te[0] - tr[-1] == cv.label_horizon + 1                     # exactly h month-ends purged
+    train = panel.join(months[tr], on="timestamp", how="semi")        # positional month folds -> panel rows
+    val = panel.join(months[te], on="timestamp", how="semi")
 # time mode (timestamp_col="timestamp") needs a Timedelta: "45D" purges exactly one month-end, "30D" only ~48% of the time
 ```
 
