@@ -9,7 +9,7 @@
 - Choosing a regularization strength: alpha grids, `alpha_max` for LASSO, `l1_ratio`, logistic `C`; reading an alpha sweep or a stability table.
 - Designing hyperparameter optimization on time-series data: single-loop vs nested walk-forward CV, Optuna with `WalkForwardCV`, purge/embargo inside the inner loop.
 - Auditing an OLS or panel regression for singular design, overlapping-label autocorrelation, cross-sectional dependence, or the wrong standard-error estimator (HC3 vs clustered vs Driscoll-Kraay vs HAC).
-- Reporting IC with an honest t-stat (HAC with lag = label horizon) and reading OOS R² against zero.
+- Reporting IC with an honest t-stat (`compute_ic_hac_stats(ic_series, label_horizon=h)`; the library sets the Newey-West lag to L = max(h-1, auto), capped at T//2) and reading OOS R² against zero.
 - Interpreting a model with SHAP: sign checks, right-vs-wrong high-conviction splits, concentration, cross-fold and bootstrap stability.
 - Calibrating classifier probabilities chronologically (Platt scaling with purged expanding splits) before confidence-based sizing.
 - Building prediction intervals with split conformal, CQR, or ACI on a panel with a 21-day label and checking conditional (regime) coverage before sizing positions off interval width.
@@ -74,13 +74,13 @@ Steps:
 | HC3 | heteroscedasticity only, no cross-observation correlation | insufficient |
 | Cluster by date | same-date pairs may correlate | insufficient (misses same-symbol serial correlation) |
 | Two-way cluster (date and symbol) | adds same-symbol pairs | insufficient (misses cross-symbol, cross-date correlation within the 21-day window) |
-| Driscoll-Kraay | arbitrary cross-sectional correlation within a window of nearby dates + Newey-West over dates; lag = label horizon (21) | use this |
+| Driscoll-Kraay | arbitrary cross-sectional correlation within a window of nearby dates + Newey-West over dates; NB01 passes `cov_type="nw-groupsum"`, `maxlags=LABEL_HORIZON_DAYS` (21) on the panel | use this |
 | HAC / Newey-West | single time series | only after collapsing to one series per date (the IC series) |
 
 Also listed: WLS, GLS/FGLS, Fama-MacBeth.
 
 7. Coefficient plot: rank by |coef| with Driscoll-Kraay CI (`CONF_Z` multiplier, value not captured); bars crossing zero = sign not pinned down.
-8. OOS IC: `cross_sectional_ic_series` (Spearman within each date) -> mean, IR = mean/std, t-stat via `compute_ic_hac_stats` with lag = label horizon. Show the naive t = mean/(std/sqrt(n)) beside it; it overstates by ~sqrt(overlap). Drop dates with NaN (constant predictions -> undefined Spearman) and null (too few symbols); in polars these are distinct and one NaN poisons the mean.
+8. OOS IC: `cross_sectional_ic_series` (Spearman within each date) -> mean, IR = mean/std, t-stat via `compute_ic_hac_stats(ic_clean, ic_col="ic", label_horizon=LABEL_HORIZON_DAYS)`. Pass the horizon itself (21), never h-1: the library's bandwidth is L = max(h-1, Newey-West auto) capped at T//2, so a 21-day label gets L = 20 (the same rule ch07 and guardrails state). Show the naive t = mean/(std/sqrt(n)) beside it; it overstates by ~sqrt(overlap). Drop dates with NaN (constant predictions -> undefined Spearman) and null (too few symbols); in polars these are distinct and one NaN poisons the mean.
 9. OOS R² = 1 - SS_res/SS_tot; in-sample with intercept it is >= 0 by construction; OOS it can be < 0 because coefficients amplified noise or the intercept was calibrated to the training-period mean (level error). Read against zero.
 
 ### Regularization paths (11.2, `11_ml_pipeline/02_regularization_paths`)
@@ -228,7 +228,7 @@ Steps: fit once per fold, predict the whole validation window; forward-fill weig
 ## Guardrails and pitfalls
 
 - **Singular design from derived features** — exact linear combinations (`skip_recent_*`, `mom_accel_*` are differences of raw returns) break no-perfect-multicollinearity and make robust covariances uncomputable / drop composites before OLS; VIF > 10 flags the rest.
-- **Overlapping labels induce autocorrelation** — a 21-day label shares 20/21 days between consecutive rows; naive SEs, t-stats and IC t-stats overstate significance by ~sqrt(overlap) / HAC with lag = label horizon on the per-date IC series; Driscoll-Kraay with lag 21 on the panel; purge/embargo = label horizon in every split.
+- **Overlapping labels induce autocorrelation** — a 21-day label shares 20/21 days between consecutive rows; naive SEs, t-stats and IC t-stats overstate significance by ~sqrt(overlap) / `compute_ic_hac_stats(label_horizon=h)` on the per-date IC series (L = max(h-1, auto)); Driscoll-Kraay with `maxlags=21` on the panel; purge/embargo = label horizon in every split.
 - **Row-order statistics on a panel** — DW/BG/Newey-West on a date-ordered panel measure cross-sectional dependence / regroup residuals per symbol; count lags on the session grid; collapse to one series per date before HAC.
 - **Unbalanced panel gaps** — pairing rows by position files gap-crossing pairs as "lag 1"; pooled fits over-weight later years; date-clustered SEs average over a narrower early cross-section / session-indexed lag pairing; inspect the symbol-history staircase; age weights by session.
 - **Robust SEs as a cure-all** — they fix variance only; misspecification leaves coefficients inconsistent and predictions unchanged / treat them as inference tools; judge models by OOS IC.
@@ -283,15 +283,15 @@ Steps: fit once per fold, predict the whole validation window; forward-fill weig
 | Regression vs classification | Continuous returns when position size scales with ŷ (w_i ∝ ŷ_i) or when ranking the cross-section; binary direction when decisions reduce to long/short/flat; ternary terciles when magnitude ordering matters but a point forecast is too noisy. Keep the same folds whichever you choose. |
 | VIF | > 5 concern, > 10 severe |
 | Autocorrelation lags | 1 (yesterday), 5 (week), 21 (= label horizon where overlap ends) |
-| SE estimator on an overlapping-label panel | Driscoll-Kraay with lag = label horizon; HC3 and one- or two-way clustering insufficient; HAC only on the per-date collapsed series |
-| IC reporting | mean, IR = mean/std, HAC t-stat with lag = label horizon; read IC against its HAC p-value, not its sign |
+| SE estimator on an overlapping-label panel | Driscoll-Kraay with `maxlags` = label horizon (21); HC3 and one- or two-way clustering insufficient; HAC only on the per-date collapsed series |
+| IC reporting | mean, IR = mean/std, HAC t-stat from `compute_ic_hac_stats(label_horizon=h)` (library bandwidth L = max(h-1, auto)); read IC against its HAC p-value, not its sign |
 | Preprocessing | winsorize at training 1st/99th percentiles, then standardize; refit both per fold |
 | Ridge grid | 23 points log-spaced 1e-2..1e9; pick inside the rising/plateau zone |
 | LASSO grid | 10 points from `alpha_max` down to 0.01 x `alpha_max` |
 | Elastic Net | fix alpha at LASSO's best, sweep `l1_ratio`; tune jointly only via nested CV |
 | Recency weighting | half-life 252 sessions; compute Kish N_eff and N_eff/N before adopting |
 | Loss | heavy-tailed returns -> Huber (or epsilon-insensitive) over squared error |
-| Method comparison | paired per-fold IC differences; overlapping error bars are not evidence either way |
+| Method comparison | paired per-fold IC differences; overlapping error bars are not evidence either way; escalate to a costlier family only when \|t_HAC\| > 2 on the paired daily IC difference AND the per-fold mean difference keeps its sign on the same folds (pattern in Code patterns) |
 | Alpha landscape (cheap insurance before HPO) | plateau = within 90% of best IC; median CV < 0.5 stable / < 1.0 moderate / >= 1.0 unstable; `gap_sigma` > 3 = overfitting to validation noise; plateau spanning orders of magnitude -> pick inside plateau or ensemble |
 | Nested CV | outer 5 folds, test_size 200, label_horizon 21, embargo 10; inner 3 folds, embargo 21, test_size = max(21, inner_sessions // 5); Optuna 20 trials, alpha in [0.01, 1e9] log-uniform |
 | Selected-alpha spread | orders-of-magnitude swings across folds = search tracks noise; clustered = stable property of data; read before mean ICs |
@@ -312,7 +312,7 @@ Sequence (chapter order): (1) inspect panel shape and feature families -> (2) dr
 
 | Library / module | API |
 |---|---|
-| `ml4t.diagnostic.metrics` | `cross_sectional_ic_series`, `compute_ic_hac_stats` (lag = label horizon) |
+| `ml4t.diagnostic.metrics` | `cross_sectional_ic_series(pred, ret, pred_col, ret_col, date_col, entity_col, min_obs=10)` -> `[date_col, ic, n_obs]`; `compute_ic_hac_stats(ic_series, ic_col="ic", label_horizon=h)` -> `mean_ic, hac_se, t_stat, p_value, n_periods, effective_lags` (L = max(h-1, Newey-West auto)) |
 | `ml4t.diagnostic.splitters` | `WalkForwardCV(n_splits, test_size, label_horizon, embargo_size)` |
 | `ml4t.diagnostic.signal` | `compute_turnover()` |
 | `ml4t.diagnostic.evaluation` | `compute_shap_importance()` |
@@ -331,6 +331,19 @@ Running: `uv run python 11_ml_pipeline/<notebook>.py`; test mode `uv run pytest 
 lam = np.log(2.0) / HALF_LIFE_SESSIONS            # 252
 w = np.exp(-lam * (T - session_idx)); w /= w.mean()
 n_eff = w.sum() ** 2 / (w ** 2).sum()
+```
+
+```python
+# Paired model comparison on the per-date IC difference (escalation gate; decision_rules 9a)
+# ic_a, ic_b: cross_sectional_ic_series(...) output [timestamp, ic, n_obs] for models A and B on the
+# SAME folds, each with a "fold" column added; pair only when ic_n_days is equal (else mask / exclude)
+assert ic_a.height == ic_b.height, "unequal ic_n_days: restrict both to the common dates first"
+d = (ic_a.join(ic_b, on=["fold", "timestamp"], how="inner", suffix="_b")
+       .with_columns((pl.col("ic") - pl.col("ic_b")).alias("ic_diff")).sort("timestamp"))
+hac = compute_ic_hac_stats(d, ic_col="ic_diff", label_horizon=h)      # mean_ic, hac_se, t_stat, p_value
+ci = (hac["mean_ic"] - 1.96 * hac["hac_se"], hac["mean_ic"] + 1.96 * hac["hac_se"])
+fold_pos = d.group_by("fold").agg(pl.col("ic_diff").mean()).select((pl.col("ic_diff") > 0).mean()).item()
+escalate = abs(hac["t_stat"]) > 2 and fold_pos in (0.0, 1.0)        # sign holds on every fold; report ci and fold_pos
 ```
 
 ```python

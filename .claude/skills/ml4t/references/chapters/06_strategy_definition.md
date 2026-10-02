@@ -57,7 +57,7 @@ Write down and version, before the first model run. The invariant list is the bo
 | Invariant | What to state | setup.yaml block / keys (companion repo) |
 |---|---|---|
 | Tradable universe and eligibility | per-period membership rule, floors such as `MIN_NAMES`, point-in-time eligibility file | `universe.n_assets` (8 of 9; cme_futures uses `universe.n_products: 30`); the member list is `universe.assets` (etfs), `universe.symbols` (crypto, fx, nasdaq100) or `universe.product_groups` (cme); `universe.eligibility_rule` in 4 of 9 (etfs `point_in_time_adv_10m_annual`, crypto `top_perps_by_volume`, nasdaq100, sp500_equity_option_analytics `sp500_with_options`); `universe.eligibility_file: eligibility.csv` only in etfs |
-| Decision schedule | cadence, decision snapshot, execution delay, per-label cadence, rebalance step | `decision.cadence` (7 of 9: `monthly_month_end`, `daily_close`, `daily_ny_close`, `weekly_friday_close`, `8_hour_funding_aligned`); `decision.snapshot` (`close`, `month_end_close`, `settlement_price`, `ny_5pm_close`, `friday_16:00_et`, `pre_funding_timestamp`); `decision.execution_delay` (`next_bar_open`, `monday_open`, `at_funding_timestamp`, `1_bar`, `next_session_close`); `decision.cadence_by_label` (etfs, nasdaq100, sp500_equity_option_analytics). Two exceptions: nasdaq100 declares `decision.bar_frequency: 15_minute` + `decision.decision_snapshot: bar_close`; sp500_options declares `decision.entry_cadence: weekly_friday`, `entry_time: friday_close`, `holding_period_days: 10`, `hedge_cadence: daily_close`. Rebalance step is `labels.rebalance_step`, one entry per label, required |
+| Decision schedule | cadence, decision snapshot, execution delay, per-label cadence, rebalance step | `decision.cadence` (7 of 9: `monthly_month_end`, `daily_close`, `daily_ny_close`, `weekly_friday_close`, `8_hour_funding_aligned`); `decision.snapshot` (`close`, `month_end_close`, `settlement_price`, `ny_5pm_close`, `friday_16:00_et`, `pre_funding_timestamp`); `decision.execution_delay` (`next_bar_open`, `monday_open`, `at_funding_timestamp`, `1_bar`, `next_session_close`); `decision.cadence_by_label` (etfs, nasdaq100, sp500_equity_option_analytics). Two exceptions: nasdaq100 declares `decision.bar_frequency: 15_minute` + `decision.decision_snapshot: bar_close`; sp500_options declares `decision.entry_cadence: weekly_friday`, `entry_time: friday_close`, `execution_delay: next_session_close`, `hedge_cadence: daily_close`; its `holding_period_days: 10` / `exit_time` are legacy fields from dropped 10-day labels, and the primary label `ret_to_expiry` is held to expiry (`features.target_dte: 30`, `features.hold_sessions: 21`). Rebalance step is `labels.rebalance_step`, one entry per label, required |
 | Admissible information | publication lags, rolling-only transforms and thresholds | feature/label construction (Ch7, Ch8); where a study declares it: `decision.iv_feature_lag: 1_day` (sp500_equity_option_analytics), `decision.characteristic_availability` / `yearly_update: end_of_june` / `monthly_update` (us_firm_characteristics) |
 | Score-to-position mapping | setup class, entry logic, sizing; top-k / quantile grids | `mapping.class` (`long_only_rank_and_rebalance`, `long_short_top_k_rebalance`, `long_short_decile_rebalance`, `long_short_rank_rebalance`, `long_short_carry_rank`, `long_short_funding_aligned`, `intraday_rank_and_trade`, `systematic_straddle_sell`); `mapping.entry_logic` (e.g. `rank_selection_top_n`, `decile_sort_long_top_short_bottom`, `rank_by_carry_or_momentum`, `sell_atm_straddle_weekly`); `mapping.sizing` (`equal_weight`, `equal_weight_within_leg`, `dollar_neutral_or_beta_neutral`, `equal_premium_capital_with_fixed_cohort_fraction`). The grids are **not** beside the class: `backtest.sweep.top_k_grid` keyed by label (etfs `[5, 10, 20]`, us_equities_panel `[20, 50]`), `backtest.sweep.quantile_grid` (crypto only), `backtest.sweep.htm_cost_cascade.top_k: 20` (sp500_options) |
 | Constraints | long-only vs long-short, shorting, leverage | `mapping.position_state_space`: `long_only` (etfs, sp500_equity_option_analytics), `long_short` (six studies), `short_straddle_hedged` (sp500_options). Shorting and leverage flags are in `config/backtest/base.yaml` (`account.allow_short_selling`; `allow_leverage: true` declared only by cme_futures). No `max_weight` cap is declared anywhere. The `execution` block holds only `initial_cash`, `share_type` (`integer` / `fractional`) and `allocator_lookback`, never constraints |
@@ -101,6 +101,20 @@ Steps:
 | Walk-forward | 1 | yes | no (train precedes val) | standard evaluation |
 | Nested walk-forward | 1 per test year | yes | no | multi-year test with retuning |
 | CPCV | multiple | yes | yes | robustness, PBO |
+
+Panel splitting (long-format panel, N symbols per date). `cv.split(X)` counts **rows** of `X`: on a panel an int `test_size=252` is 252 rows, not 252 sessions, and a boundary can fall inside a date. The case studies therefore split the sorted unique-date vector and map the fold boundaries back to the panel by timestamp; this is what `utils/cv_splits.py::generate_cv_splits` does (reads `evaluation` from `setup.yaml`, passes a `D` buffer as an int so the library counts sessions, returns `train_start/train_end/val_start/val_end` per fold, which `utils.modeling` turns into date masks):
+
+```python
+dates = df.select("timestamp").unique().sort("timestamp").to_series().to_pandas()
+cal = pd.DataFrame({"_": 0}, index=pd.DatetimeIndex(dates))        # one row per session
+cv = WalkForwardCV(n_splits=5, test_size=252, train_size=1260, expanding=False,
+                   label_horizon=21, calendar="XNYS")
+for tr, va in cv.split(cal):
+    assert va[0] - tr[-1] - 1 == 21                                   # purge in sessions, not rows
+    train = df.filter(pl.col("timestamp").is_between(dates.iloc[tr[0]], dates.iloc[tr[-1]]))
+    val = df.filter(pl.col("timestamp").is_between(dates.iloc[va[0]], dates.iloc[va[-1]]))
+```
+Every row of a date lands on one side because the masks are on the date; run the purge assertion on the unique-date indices, never on panel row positions. `isolate_groups=True` with `groups=df["symbol"]` is not an alternative: it keeps each symbol on one side only (a cross-asset generalisation test), not a time split.
 
 ### Recipe 6: Baseline checkpoint (§6.6)
 Before widening features or model class, run one deliberately narrow configuration (one label, one feature family, one model, the setup's default mapping) and pass three sanity checks. The book names the checks, timing, coverage and trading intensity, and frames the narrow baseline as governance ("earn the right" to widen); their exact definitions and thresholds in the book's prose were available only through the README summary, so the operational proxies below are this reference's, not the book's.
@@ -162,12 +176,12 @@ Footprint EDA
 | Dataset roles | train / validation / holdout; holdout opened once | non-negotiable in every case study |
 | Walk-forward example defaults | `n_splits=5`, `test_size=252`, `train_size=1260` (rolling), `label_horizon=21`, `calendar="XNYS"`, `fold_direction="forward"` | from `02_cv_foundations` |
 | Expanding vs rolling | expanding if old data still relevant; rolling if regimes change | check clipped early folds |
-| Purge | = label horizon, in sessions | 21 sessions for 1-month labels |
+| Purge | = label horizon, in sessions | 21 sessions for 1-month labels; on a panel assert it on unique dates (Recipe 5, panel splitting) |
 | Embargo | = feature lookback; only when training can follow validation | CPCV, k-fold |
 | Nested walk-forward | whenever hyperparameters are tuned and the test spans several years | carry λ forward only if stable across outer folds |
 | CPCV | N=6, k=2 → 15 splits, 5 paths | robustness and PBO |
 | Cost class | dominant → need exceptionally strong signals, longer horizons; material → choose horizon by signal decay vs cost hurdle | NASDAQ-100 intraday and S&P 500 options are dominant; the other seven material |
-| Case-study protocol ranges | train 6M (intraday) to 10Y (ETFs, panels); folds 2 to 16; holdout 1 year where the data end (options 2021, firm characteristics 2016) vs 2 years (2024–2025) elsewhere, except us_equities_panel at 2016-01-01..2018-03-31 (2.25 years) | the "1 vs 2 years" line is the notebook's simplification; the table below has the exact dates; see `case_studies/*.md` |
+| Case-study protocol ranges | train 6M (intraday) to 10Y (ETFs, panels); folds 2 to 16; holdout 6 months (nasdaq100, 2021-07-01..2021-12-31) to 2.25 years (us_equities_panel, 2016-01-01..2018-03-31); 1 year for sp500_options, sp500_equity_option_analytics (2021) and us_firm_characteristics (2016); 2024-01-01..2025-12-31 for etfs, crypto, fx and cme | exact dates in the table below and in `case_studies/*.md` |
 | Setup versioning | any change to tradability, schedule, mapping, constraints or material costs = new `setup_version` | parameter tuning does not |
 | Sequencing | EDA footprint → freeze setup → economic objective + metric roles → leak-free walk-forward with sealed holdout → narrow baseline (timing, coverage, intensity) → logged, countable search → Ch7 label/overlap/N_eff checks | |
 
@@ -177,12 +191,12 @@ Case-study protocols as recorded in each `config/setup.yaml` (2026-10-02 checkou
 |---|---|---|---|---|---|---|---|
 | etfs (multi-asset ETFs, 100) | monthly month-end close, next open | long_only_rank_and_rebalance | material, per_share_plus_spread (half spread) | 8 / 10Y / 1Y | 2024-01-01..2025-12-31 | NYSE | Ch6–Ch21 |
 | crypto_perps_funding (crypto, 19) | 8-hour funding-aligned, at funding timestamp | long_short_funding_aligned | material, taker 4 / maker 2 bps | 2 / 2Y / 1Y | 2024-01-01..2025-12-31 | crypto | Ch6–Ch12 |
-| nasdaq100_microstructure (equities, `n_assets: 115`; notebook prose says 114) | 15-minute bar close, 1-bar delay | intraday_rank_and_trade | dominant, per_share_plus_spread, 5 bps friction floor | 2 / 6M / 6M | 2021-07-01..2021-12-31 | NYSE | Ch6–Ch12 |
+| nasdaq100_microstructure (equities, 115) | 15-minute bar close, 1-bar delay | intraday_rank_and_trade | dominant, per_share_plus_spread, 5 bps friction floor | 2 / 6M / 6M | 2021-07-01..2021-12-31 | NYSE | Ch6–Ch12 |
 | sp500_equity_option_analytics (hybrid: equities traded on options-derived features, 633) | weekly Friday 16:00 ET, Monday open | long_only_rank_and_rebalance | material, percentage 3–10 bps per leg | 2 / 2Y / 1Y | 2021-01-01..2021-12-31 | NYSE | Ch6–Ch21 |
 | us_firm_characteristics (equities, ~2,500; setup v2; data 1990-01-01..2016-12-31) | monthly month-end close, next open | long_short_top_k_rebalance | material, 5–20 bps per leg (15–30 pre-2001) | 10 / 10YE / 1YE | 2016-01-01..2016-12-31 | null (monthly returns; calendar-aware splitting needs daily data) | Ch6–Ch14 |
 | fx_pairs (FX, 20) | daily NY 5pm close, next open | long_short_rank_rebalance | material, 1–3 bps majors / 3–8 bps crosses per leg | 8 / P5Y / P1Y | 2024-01-01..2025-12-31 | FX | Ch6–Ch17 |
 | cme_futures (futures, 30 products) | weekly Friday settlement, Monday open | long_short_carry_rank | material, $2 per contract + 1–2 spread ticks | 5 / 8Y / 1Y | 2024-01-01..2025-12-31 | CME | Ch6–Ch17 |
-| sp500_options (options, 627 ATM straddle books; README prose ~600–630) | weekly Friday entry at close, 10-day hold, daily-close delta hedge | systematic_straddle_sell (`short_straddle_hedged`; cascade `top_k: 20`) | dominant, spread quoted against premium | 2 / 2Y / 1Y | 2021-01-01..2021-12-31 | NYSE | Ch6–Ch21 |
+| sp500_options (options, 627 ATM straddle books; README prose ~600–630) | weekly Friday entry at close, held to expiry (~30-day DTE, `hold_sessions: 21`), daily-close delta hedge | systematic_straddle_sell (`short_straddle_hedged`; cascade `top_k: 20`) | dominant, spread quoted against premium | 2 / 2Y / 1Y | 2021-01-01..2021-12-31 | NYSE | Ch6–Ch21 |
 | us_equities_panel (equities, 3,199) | daily close, next open | long_short_decile_rebalance | material, percentage 5–20 bps per leg | 16 / 10Y / 1Y | 2016-01-01..2018-03-31 | NYSE | Ch6–Ch14 |
 
 Equities dominate the landscape (three pure equity studies plus the hybrid). Tracks tell you which downstream chapter references apply: the dominant-cost nasdaq100 stops at Ch12 with crypto, the two equity panels at Ch14, fx and cme at Ch17, and etfs, sp500_equity_option_analytics and sp500_options (the hedging case) run to Ch21.
@@ -193,7 +207,7 @@ Equities dominate the landscape (three pure equity studies plus the hybrid). Tra
 WalkForwardCV(n_splits=5, test_size=252, expanding=True)                 # expanding: all history, growing train
 cv = WalkForwardCV(n_splits=5, test_size=252, train_size=1260, expanding=False,
                    label_horizon=21, calendar="XNYS")                     # rolling 5y window, 21-session purge
-for train_idx, val_idx in cv.split(df_dates): ...                         # splits = list(cv.split(df_dates))
+for train_idx, val_idx in cv.split(df_dates): ...   # df_dates = one row per unique session (DatetimeIndex), never the long panel (Recipe 5, panel splitting)
 CombinatorialCV(n_groups=6, n_test_groups=2, label_horizon=5, embargo_size=2)
 WalkForwardConfig(n_splits=5, test_size=252, train_size=1260, label_horizon=21,
                   fold_direction="forward", calendar_id="NYSE").model_dump()
@@ -215,7 +229,7 @@ universe:
 decision:
   cadence: monthly_month_end      # nasdaq100: bar_frequency: 15_minute + decision_snapshot: bar_close
   snapshot: close                 # sp500_options: entry_cadence: weekly_friday, entry_time: friday_close,
-  execution_delay: next_bar_open  #                holding_period_days: 10, hedge_cadence: daily_close
+  execution_delay: next_bar_open  #                hedge_cadence: daily_close (holding_period_days: 10 is a legacy field; label held to expiry)
   cadence_by_label: {fwd_ret_5d: weekly_friday_close}
 mapping:
   class: long_only_rank_and_rebalance

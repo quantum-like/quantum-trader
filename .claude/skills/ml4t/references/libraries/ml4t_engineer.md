@@ -146,7 +146,7 @@ Note: feature-evaluation configs (`StationarityConfig`, `ACFConfig`, ...) moved 
 Leakage and ordering:
 
 1. **Train-only scaler fit per fold** (`MLDatasetBuilder.split`): `fold_scaler = scaler.clone()`, `fit_transform(train)`, `transform(test)`; labels untouched. Never fit on the full frame (AFML ch. 7). Check: each `FoldResult.scaler` is a distinct fitted clone; `scaler.statistics` must not change after `transform(test)`.
-2. **Strict temporal boundary** (`_validate_fold_boundary`): `intersect1d(train, test)` must be empty and, with `dates`, `max(dates[train]) < min(dates[test])` strictly, else `ValueError("training dates must strictly precede test dates")`. The builder verifies but does NOT purge/embargo: pass `dates` and use `ml4t.diagnostic.splitters.PurgedWalkForwardCV(n_splits=5, embargo_pct=0.01)`.
+2. **Strict temporal boundary** (`_validate_fold_boundary`): `intersect1d(train, test)` must be empty and, with `dates`, `max(dates[train]) < min(dates[test])` strictly, else `ValueError("training dates must strictly precede test dates")`. The builder verifies strict date ordering but never purges; the purge comes only from the splitter's `label_horizon`: pass `dates` and use `ml4t.diagnostic.splitters.WalkForwardCV(n_splits=5, label_horizon=h, ...)` with `h` = the label horizon in sessions. There is no `PurgedWalkForwardCV` in `ml4t-diagnostic` (the name survives only in the `dataset.py` docstring), and `WalkForwardCV`'s default `label_horizon=0` purges nothing, so a split that omits it passes the builder's check and still leaks.
 3. **Splitter index validation**: partitions must be 1-D, nonempty, integer dtype (bool rejected), unique, within `[0, n_samples)`.
 4. **Date index validation**: `dates` must be `pl.Date`/`pl.Datetime`, zero nulls, `is_sorted()`; else `ValueError` at construction.
 5. **Holdout rules** (`train_test_split`): `train_size` finite, strictly in (0,1), not bool; `shuffle=True` with `dates` raises; >=1 row each side; the cut moves to the last timestamp-change index `<= n_train` so equal timestamps stay together; needs >=2 distinct timestamp groups.
@@ -233,6 +233,17 @@ short_labels = atr_triple_barrier_labels(df, config=atr_cfg, side=-1)       # si
 ts = trend_scanning_labels(df, min_window=5, max_window=50, t_value_threshold=2.0)  # label, t_value, optimal_window
 ```
 
+Execution-anchored fixed-horizon labels (decide at close t, fill at `open_{t+1}`; `h` in sessions; frame sorted by `symbol, timestamp`):
+```python
+import polars as pl
+from ml4t.engineer.labeling import fixed_time_horizon_labels
+lab = fixed_time_horizon_labels(df, horizon=h, method="returns", price_col="open", group_col="symbol", timestamp_col="timestamp")
+lab = lab.with_columns(pl.col(f"label_return_{h}p").shift(-1).over("symbol").alias(f"fwd_ret_{h}d"))  # open_{t+1} -> open_{t+1+h}
+oo = (pl.col("open").shift(-(h + 1)) / pl.col("open").shift(-1) - 1).over("symbol")        # same label in one expression
+oc = (pl.col("close").shift(-h) / pl.col("open").shift(-1) - 1).over("symbol")             # exit at close_{t+h} instead
+# price_col="close" gives close_t -> close_{t+h}: a proxy for next-open execution, so record it as one (chapters/07 Recipe 4)
+```
+
 Rolling percentile labels (point-in-time, session-aware) and meta-labeling:
 ```python
 from ml4t.engineer.labeling import rolling_percentile_binary_labels, meta_labels, apply_meta_model
@@ -243,14 +254,20 @@ ml = meta_labels(df, signal_col="signal", return_col="fwd_ret", threshold=0.0)
 sized = apply_meta_model(df, "signal", "meta_prob", bet_size_method="sigmoid", scale=5.0)  # -> sized_signal
 ```
 
-Leakage-safe CV with purged splitter from `ml4t-diagnostic`:
+Leakage-safe CV with a purged splitter from `ml4t-diagnostic` (`WalkForwardCV`; `PurgedWalkForwardCV` does not exist):
 ```python
 from ml4t.engineer import MLDatasetBuilder, StandardScaler
-from ml4t.diagnostic.splitters import PurgedWalkForwardCV
-builder = MLDatasetBuilder(features_df, labels_series, dates=dates_series).set_scaler(StandardScaler())
-for fold in builder.split(PurgedWalkForwardCV(n_splits=5, embargo_pct=0.01)):
-    model.fit(fold.X_train, fold.y_train)                          # scaler fit on fold.train only
-    preds = model.predict(fold.X_test)
+from ml4t.diagnostic.splitters import WalkForwardCV
+h = 21                                                   # label horizon in SESSIONS = the label's own horizon
+cv = WalkForwardCV(n_splits=5, test_size="52W", label_horizon=h, calendar="NYSE", timestamp_col="timestamp")
+# label_horizon drops the h sessions of training rows before each test window (default 0 purges nothing);
+# embargo_size / embargo_pct are no-ops in forward walk-forward (training never follows test) - CombinatorialCV only;
+# timestamp_col + calendar make h count trading sessions on a panel; without them an int h counts ROWS.
+X = panel.drop(["symbol", "fwd_ret_21d"])                # keep "timestamp": the splitter reads it, the scaler skips non-numeric columns
+builder = MLDatasetBuilder(X, panel["fwd_ret_21d"], dates=panel["timestamp"]).set_scaler(StandardScaler())
+for fold in builder.split(cv):                           # builder checks max(train dates) < min(test dates); the purge is cv's
+    model.fit(fold.X_train.drop("timestamp"), fold.y_train)   # scaler fit on fold.train only
+    preds = model.predict(fold.X_test.drop("timestamp"))
 X_tr, X_te, y_tr, y_te = builder.train_test_split(train_size=0.75) # shuffle=False enforced with dates
 cuts = builder.get_feature_percentiles(train_indices=fold.train_indices)   # train-only bins
 ```
@@ -307,7 +324,7 @@ The notes were extracted from the library source and companion-repo READMEs; the
 | Ch. 07 defining the learning task (`07_defining_the_learning_task/03_label_methods`) | `triple_barrier_labels`, `atr_triple_barrier_labels`, `trend_scanning_labels`, `fixed_time_horizon_labels`, `rolling_percentile_*`, `meta_labels`, uniqueness / `sequential_bootstrap` | AFML ch. 3-4; OHLC-based touches, point-in-time percentile thresholds, session awareness |
 | Ch. 08 financial features (`08_financial_features/`) | TA-Lib-compatible momentum/trend/volatility/volume, volatility estimators (Parkinson, GK, RS, YZ), `fdiff` (FFD), composites, cross-asset | TA-Lib compatibility flags; `find_optimal_d` minimum d passing ADF p<0.05 |
 | Ch. 09 model-based features (`09_model_based_features/`) | `garch_forecast` (fixed params), `ewma_volatility`, regime (`hurst_exponent`, `variance_ratio`, `market_regime_classifier`), structural-break features, entropy | ADIA Lab 2025 structural-break insights; AFML ch. 18 entropy |
-| Ch. 11 ML pipeline (`11_ml_pipeline/`) | `MLDatasetBuilder`, scalers, `PreprocessingPipeline.from_recommendations`, `SplitterProtocol` with `PurgedWalkForwardCV` | AFML ch. 7 train-only preprocessing and strict fold boundaries |
+| Ch. 11 ML pipeline (`11_ml_pipeline/`) | `MLDatasetBuilder`, scalers, `PreprocessingPipeline.from_recommendations`, `SplitterProtocol` with `WalkForwardCV(label_horizon=h)` | AFML ch. 7 train-only preprocessing and strict fold boundaries |
 | Ch. 19 risk management | `risk.py` (VaR/CVaR methods, drawdown, tail ratio, Sharpe/Sortino/Calmar/Omega) as features | rolling window 252, confidence 0.95 |
 | Ch. 25-26 live trading / MLOps | `OfflineFeatureStore.point_in_time_join`, `ExperimentConfig` YAML, `scaler.to_dict()`, `LoggingConfig` | PIT join caveat (publication time vs observation time) |
 
@@ -331,7 +348,7 @@ The notes were extracted from the library source and companion-repo READMEs; the
 - **Point-in-time join**: backward as-of join so features are dated at or before the label timestamp.
 - **Train-only preprocessing**: fit scalers/quantiles on training rows only, lock statistics, transform test rows.
 - **Strict temporal boundary**: `max(train dates) < min(test dates)`, enforced per fold.
-- **Purge / embargo**: drop training samples overlapping test label windows (purge) and a gap after the test set (embargo); supplied by `ml4t-diagnostic` splitters, verified by the builder.
+- **Purge / embargo**: drop training samples overlapping test label windows (purge) and a gap after the test set (embargo); supplied by `ml4t-diagnostic` splitters via `label_horizon` (default 0 = no purge), verified by the builder.
 - **FFD**: fixed-width-window fractional differencing with weight cutoff `threshold`; `d` the differencing order.
 - **Composite score**: weighted sum of rolling z-scores of several features.
 - **Micro-price / weighted mid**: size-weighted bid/ask mid-point.
@@ -344,7 +361,7 @@ The notes were extracted from the library source and companion-repo READMEs; the
 ## Related references
 
 - `libraries/ml4t_data.md` — upstream OHLCV / tick frames, `asset_id`/`timestamp` contract, where to apply publication lags and fix NaN prices.
-- `libraries/ml4t_diagnostic.md` — `PurgedWalkForwardCV` and other splitters consumed by `MLDatasetBuilder.split`; feature-evaluation configs that moved out of engineer; recommendations for `PreprocessingPipeline`.
+- `libraries/ml4t_diagnostic.md` — `WalkForwardCV` / `CombinatorialCV` (purge via `label_horizon`) consumed by `MLDatasetBuilder.split`; feature-evaluation configs that moved out of engineer; recommendations for `PreprocessingPipeline`.
 - `libraries/ml4t_models.md` — fitted GARCH / HMM / regime models (engineer's `garch_forecast` uses fixed parameters).
 - `libraries/ml4t_backtest.md`, `libraries/ml4t_live.md` — consume `sized_signal`, `label_return`, `barrier_hit`, persisted scaler state.
 - `chapters/03_market_microstructure.md` — alternative bars, tick rule, Kyle/Amihud/Roll features.

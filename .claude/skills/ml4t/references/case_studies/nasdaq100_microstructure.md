@@ -1,8 +1,8 @@
-# Case study: NASDAQ-100 intraday microstructure (114 stocks, 15-min, fwd_ret_15m)
+# Case study: NASDAQ-100 intraday microstructure (115 stocks, 15-min, fwd_ret_15m)
 
 > The highest-frequency case in the book: AlgoSeek TAQ-derived 1-minute NBBO and trade-location bars for point-in-time NASDAQ-100 members (2020-01-02 to 2021-12-31), decided every 15 minutes on a 15-minute forward midpoint return. At this horizon a price move (median absolute 15-min move 15.8 bps) and the cost of capturing it (measured median round trip 6.16 bps) are the same order of magnitude, so a cost figure wrong by 2x changes the sign of the answer, and more of the feasibility notebook is cost measurement than anything else. The featured configuration collapses out of sample on the full 115-name universe (holdout Sharpe -0.42) but is positive on the 50 cheapest-to-trade names, so the cost-feasible screen is load-bearing. The closing lesson is that choosing among one family's configurations on a validation window does not carry to a later window while the family average does, which is why the case study carries a declared mean-forecast GBM ensemble instead of a single winner. Headline: diagnose the cost problem, screen the universe, treat model selection as estimation under uncertainty.
 
-Universe-count caveat: the unit title says 114 stocks; `setup.yaml` declares `n_assets: 115`; the part-2 digest says 113 names carry prices and predictions. Unresolved from the notes; assert the config's 115 against the archive (as `01_feasibility_analysis` does) and report what survives.
+Universe count: 115, from `setup.yaml` (`n_assets: 115`) and the README. The Ch6 overview and Ch8 feature-summary notebooks print 114, and 113 names carry prices and predictions through the modeling notebooks; neither replaces the declared roster. Assert the 115 against the archive in both directions, as `01_feasibility_analysis` does, and report what survives.
 
 Repo root for every path below: `case_studies/nasdaq100_microstructure/`.
 

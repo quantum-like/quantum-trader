@@ -1,4 +1,4 @@
-# Case study: S&P 500 equity + option analytics (634 stocks, daily, fwd_ret_5d)
+# Case study: S&P 500 equity + option analytics (633 stocks, daily, fwd_ret_5d)
 
 > Trades S&P 500 *equities* (never options) on information read off their listed options: IV level, skew, term structure and the variance risk premium (VRP), joined to price momentum and realized vol, 2017-2021, weekly Friday-close decisions filled at Monday open. The question is not "do options contain information" but whether it survives point-in-time feature engineering (one-session option lag, pinned GARCH windows), weekly portfolio construction, 13 bps round-trip costs, risk overlays and the 2020 regime change. The headline lesson is that option features are forecasts of a distribution's *width*, not its *mean*: every family ranks the risk-adjusted label (`fwd_ret_risk_adj_5d`) above the raw return, and on the primary label `fwd_ret_5d` no family clears zero. The second lesson is procedural: every checkpoint of every model on every declared label is registered, IC decides nothing, and selection happens exactly once, on validation backtest Sharpe after costs in `14_backtest`. Report a weak result as a result; a screen that only ever finds signal is not a screen.
 
@@ -9,7 +9,7 @@ Repo path for every notebook below: `case_studies/sp500_equity_option_analytics/
 | Item | Value (from `config/setup.yaml` unless noted) |
 |---|---|
 | Identity | `strategy_id: sp500_equity_option_analytics`, `setup_version: v1` |
-| Universe | `universe.n_assets: 633`, `eligibility_rule: sp500_with_options`; current-constituent roster (survivorship bias acknowledged everywhere). Counts differ by source: README/config 633, unit title 634, `04_model_based_features` reports 624 securities actually carrying a surface. |
+| Universe | `universe.n_assets: 633`, `eligibility_rule: sp500_with_options`; current-constituent roster (survivorship bias acknowledged everywhere); 633 per config, README and `13_model_analysis` (624 of them carry an option surface in `04_model_based_features`). |
 | Data | `ML4T_DATA_PATH` must hold `equities/market/sp500/daily_bars.parquet` (AlgoSeek, ships in repo at `data/equities/market/sp500/daily_bars.parquet`; cite algoseek.com) and `equities/market/sp500/options_surface_daily.parquet` (materialized by `data/equities/market/sp500/materialize_options.py`). Missing data raises with acquisition instructions. |
 | History | 2017-01-03 to 2021-12-31, 1,259 NYSE sessions; fold 0 training opens 2018-01-04 (~250 sessions of run-up precede it) |
 | Decision cadence | `decision.cadence: weekly_friday_close`, `snapshot: friday_16:00_et`, `execution_delay: monday_open`, `iv_feature_lag: 1_day`; `cadence_by_label: {fwd_ret_10d: biweekly, fwd_dir_10d: biweekly}` (a 10d position on a weekly grid would overlap the quantity being measured) |
@@ -66,7 +66,7 @@ Menu names resolve to presets in `case_studies/config/{model_type}/`; latent-fac
 | Stage | Notebook | Chapter | What it does | What it writes |
 |---|---|---|---|---|
 | Feasibility | `01_feasibility_analysis` | 6 | Options coverage, universe count on decision dates, ordering persistence (`PERSISTENCE_WEEKS = 8`), weekly cadence choice, cost headroom vs typical open-to-open move | Nothing |
-| Labels | `02_labels` | 7 | Rebuild tradable prices via `adj_factor` inside `sec_id`; 5d/10d forward return (Friday close → Monday open entry), risk-adjusted (`RV_WINDOW = 20`), direction labels with null guard; fold boundaries; effective-sample-size diagnostics | `labels/{fwd_ret_5d,fwd_ret_10d,fwd_ret_risk_adj_5d,fwd_dir_5d,fwd_dir_10d}.parquet` + `.digest.json` |
+| Labels | `02_labels` | 7 | Rebuild tradable prices via `adj_factor` inside `sec_id`; 5d/10d forward return anchored at execution (signal at close t, entry at next open t+1, exit at close t+h; recipe under Market-specific guardrails), risk-adjusted (`RV_WINDOW = 20`), direction labels with null guard; fold boundaries; effective-sample-size diagnostics | `labels/{fwd_ret_5d,fwd_ret_10d,fwd_ret_risk_adj_5d,fwd_dir_5d,fwd_dir_10d}.parquet` + `.digest.json` |
 | Financial features | `03_financial_features` | 8 | Reindex sparse surface onto each security's session grid, lag option columns by `IV_LAG = 1`, forward-fill 5 sessions, compute eight declared families, within-date ranks, seal test | `features/financial.parquet` |
 | Model-based features | `04_model_based_features` | 9 | Forward-only GJR-GARCH(1,1), burn-in 252, refit 21, pinned single-start vintage; paired VRP-denominator test | `features/model_based.parquet` |
 | Evaluation | `05_evaluation` | 7-9 | Coverage, staleness, daily Spearman IC, HAC + bootstrap bands, BH-FDR, Table 7.2 triage | `evaluation/triage_ledger.parquet`, `evaluation/ic_timeseries.parquet` |
@@ -112,9 +112,9 @@ Downstream consumer: `20_strategy_synthesis/02_feature_evaluation.py` reads the 
 | Declared, not searched, hyperparameters (factor counts, ridge, patch size, SDF budgets) | A search over validation IC is what the notebooks are arranged to avoid |
 | Controls that do a job: `nlinear` for LSTM, PCA for conditioned factor models | Any gain is worth only its distance from the control; architectures with memory frequently fail to beat `nlinear` |
 | Long-only equal weight baseline | Keeps borrow/locate out of a signal-focused example; avoids stacking a second optimization on the one under test |
-| `initial_cash: 1_000_000`, `share_type: integer` | At $100k, top_k=20 → $5k/name x integer rounding x high-priced S&P tail → min 27 trades over 4y; engine almost never traded (`memory/feedback_2026_05_15_equity_sizing_invalidated.md`) |
+| `initial_cash: 1_000_000`, `share_type: integer` | At $100k, top_k=20 → $5k/name x integer rounding x high-priced S&P tail → min 27 trades over 4y; engine almost never traded; the 100k run was invalidated and 1,000,000 restored 2026-05-16 (rationale recorded in a `setup.yaml` comment; the note it cites is not shipped) |
 | `mvo_ledoit_wolf` lookback 126 (vs 63) | With N/K < ~2.5 at top_k=20 Ledoit-Wolf shrinkage degenerates to the identity target |
-| No `max_weight` cap | Prior 0.40 was already a loosened 0.20 workaround; restoring it pushes moment allocators back toward equal weight (`memory/feedback_max_weight_caps_intentionally_absent.md`) |
+| No `max_weight` cap | Prior 0.40 was already a loosened 0.20 workaround; restoring it pushes moment allocators back toward equal weight (rationale recorded in a `setup.yaml` comment; the note it cites is not shipped) |
 | `conformal_weighted` added | Was absent while `etfs`, `cme_futures`, `fx_pairs` declared it; `13_model_analysis` measures the coverage its widths come from, so running it tests whether calibration is good enough to size with |
 | `max_bin: 255` on CPU | 63 is the GPU default carried over by mistake; it quartered bin resolution for every CPU fit |
 | `sae.batch_size: 10000` | `SAEConfig.batch_size=None` = one batch of ~250,000 rows, which does not fit a 24 GB card |
@@ -139,6 +139,22 @@ Downstream consumer: `20_strategy_synthesis/02_feature_evaluation.py` reads the 
 | Carry-forward crossing a ticker change | A dead security's last IV carried into whoever picked up the ticker | Apply lag and fill `.over("sec_id")` |
 | Same-bar fill | Friday-close features receiving a Friday-close fill | Decision at close, order at next open; seeded random-signal smoke test (`SEED = 42`) catches gross engine bias only, not research-choice bias |
 | Survivorship of current-constituent roster | 2021 holdout on today's membership excludes every departed company; optimistic by an unmeasured amount | State population scope on every result; never generalize to the index-membership process |
+
+**Open-anchored label (02).** `decision.execution_delay: monday_open` fixes the anchor: the signal is read at close *t*, the position is entered at the next open and exited *h* sessions later at the close, `r = C[t+h] / O[t+1] - 1` on adjusted prices inside `sec_id`. A close-to-close label would credit the overnight move between the signal and the first tradable price. `fixed_time_horizon_labels` cannot express this (numerator and denominator come from one `price_col`), so the notebook writes it out:
+
+```python
+ENTITY, h = "sec_id", 5                       # h in trading sessions; `session` = market session index
+entry = pl.col("adj_open").shift(-1).over(ENTITY)
+exit_price = pl.col("adj_close").shift(-h).over(ENTITY)
+spans_h = pl.col("session").shift(-h).over(ENTITY) - pl.col("session") == h   # window complete
+labels = prices.with_columns(
+    pl.when(spans_h & (entry > 0) & (exit_price > 0))
+    .then(exit_price / entry - 1)
+    .alias(f"fwd_ret_{h}d")
+)
+```
+
+Siblings that declare `execution_delay: next_bar_open` but keep a close-to-close label (`etfs`, `us_equities_panel`) carry that overnight gap as an unmeasured cost and say so; do not call a close-to-close label open-anchored.
 
 ### Features
 
@@ -317,7 +333,6 @@ Checkpoint kind: use the library's named constants for SDF phases; never `checkp
 - Further reading:
   - Chen, Pelger & Zhu (2021), adversarial stochastic discount factor (`11d`).
   - Repo issue #1100 (`WORKSPACE` read on one tier).
-  - `memory/feedback_2026_05_15_equity_sizing_invalidated.md`, `memory/feedback_max_weight_caps_intentionally_absent.md` (config rationale).
 
 ## Glossary
 

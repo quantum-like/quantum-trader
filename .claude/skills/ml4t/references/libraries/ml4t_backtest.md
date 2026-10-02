@@ -210,18 +210,35 @@ class MyML(SignalFollowingStrategy):
 result = Engine(feed, MyML(), BacktestConfig.from_preset("realistic")).run()
 ```
 
-Presets, execution modes, costs:
+Presets, execution modes, costs. Activation rule (verified in `Broker.from_config`, `broker.py`): with the default `commission_type=NONE` / `slippage_type=NONE` the broker promotes the type from whichever rate field is positive (`commission_per_share` -> PER_SHARE, else `commission_per_trade` -> PER_TRADE, else `commission_rate` -> PERCENTAGE; `slippage_spread` / `slippage_spread_by_asset` -> SPREAD, else `slippage_fixed` -> FIXED, else `slippage_rate` -> PERCENTAGE), so a bare rate is charged. Set the type explicitly anyway so YAML / `from_dict(strict=True)` provenance and `describe()` state what was charged, and remember that an explicit type ignores the other rate fields (`TIERED` builds a single tier from `commission_rate`; `VOLUME_BASED` reads `slippage_rate` as `VolumeShareSlippage.impact_factor`). `stop_slippage_rate` is an extra charge on stop/risk exits whatever the type.
 ```python
 config = BacktestConfig.from_preset("realistic")   # 20 bps commission + 20 bps slippage, 2% cash buffer, stops fill at next open (verified profiles.py)
 config = BacktestConfig.from_preset("vectorbt")    # same-bar close fills, fractional shares, no costs
 from ml4t.backtest import ExecutionMode, StopFillMode, CommissionType
 from ml4t.backtest.config import SlippageType, SpreadConvention
 config = BacktestConfig(execution_mode=ExecutionMode.NEXT_BAR, stop_fill_mode=StopFillMode.STOP_PRICE,
-                        commission_rate=0.001, slippage_rate=0.0005, stop_slippage_rate=0.001)  # 10 / 5 / 10 bps
+                        commission_type=CommissionType.PERCENTAGE, commission_rate=0.001,    # 10 bps of fill notional per leg
+                        slippage_type=SlippageType.PERCENTAGE, slippage_rate=0.0005,         # 5 bps of fill price per leg
+                        stop_slippage_rate=0.001)                                            # +10 bps on stop / risk exits
+# setup.yaml `costs.per_leg_cost_bps_range: [lo, hi]` -> the companion loader takes mid = (lo + hi) / 2 per leg and splits it
+# 60/40 (verified `case_studies/utils/backtest_loaders.py`): commission_rate = 0.6 * mid / 1e4, slippage_rate = 0.4 * mid / 1e4
 ib = BacktestConfig(commission_type=CommissionType.PER_SHARE, commission_per_share=0.005, commission_minimum=1.0)
 spread = BacktestConfig(slippage_type=SlippageType.SPREAD, slippage_spread=0.02,
                         slippage_spread_convention=SpreadConvention.FULL_SPREAD)
 for w in config.validate(): print("WARN", w)
+result = Engine(feed, strategy, config).run()
+assert result.metrics["total_commission"] > 0 and result.metrics["total_slippage"] > 0   # "confirm something moved" (keys verified engine.py)
+```
+
+Random-signal plumbing test (guardrails pre-flight 26(d); the companion's `case_studies/utils/backtest_runner.run_plumbing_test(case_study, prices, strategy_spec, top_k=20, seed=42)` does the same through the registry): same feed, strategy, config, dates, costs and sizing, with the prediction column replaced by seeded noise. PASS iff `|Sharpe| < 1.5` (`PLUMBING_SHARPE_TOLERANCE`); after costs a random signal should be clearly negative at intraday cadence; a NaN Sharpe means the random book went bankrupt, which points at sizing or the short leg, not the signal.
+```python
+import math, numpy as np, polars as pl
+rng = np.random.default_rng(42)                                                           # SEED = 42
+noise = signals.with_columns(pl.Series("prediction", rng.standard_normal(signals.height)))
+plumb = Engine(DataFeed(prices_df=prices, signals_df=noise), MyML(), config).run()        # identical config, costs included
+sharpe = plumb.metrics["sharpe"]
+assert sharpe is not None and math.isfinite(sharpe), "random book went bankrupt: fix sizing / short leg before reading any backtest"
+assert abs(sharpe) < 1.5, f"pipeline is the alpha: random-signal Sharpe {sharpe:.2f}"
 ```
 
 Position rules and portfolio limits:
@@ -239,7 +256,7 @@ class MyStrategy(Strategy):
     def on_data(self, timestamp, data, context, broker):
         self.rm.update(broker.get_account_value(), {a: p.market_value for a, p in broker.get_positions().items()},
                        timestamp, broker=broker)
-        if self.rm.is_halted or not self.rm.can_open_position(): return
+        if self.rm.is_halted or not self.rm.can_open_position(): return   # halt persists until rm.reset_halt(); re-entry rule: chapters/19_risk_management.md
 ```
 
 Target-weight rebalancing with a causal schedule:
@@ -272,6 +289,17 @@ records = result.to_trade_records()                   # TradeRecord dicts
 rejected = result.to_rejected_orders_dataframe()
 ```
 
+Borrow charge for a long-short book (not modeled by the engine, guardrail 27; ch18 "Breakeven alpha and borrow cost"): `result.metrics["sharpe"]` is gross of borrow, so charge it on the daily series before `compute_backtest_uncertainty` and before reading a `net_sharpe_floor`. Short notional comes from `to_portfolio_state_dataframe()` (dollar columns `timestamp, equity, cash, gross_exposure, net_exposure`, one row per bar, verified `engine._record_portfolio_state`); on an intraday feed aggregate it to session close first so it lines up with `to_daily_returns()`.
+```python
+BORROW_RATE_ANNUAL = 0.005                                  # ~50 bps/yr flat (us_equities_panel setup.yaml note); hard-to-borrow names cost far more
+state = result.to_portfolio_state_dataframe()
+short_frac = ((state["gross_exposure"] - state["net_exposure"]) / 2 / state["equity"]).shift(1).fill_null(0.0)   # short notional held into day t = state at t-1
+daily = result.to_daily_returns(calendar="NYSE")            # one row per session on a daily feed, same length as state
+daily_net = daily - short_frac * BORROW_RATE_ANNUAL / 252
+from ml4t.diagnostic.evaluation import compute_backtest_uncertainty
+unc = compute_backtest_uncertainty(daily_net, periods_per_year=252)   # .sharpe, .sharpe_ci_lower / .sharpe_ci_upper now net of borrow
+```
+
 Parameter sweep export: `summary = BacktestExporter.batch_export(results=results, base_path="./sweep_results", param_values=params)`; `summary.sort("sharpe", descending=True).head(5)`. Session-aligned futures P&L: `compute_session_pnl(equity_curve, SessionConfig(calendar="CME_Equity", timezone="America/Chicago", session_start_time="17:00"))`. Calendar: `get_schedule("XNYS", date(2024,1,1), date(2024,12,31))`, `is_trading_day("XNYS", date(2024,7,4))`. Margin account: `UnifiedAccountPolicy(allow_short_selling=True, allow_leverage=True)` or `BacktestConfig(allow_short_selling=True, allow_leverage=True)`.
 
 Typical pipeline: ml4t-data prices (point-in-time, adjusted) + ml4t-models predictions -> long-format `prices_df` / `signals_df` -> `DataFeed` -> `Strategy` (template or custom) + `BacktestConfig.from_preset("realistic")` + position rules -> `Engine.run()` -> `config.validate()` warnings, `to_rejected_orders_dataframe()` -> `result.to_parquet()` -> `to_daily_returns()` / `to_trade_records()` into ml4t-diagnostic -> same `Strategy` into ml4t-live.
@@ -284,7 +312,7 @@ Typical pipeline: ml4t-data prices (point-in-time, adjusted) + ml4t-models predi
 | Account | `allow_short_selling=False`, `allow_leverage=False`, `initial_margin=0.5`, `long_maintenance_margin=0.25`, `short_maintenance_margin=0.30`, `fixed_margin_schedule=None` ({asset: (initial, maintenance)}), `margin_pct_schedule=None`, `short_cash_policy=CREDIT`, `lock_notional_update_mode=POSITION_LEGS` |
 | Execution | `execution_price=OPEN`, `mark_price=PRICE`, `execution_mode=NEXT_BAR`, `stop_fill_mode=STOP_PRICE`, `stop_level_basis=FILL_PRICE`, `trail_hwm_source=CLOSE`, `trail_include_entry_bar_extremes=False`, `initial_hwm_source=FILL_PRICE`, `trail_stop_timing=LAGGED`, `immediate_fill=False` |
 | Sizing | `share_type=INTEGER`, `share_rounding=NEAREST` |
-| Costs | `commission_type=NONE`, `commission_rate=0.0`, `commission_per_share=0.0`, `commission_per_trade=0.0`, `commission_minimum=0.0`, `slippage_type=NONE`, `slippage_rate=0.0`, `slippage_fixed=0.0`, `slippage_spread=0.0`, `slippage_spread_by_asset={}`, `slippage_spread_convention=FULL_SPREAD`, `stop_slippage_rate=0.0` |
+| Costs | `commission_type=NONE`, `commission_rate=0.0`, `commission_per_share=0.0`, `commission_per_trade=0.0`, `commission_minimum=0.0`, `slippage_type=NONE`, `slippage_rate=0.0`, `slippage_fixed=0.0`, `slippage_spread=0.0`, `slippage_spread_by_asset={}`, `slippage_spread_convention=FULL_SPREAD`, `stop_slippage_rate=0.0`. `NONE` plus a positive rate field auto-promotes the type at `Broker.from_config` (precedence per_share > per_trade > rate; spread > fixed > rate), see Usage patterns |
 | Cash | `initial_cash=100000.0`, `cash_buffer_pct=0.0`, `settlement_delay=0` (T+0), `settlement_reduces_buying_power=True`, `reject_on_insufficient_cash=True`, `skip_cash_validation=False` (True = Zipline-like unconstrained fills), `partial_fills_allowed=False` |
 | Sequencing | `fill_ordering=EXIT_FIRST`, `entry_order_priority=SUBMISSION`, `next_bar_submission_precheck=False`, `next_bar_simple_cash_check=False`, `buying_power_reservation=False`, `next_bar_queue_shadow_validation=False` |
 | Rebalancing | `rebalance_mode=INCREMENTAL`, `rebalance_headroom_pct=1.0`, `missing_price_policy=SKIP`, `late_asset_policy=ALLOW`, `late_asset_min_bars=1` |
