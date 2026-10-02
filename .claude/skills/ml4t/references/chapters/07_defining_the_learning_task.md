@@ -141,7 +141,14 @@ lab = fixed_time_horizon_labels(df, horizon=h, method="returns", price_col="open
 lab = lab.with_columns(pl.col(f"label_return_{h}p").shift(-1).over("symbol").alias(f"fwd_ret_{h}d"))
 ```
 
-What the case studies declare (`decision.snapshot` / `execution_delay`) and what their `02_labels` write: etfs, us_equities_panel, us_firm_characteristics and fx_pairs declare `next_bar_open` but write close-to-close labels (`close.shift(-h) / close - 1`; the ETF audit record says `anchor: "adjusted close at t"` and names "close-to-close is not the backtest's next-open execution" as a known limitation); cme_futures declares `monday_open` and writes settlement-to-settlement on `adj_close`; sp500_equity_option_analytics declares `monday_open` and is the one open-anchored label (entry `adj_open.shift(-1)`, exit `adj_close.shift(-h)`); sp500_options `next_session_close`; crypto_perps_funding `at_funding_timestamp` (close of the bar completing at t); nasdaq100_microstructure `1_bar` (entry and exit at the VWAP of the next bar and of bar t+H). When no open series exists, or when you keep a close-to-close label, record it as a proxy in the label audit (`anchor`, `resolves`) and let the backtest fill at the next open so the gap is measured there (Ch16 / Ch18), never left implicit.
+What the case studies declare (`decision.snapshot` / `execution_delay` in `config/setup.yaml`) and what their `02_labels` write:
+
+- etfs, us_equities_panel, us_firm_characteristics, fx_pairs — declare `next_bar_open` but write close-to-close labels (`close.shift(-h) / close - 1`); the ETF audit record says `anchor: "adjusted close at t"` and names "close-to-close is not the backtest's next-open execution" as a known limitation.
+- cme_futures — declares `monday_open`, writes settlement-to-settlement on `adj_close`.
+- sp500_equity_option_analytics — declares `monday_open`; the one open-anchored label (entry `adj_open.shift(-1)`, exit `adj_close.shift(-h)`).
+- sp500_options — `next_session_close`; crypto_perps_funding — `at_funding_timestamp` (close of the bar completing at t); nasdaq100_microstructure — `1_bar` (entry and exit at the VWAP of the next bar and of bar t+H).
+
+When no open series exists, or when you keep a close-to-close label, record it as a proxy in the label audit (`anchor`, `resolves`) and let the backtest fill at the next open so the gap is measured there (Ch16 / Ch18), never left implicit.
 
 Triple-barrier engine: `triple_barrier_labels(data, config, price_col=None, high_col=None, low_col=None, timestamp_col=None, group_col=None, calculate_uniqueness=False, uniqueness_weight_scheme="returns_uniqueness"|"uniqueness_only"|"returns_only"|"equal", contract=None, open_col=None)`. With high/low/open: touch detected on the bar range, gap-through executed at the open. Without: close-only test, trade booked at the barrier price not the crossing close. Diagnose with `label_diagnostics(df, label_col, timestamp_col="timestamp", title_prefix="")` (distribution stability + class balance over time).
 

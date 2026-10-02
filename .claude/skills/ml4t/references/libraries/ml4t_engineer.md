@@ -48,7 +48,7 @@ Note: feature-evaluation configs (`StationarityConfig`, `ACFConfig`, ...) moved 
 |---|---|---|---|
 | `TickBarSampler`, `VolumeBarSampler`, `DollarBarSampler` | `(ticks_per_bar: int)`, `(volume_per_bar: float)`, `(dollars_per_bar: float)`; `.sample(data, include_incomplete=False)` | Standard activity bars | Package exports the `*Vectorized` versions under these names; originals carry an `Original` suffix |
 | `TickBarSamplerVectorized`, `VolumeBarSamplerVectorized`, `DollarBarSamplerVectorized` | same | Numba/Polars vectorized, "10,000+ rows/sec" | Docstring kwargs (`volume_threshold`, `dollar_threshold`, `tick_threshold`) do NOT match the real `__init__`; use the signatures here |
-| `ImbalanceBarSampler` (volume), `TickImbalanceBarSampler`, `ImbalanceBarSamplerVectorized` | `(expected_ticks_per_bar: int, alpha=0.1, initial_p_buy=0.5, min_bars_warmup=10)` | AFML 2.3 imbalance bars; EWMA-adaptive `E[T]`, `P[b=1]` | TIB: `θ=Σb_t`, `E[θ_T]=E[T]·|2P[b=1]−1|`; VIB: `θ=Σb_t v_t`, `E[θ_T]=E[T]·|2v⁺−E[v]|` |
+| `ImbalanceBarSampler` (volume), `TickImbalanceBarSampler`, `ImbalanceBarSamplerVectorized` | `(expected_ticks_per_bar: int, alpha=0.1, initial_p_buy=0.5, min_bars_warmup=10)` | AFML 2.3 imbalance bars; EWMA-adaptive `E[T]`, `P[b=1]` | TIB: `θ=Σb_t`, `E[θ_T]=E[T]·\|2P[b=1]−1\|`; VIB: `θ=Σb_t v_t`, `E[θ_T]=E[T]·\|2v⁺−E[v]\|` |
 | `FixedTickImbalanceBarSampler`, `FixedVolumeImbalanceBarSampler` | `(threshold)` | Non-adaptive threshold | |
 | `WindowTickImbalanceBarSampler`, `WindowVolumeImbalanceBarSampler` | `(initial_expected_t, bar_window=10, tick_window=1000)` | Window-estimated expectations | |
 | `TickRunBarSampler`, `VolumeRunBarSampler`, `DollarRunBarSampler`, `FixedTickRunBarSampler(threshold)` | `(expected_ticks_per_bar, alpha=0.1, initial_p_buy=0.5, min_bars_warmup=10)` | AFML run bars | `θ_T = max{Σ buys, Σ sells}` in the bar, NOT consecutive same-side runs, no reset on direction change; `E[θ_T]=E[T]·max{P[b=1],1−P[b=1]}`. Hint: `expected_ticks_per_bar=50` tick / `100` volume, dollar |
@@ -263,6 +263,7 @@ cv = WalkForwardCV(n_splits=5, test_size="52W", label_horizon=h, calendar="NYSE"
 # label_horizon drops the h sessions of training rows before each test window (default 0 purges nothing);
 # embargo_size / embargo_pct are no-ops in forward walk-forward (training never follows test) - CombinatorialCV only;
 # timestamp_col + calendar make h count trading sessions on a panel; without them an int h counts ROWS.
+panel = panel.sort("timestamp", "symbol")                # builder requires nondecreasing dates (the label step above sorted by symbol first)
 X = panel.drop(["symbol", "fwd_ret_21d"])                # keep "timestamp": the splitter reads it, the scaler skips non-numeric columns
 builder = MLDatasetBuilder(X, panel["fwd_ret_21d"], dates=panel["timestamp"]).set_scaler(StandardScaler())
 for fold in builder.split(cv):                           # builder checks max(train dates) < min(test dates); the purge is cv's

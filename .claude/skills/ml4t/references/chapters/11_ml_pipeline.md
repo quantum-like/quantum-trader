@@ -89,7 +89,7 @@ Also listed: WLS, GLS/FGLS, Fama-MacBeth.
 |---|---|---|---|---|
 | OLS | none | reference | - | baseline only |
 | Ridge | L2 | diffuse signal; all coefficients shrink together, none exactly zero | `RIDGE_ALPHAS = np.logspace(-2, 9, 23)`; select alpha by highest mean IC across folds | correlated feature families, stable rankings wanted |
-| LASSO | L1 | sparse signal; feature selection | `alpha_max = max|X0ᵀ y0| / n` on the first fold's standardized training data; `LASSO_ALPHAS = np.logspace(log10(alpha_max), log10(0.01*alpha_max), 10)`; track `n_nonzero` per alpha | you need "which features to keep" and accept selection instability |
+| LASSO | L1 | sparse signal; feature selection | `alpha_max = max\|X0ᵀ y0\| / n` on the first fold's standardized training data; `LASSO_ALPHAS = np.logspace(log10(alpha_max), log10(0.01*alpha_max), 10)`; track `n_nonzero` per alpha | you need "which features to keep" and accept selection instability |
 | Elastic Net | L1 + L2 (`l1_ratio`: 1 = LASSO, 0 = Ridge) | sparse but keeps correlated groups together | hold alpha at the LASSO-selected value, sweep `l1_ratio`; joint tuning only via nested CV (NB04) | correlated groups should survive or die together |
 
 Steps:
