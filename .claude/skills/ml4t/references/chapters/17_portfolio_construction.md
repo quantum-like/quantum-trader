@@ -306,7 +306,7 @@ DeePM run order (13). The `deepm` package functions are keyword-only after their
 | 07 conformal | alpha 0.20; K = 20 (ETF, h=21) / 10 (CME, h=5); exclude first fold; HAC lags >= h-1; confirm IC > 0 then width dispersion before sizing |
 | 08 library | rf 4% (daily 0.04/252); 50 frontier points; turnover penalty 0.01; L2 gamma 0.5; active weight 0.001; tolerances 1e-5 / 5e-4 / 1e-7 / 1e-12; infeasible Max Sharpe -> cash; CV 252/63 |
 | 09 comparison | signal lookback 252, horizon 5 (purged), rebalance 21; <= 10 names per side and <= universe/4; IV window 63; MVO-LW and HRP window 252; regime threshold = median trailing 63-day SPY vol on selection region, frozen |
-| Turnover convention | one-way = ½ Σ|Δw|; 09 includes the initial allocation from cash |
+| Turnover convention | one-way = ½ Σ\|Δw\|; 09 includes the initial allocation from cash |
 | Simulation choice | Weight-based (vectorized) for method selection / isolating allocation effects; `ml4t-backtest` for execution costs, fill diagnostics, validation, path to live |
 | DL defaults | 11: SEQ_LEN 63, HIDDEN 64, 200 epochs, eps 1e-8, IV window 21. 12: SEQ_LEN 63, D_MODEL 32, LSTM_HIDDEN 64, DROPOUT 0, LR 1e-3, WD 1e-5, BATCH 32, 200 epochs, VOL_TARGET_ANN 0.15, VOL_LOOKBACK 63, 5 bps, COST_WEIGHT 1.0. 13: SEQ_LEN 84, D_MODEL 64, heads 4, dropout 0.3, vvsn_hidden 64, adapter mult 2, asset/group embeddings 16/8, cross-attention lag 1, lr 1e-4, wd 1e-4, clip 1.0, gamma_cost 0.5, tau 0.2, lambda 0.1, burn_in 21, batch 32, 500 iters, eval every 25, patience 50 / burn-in 50, EMA 0.45, min delta 0.001, inference batch 256 |
 | DL costs | 5 bps liquid ETFs; 10 bps SLV, DBC, EEM, VWO, HYG, EMB; stress grid 0/5/10/20/50 |

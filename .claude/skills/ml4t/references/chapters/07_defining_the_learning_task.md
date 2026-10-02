@@ -24,7 +24,7 @@
 - Financial returns reject normality (fat tails, asymmetry) -> robust scaling and winsorization, not plain z-scoring; prices carry a unit root, returns do not -> features and labels in returns/differences.
 
 ### 7.2 Labels
-- Labels must be execution-consistent: the anchor (close-to-close vs next-open) nets to zero on average and changes every individual label; a model scored on a price it could not transact at is leakage.
+- Labels must be execution-consistent: the anchor (close-to-close vs next-open) nets to zero on average over all labels and changes every individual label, and on a strategy's own trades it need not net out at all (a signal contemporaneous with the close is scored on the very close it was computed from); a model scored on a price it could not transact at is leakage. Severity is measured on the strategy's positions, not asserted from the all-label mean (Recipe 4, "How bad is the anchor").
 - Triple-barrier labels describe the trade, not the market: mass pinned to two barrier values, the rest of the path discarded. Right when the strategy really exits at those thresholds; wrong when forecasting magnitude.
 - Cross-sectional percentile labels fix class balance by construction and push all variation into the cut point (a few percent in a quiet month, tens of percent in a dislocation): stable classes, unstable economic meaning.
 - Overlapping labels cut the effective sample size by roughly the horizon; uniqueness weights and the sequential bootstrap tilt against overlap but cannot manufacture independent observations.
@@ -150,6 +150,20 @@ What the case studies declare (`decision.snapshot` / `execution_delay` in `confi
 
 When no open series exists, or when you keep a close-to-close label, record it as a proxy in the label audit (`anchor`, `resolves`) and let the backtest fill at the next open so the gap is measured there (Ch16 / Ch18), never left implicit.
 
+**How bad is the anchor.** "Nets to zero on average" is a statement about the mean over all labels, not about the strategy: severity is the difference between same-close and next-open portfolio returns measured on the strategy's own positions. It is material when the signal is contemporaneous with the close it is scored from (short-horizon reversal, end-of-day flow or imbalance, illiquid names whose close is stale or wide) — Recipe 10's shifted-label check roughly halves the 1-day reversal t by moving the label one session — and immaterial for slow signals in liquid names (12-1 momentum on large ETFs). Always report the shift-check delta with a standard error that respects the overlap instead of asserting it nets out, and rank a lookahead by this number, never by the all-label mean:
+
+```python
+h = 21                                                                                   # the label's horizon in sessions
+r_cc = (pl.col("close").shift(-h) / pl.col("close") - 1).over("symbol")                 # same-close booking (the proxy)
+r_oo = (pl.col("open").shift(-(h + 1)) / pl.col("open").shift(-1) - 1).over("symbol")   # next-open booking (the fill)
+delta = (df.sort("symbol", "timestamp")
+           .with_columns(((r_cc - r_oo) * pl.col("weight")).alias("d")).drop_nulls("d")  # weight = the strategy's own position; drop before the sum (an all-null date sums to 0)
+           .group_by("timestamp").agg(pl.col("d").sum()).sort("timestamp"))              # one number per decision date
+st = compute_ic_hac_stats(delta.rename({"d": "ic"}), label_horizon=h)                   # overlapping h-day labels -> HAC SE
+print(f"anchor delta {st['mean_ic']:+.4f} per period, HAC se {st['hac_se']:.4f}, t {st['t_stat']:.2f}")
+# material (convention): |t| > 2, or |delta| not small against the strategy's mean period return -> relabel on the open before any further claim
+```
+
 Triple-barrier engine: `triple_barrier_labels(data, config, price_col=None, high_col=None, low_col=None, timestamp_col=None, group_col=None, calculate_uniqueness=False, uniqueness_weight_scheme="returns_uniqueness"|"uniqueness_only"|"returns_only"|"equal", contract=None, open_col=None)`. With high/low/open: touch detected on the bar range, gap-through executed at the open. Without: close-only test, trade booked at the barrier price not the crossing close. Diagnose with `label_diagnostics(df, label_col, timestamp_col="timestamp", title_prefix="")` (distribution stability + class balance over time).
 
 Trend-scanning null: demean SPY daily log returns and shuffle (keeps dispersion/shape, removes drift and ordering). Bonferroni alpha/k moves rejection by a few points only; the binding problem is autocorrelated residuals.
@@ -159,6 +173,22 @@ Trend-scanning null: demean SPY daily log returns and shuffle (keeps dispersion/
 - N_eff = sum w ~ N/H for every-bar fixed-horizon labels; `measure_n_eff(n_labels, h)` -> (mean uniqueness, N_eff).
 - Set `calculate_uniqueness=True` in `triple_barrier_labels` and pick `uniqueness_weight_scheme`.
 - Sequential bootstrap draws tilt toward less-overlapped labels; expect nearly identical uniqueness histograms with a small positive mean shift. It does not remove the overlap.
+
+**Variable-horizon labels** (a straddle held to its own expiry, `sp500_options` `ret_to_expiry`; a prediction-market contract that resolves on an event date; trend-scanning labels whose `optimal_window` runs 5..20) have no single `h`, so every rule stated above for a fixed horizon in sessions is restated per row from `t_end`, the session (or calendar timestamp) at which that row's label resolves:
+- **Purge by interval overlap, both directions**: a training row stays only if `[t, t_end]` is disjoint from `[test_start, max(test t_end)]`; a row before the block whose label ends inside it leaks, and so does a row after the block that a test label still spans. `WalkForwardCV(label_horizon=...)` purges one fixed horizon: pass the horizon cap (`max(t_end - t)`, in the label's own unit — `labels.buffer: 35D` with `buffer_unit: calendar` for `sp500_options`) or purge manually on `t_end`.
+- **HAC lag = the max or the median realized horizon, with the choice stated**: `compute_ic_hac_stats(ic, label_horizon=h_max)` is the conservative default; use the median only when the horizon distribution is tight, and write the choice into the ledger.
+- **Uniqueness weights by overlap count**: `calculate_label_uniqueness(event_indices, label_indices, n_bars=None)` (`ml4t.engineer.labeling`) takes per-label start and end indices, so unequal spans are handled as they are; `triple_barrier_labels(calculate_uniqueness=True)` does the same for barrier labels.
+- **Holdout seal by resolution date**: the last development decision sits at least the horizon cap before `holdout_start` (score date >= last decision + cap), and a development trade opened before the holdout that resolves inside it is excluded from the development score, never kept; the repo's `utils/cv_splits.py` (`_purge_holdout_touching_validation`) excludes by resolution date using `labels.buffer` / `buffer_unit`. Group integrity for event clusters (sibling markets of one event, options of one expiry) is a split rule, not a label rule: `chapters/06_strategy_definition.md` ("group-aware boundaries").
+
+```python
+lab = trend_scanning_labels(df, min_window=5, max_window=20, step=1, price_col="close", timestamp_col="timestamp", group_col="symbol")
+lab = lab.with_columns(i=pl.int_range(pl.len()).over("symbol")).with_columns(i_end=pl.col("i") + pl.col("optimal_window")).drop_nulls("optimal_window")  # per-row t_end; index first, then drop the no-trend rows (null window)
+h_max, h_med = int(lab["optimal_window"].max()), int(lab["optimal_window"].median())
+test = lab.filter(pl.col("i").is_between(test_lo, test_hi))                              # the fold's session-index block
+train = lab.filter((pl.col("i_end") < test_lo) | (pl.col("i") > test["i_end"].max()))    # overlap purge, both directions
+w = calculate_label_uniqueness(lab_sym["i"].to_numpy(), lab_sym["i_end"].to_numpy())      # per symbol (lab_sym = one symbol's rows)
+hac = compute_ic_hac_stats(ic_series, label_horizon=h_max)                               # ledger: "HAC lag = max realized horizon"
+```
 
 ### Recipe 6: MFE/MAE barrier calibration (`07_defining_the_learning_task/04_maximum_favorable_adverse_excursion`)
 Long entry at the close of bar t, horizon H; the window opens at t+1.
@@ -251,12 +281,13 @@ Preprocessing
 - **Chained `with_columns`** — loses Polars parallelism. One call with `.over()` windows.
 
 Labels
-- **Anchor mismatch** (label close-to-close, execution next open) — scores the model on an untransactable price; invisible in the mean, decisive per label. Anchor where the fill happens (next open for EOD signals).
+- **Anchor mismatch** (label close-to-close, execution next open) — scores the model on an untransactable price; invisible in the all-label mean, decisive per label, and biased on the strategy's own trades when the signal is contemporaneous with the close (reversal, end-of-day flow, illiquid names). Anchor where the fill happens (next open for EOD signals); grade severity by the same-close minus next-open delta on the strategy's positions with a HAC SE (Recipe 4), never by the all-label mean.
 - **Close-only triple barrier in production** — touch detected only on closes and booked at the barrier price; gains understated, losses hidden (asymmetric, larger on the stop side). Pass `high_col`, `low_col`, `open_col`; to size the effect run a second labeling, do not reprice the first.
 - **Reading triple-barrier labels as market description** — a -1% stop on a path that fell 28% discards the path. Barriers only when the strategy really exits there; fixed-horizon returns to forecast magnitude.
 - **Class balance read as informativeness** — barrier labels balance because the stop (1%) is tighter than the TP (2%); fixed-horizon binary inherits sample drift. Compare against the majority-class baseline; check balance over time with `label_diagnostics`.
 - **Cross-sectional cut-point drift** — constant class balance hides a target whose economic meaning changes. Plot the cut-point return series alongside class proportions.
 - **Overlapping labels treated as independent** — N_eff ~ N/H; the loss is dominated by high-concurrency periods. Uniqueness weights (`calculate_uniqueness=True`), sequential bootstrap, N_eff per symbol; never pretend they removed the overlap.
+- **Variable horizons treated as fixed** (hold-to-expiry, event resolution, trend scanning) — one `label_horizon` purges too little for the long labels and the HAC lag understates the overlap. Per-row `t_end`: overlap purge in both directions, HAC lag = max (or a stated median) realized horizon, uniqueness from per-label spans, holdout sealed by resolution date (Recipe 5).
 - **Trend-scanning t as significance** — price-level regression residuals are autocorrelated; a driftless shuffled path rejects as often as SPY; Bonferroni fixes only the selection part. Use sign/horizon; calibrate any t against a demeaned-shuffle permutation null, not a t table.
 - **Sizing on uncalibrated probabilities** — AUC/accuracy-optimized classifiers rank but are not calibrated. Calibrate before `compute_bet_size`.
 - **MFE/MAE window including bar t** — counts pre-entry movement, stretches H to H+1 bars, inflates both sides unevenly. Shifts -1..-H; `shift(-1)` before the reverse rolling max.
@@ -318,6 +349,8 @@ Mechanism checks
 | Preprocessing sequence | diagnose -> dedupe -> domain filters -> extreme-return filter -> spike detection -> winsorize (train bounds) -> scale/impute/encode (train fit) -> refit per fold -> serialize |
 | Label by strategy type | factor timing (monthly) -> fixed horizon; stat arb (intraday) -> fixed-horizon binary; cross-sectional ranking / equity-ETF rotation -> cross-sectional percentile; active trading with stops -> triple barrier (ATR); trend following -> trend scanning, sign only |
 | Label checklist | anchor matches execution (next open for EOD signals: `open.shift(-(h+1)) / open.shift(-1) - 1` per symbol, Recipe 4; a close-to-close label is a named proxy); triple barrier only when stops are part of the strategy; give the barrier engine high/low/open in production; ATR barriers when vol changes |
+| Anchor severity | same-close minus next-open portfolio return on the strategy's own positions, HAC SE with `label_horizon=h` (Recipe 4); material when \|t\| > 2 or the signal is contemporaneous with the close (reversal, EOD flow, illiquid names); immaterial for slow signals in liquid names; report delta and SE, never "nets out" |
+| Variable-horizon labels | per-row `t_end`; purge by interval overlap in both directions (library: `label_horizon` = horizon cap in the label's unit); HAC lag = max realized horizon (median only when tight and stated); uniqueness from per-label spans (`calculate_label_uniqueness`); holdout: last decision + cap <= `holdout_start`, exclude by resolution date |
 | Triple-barrier placeholders | TP 0.02, SL 0.01, 20 bars; ATR variant (`LabelingConfig.atr_barrier`) 2.0x / 1.0x, period 14 (notebook 03's string-column run used 1.0x / 0.5x); always calibrate from MFE/MAE at matched percentiles (p50/p75/p90) per instrument and horizon |
 | Barrier calibration | fixed-percentage barriers only where the holding period is short and externally fixed (crypto funding cycle, 8 h); daily strategies need ATR scaling; stop multiple = p75 of per-entry MAE/ATR; recompute on each data refresh |
 | Trend scanning | windows 5..20, step 1, t threshold 2.0 (library default); never read the t as significance |
@@ -351,7 +384,7 @@ Imports and helpers (companion repo):
 - Loaders (`data` package exports): `from data import load_etfs, load_us_equities, load_crypto_perps, load_crypto_premium, load_cme_futures, load_fx_pairs, load_firm_characteristics` (01; CME returns tenors 0/1/2 per session); `load_macro` (08, VIX from FRED).
 - Notebook-local, not importable from `data` or `utils`: `US_EQUITIES_START_DATE = "1970-01-01"`, `ensure_symbol_alias(df)`, `filter_from_start(df, time_col, start_value)` (defined in both 01 and 02); `load_dataset_safely(loader_func, *args, **kwargs)` and `quiet_ml4t_logging()` (01 only); `ETF_START_DATE = "2010-01-01"` (07). Copy them into your own script rather than importing.
 - Utilities: `from utils.paths import get_chapter_dir`; `from utils.reproducibility import set_global_seeds`; `from utils.style import COLORS, show_plotly_with_alt` (activates the ml4t Plotly template; 02 imports `show_with_alt`); `utils/artifact_specs.py` (`resolve_label_horizon`, `load_label_spec`, `resolve_label_buffer`, `resolve_market_semantics`); `case_studies/<id>/config/setup.yaml` (`labels.horizons`); `case_studies/<id>/02_labels`.
-- ml4t-engineer: `ml4t.engineer.preprocessing.StandardScaler`; `ml4t.engineer.config.labeling.LabelingConfig` (classmethods `fixed_horizon`, `triple_barrier`, `atr_barrier`, `trend_scanning`; no `atr_triple_barrier`); `ml4t.engineer.labeling.triple_barrier_labels`, `ml4t.engineer.labeling.atr_triple_barrier_labels`; `ml4t.engineer.labeling.fixed_time_horizon_labels(data, horizon, method, price_col, group_col, timestamp_col)` -> `label_return_{h}p` (shift `-1` per symbol for the next-open anchor); `ml4t.engineer.labeling.meta_labels.compute_bet_size`; `ml4t.engineer.features.volatility.atr`; `from ml4t.engineer import compute_features`; `from ml4t.engineer.core.registry import get_registry`.
+- ml4t-engineer: `ml4t.engineer.preprocessing.StandardScaler`; `ml4t.engineer.config.labeling.LabelingConfig` (classmethods `fixed_horizon`, `triple_barrier`, `atr_barrier`, `trend_scanning`; no `atr_triple_barrier`); `ml4t.engineer.labeling.triple_barrier_labels`, `ml4t.engineer.labeling.atr_triple_barrier_labels`; `ml4t.engineer.labeling.fixed_time_horizon_labels(data, horizon, method, price_col, group_col, timestamp_col)` -> `label_return_{h}p` (shift `-1` per symbol for the next-open anchor); `ml4t.engineer.labeling.meta_labels.compute_bet_size`; `ml4t.engineer.labeling.trend_scanning_labels(data, min_window, max_window, step, price_col, timestamp_col, group_col, *, t_value_threshold=None, config=None, contract=None)` -> columns `label`, `t_value`, `optimal_window` (the realized horizon per row); `ml4t.engineer.labeling.calculate_label_uniqueness(event_indices, label_indices, n_bars=None)`; `ml4t.engineer.features.volatility.atr`; `from ml4t.engineer import compute_features`; `from ml4t.engineer.core.registry import get_registry`.
 - ml4t-diagnostic: `ml4t.diagnostic.signal.analyze_signal`; `ml4t.diagnostic.metrics.cross_sectional_ic`, `pooled_ic`, `compute_ic_hac_stats`; `from ml4t.diagnostic.evaluation.stats import benjamini_hochberg_fdr, compute_min_trl, compute_pbo, deflated_sharpe_ratio, holm_bonferroni, min_trl_fwer, multiple_testing_summary, rademacher_complexity` (plus `ras_ic_adjustment`, inferred from result fields); `ml4t.diagnostic.evaluation.stats.stationary_bootstrap_ic` (source `evaluation/stats/bootstrap.py`); `ml4t.diagnostic.evaluation.autocorrelation.analyze_autocorrelation`; `ml4t.diagnostic.evaluation.binary_metrics.binary_classification_report`; `ml4t.diagnostic.evaluation.excursion.analyze_excursions`; `ml4t.diagnostic.evaluation.distribution.tests.jarque_bera_test`; `ml4t.diagnostic.evaluation.stationarity.analyze_stationarity`.
 - External: `arch.bootstrap.StationaryBootstrap`; Polars; Plotly; Papermill.
 - Library sources: `libs/src/ml4t_engineer/ml4t/engineer/labeling/triple_barrier.py`, `.../labeling/atr_barriers.py`, `.../labeling/meta_labels.py`, `.../config/labeling.py`; `libs/src/ml4t_diagnostic/ml4t/diagnostic/metrics/ic_inference.py`, `.../signal/core.py`; `libs/src/ml4t_diagnostic/ml4t/diagnostic/evaluation/stats/{false_discovery_rate, rademacher_adjustment, deflated_sharpe_ratio, backtest_overfitting, minimum_track_record, effective_trials, sharpe_inference, hac_standard_errors, bootstrap, reality_check, moments}.py`.
@@ -427,7 +460,7 @@ Causal sanity checks (08) and library tour (10)
 - Library tour: the 21-day momentum factor has near-zero IC on the ETF universe with t below conventional significance; library RSI (Wilder) differs from EWM-span RSI.
 
 ## Related references
-- `chapters/06_strategy_definition.md` — §6.3 leakage-aware splitting / walk-forward CV; trial accounting that this chapter's search corrections consume.
+- `chapters/06_strategy_definition.md` — §6.3 leakage-aware splitting / walk-forward CV, group-aware fold boundaries for event clusters; trial accounting that this chapter's search corrections consume.
 - `chapters/08_financial_features.md` — feature pipelines, liquidity-bucket capacity check, fundamental-data timing/mask screens, event-time alignment with fundamentals.
 - `chapters/09_model_based_features.md` — formal stationarity tests (ADF, KPSS, Phillips-Perron), regime transitions for event-time alignment.
 - `chapters/10_text_feature_engineering.md` — timing and mask-alignment screens for third-party text data.
@@ -462,6 +495,7 @@ Causal sanity checks (08) and library tour (10)
 - Split-aware preprocessing — parameters learned on train only, applied to validation/test, refit per fold.
 - As-of join — each observation sees the most recent prior snapshot of a lower-frequency table (`join_asof`, `strategy="backward"`).
 - Anchor — the price/time at which a label's return measurement starts (close vs next open).
+- Realized horizon / horizon cap — sessions (or calendar time) from a row's decision to its label's resolution (`t_end`); the cap (max) is the purge, HAC-lag and holdout buffer for variable-horizon labels.
 - Fixed-horizon label — forward return (raw/log/binary) over H bars.
 - Cross-sectional percentile label — top/bottom quantile by rank across assets at each date.
 - Triple barrier — first of take-profit, stop or time barrier decides the label.

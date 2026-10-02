@@ -4,7 +4,7 @@
 
 ## When to use this reference
 
-- Computing or reporting VaR / CVaR (historical, parametric, Cornish-Fisher, Student-t Monte Carlo) and validating the coverage with a Kupiec backtest.
+- Computing or reporting VaR / CVaR (historical, parametric, Cornish-Fisher, Student-t Monte Carlo) and validating the coverage with Kupiec and Christoffersen backtests under a pre-registered consequence ladder.
 - Building regime-conditional tail estimates, rolling tail charts, or a diversification-benefit split by volatility state without leaking the regime label.
 - Choosing or scoring volatility forecasts (rolling variance, EWMA, GARCH) for position sizing — picking QLIKE over MSE.
 - Measuring drawdown depth, duration and time-to-recovery, or comparing strategies with similar CVaR but different path risk.
@@ -19,7 +19,7 @@
 
 ## Core ideas (the why)
 
-- **A risk number is a claim about frequency.** A VaR never backtested is an assertion. Count exceptions and test whether the count matches the stated coverage (Kupiec). Kupiec only counts; clustered exceptions can pass it.
+- **A risk number is a claim about frequency.** A VaR never backtested is an assertion. Count exceptions and test whether the count matches the stated coverage (Kupiec). Kupiec only counts; clustered exceptions can pass it, which is what Christoffersen's conditional-coverage test catches (`precommitted_controls.md` §5).
 - **VaR is a quantile and nothing more.** CVaR (expected shortfall) averages the tail beyond it, is subadditive (coherent), and the VaR/CVaR gap widens with confidence exactly where a limit binds. Report severity as well as frequency.
 - **Correcting a normal for skew/kurtosis is not free.** Cornish-Fisher is a truncated polynomial, unstable with large excess kurtosis; it needs a coverage backtest, never automatic preference. Prefer a kurtosis-matched Student-t when excess kurtosis is large.
 - **Any conditional risk number must use a state label known before the return it labels** (prior-close volatility, expanding point-in-time thresholds, minimum history). A label that peeks makes the control unusable.
@@ -70,7 +70,7 @@ Steps:
 1. Run `analyze_distribution` and `analyze_tails` (`ml4t.diagnostic.evaluation.distribution`): moments, normality tests, Hill estimator, QQ. Use them to pick parametric / CF / Student-t.
 2. Compute VaR and CVaR at 90/95/99% side by side; report the CVaR/VaR ratio.
 3. Backtest: `backtest_var(returns, window=252, confidence=0.95, method="historical") -> dict` rolls VaR against one-step losses; `kupiec_test(exceptions, expected_rate) -> (LR stat, p)` under a binomial null. Exception ratio = realized rate / target; want it near 1.
-4. Inspect exception timing for clustering (Kupiec ignores it); (inference) add an independence test.
+4. Inspect exception timing: Christoffersen's independence and conditional-coverage LR tests on the 0/1 exception series (standard practice, not in the repo; snippet in `precommitted_controls.md` §5), Acerbi-Szekely or Du-Escanciano for ES; grade the count on the Basel traffic-light zones (green <= 4, yellow 5-9, red >= 10 exceptions per 250 days at 99%) with the consequence per zone (keep / scale down and re-estimate / halt and re-model) written before the test runs.
 5. Never scale 1-day to 10-day by sqrt(10): it assumes independence that exception clustering contradicts. Estimate the horizon directly.
 
 ### Rolling, regime-conditional tail and diversification benefit (`01_var_cvar`)
@@ -267,7 +267,7 @@ Library defaults for a bare constructor (repo-verified in `ml4t/backtest/risk/po
 
 Demo contract (`first_trigger(frame, rule_name, rule)`, SPY 2020, `N_BARS=252`): entry after first close of 2020; entry bar never tested; current-bar OHLC observable to active stops; water marks advance only after a bar completes without an exit. Rules compared on the path: StopLoss 5%, TrailingStop 3%, TakeProfit 15%. Priority grid on constructed states: `RuleChain([StopLoss(0.05), TakeProfit(0.10), TimeExit(20)])`; escalation surface: `MaxDrawdownLimit(20%, warn 15%)` x `DailyLossLimit(2%)`, reporting the more severe action. In production the backtester reconstructs `PortfolioState` from the broker every bar — test the halt-and-resume path. Not a backtest.
 
-**Halt and re-entry in backtests** (guardrails §9 "Adaptive logic and halts"; `RiskManager` verified in `risk/portfolio/manager.py`): keep portfolio limits as governance, never as sweep variants. Once a limit returns `halt` or `liquidate`, `rm.is_halted` stays True and `can_open_position()` False across sessions until `rm.reset_halt()` (which also re-arms the one-shot liquidation but keeps the high-water mark, so a `MaxDrawdownLimit` re-fires on the very next `update()` while equity sits below `(1 - max_drawdown) x HWM`; `rm.initialize(equity, timestamp)` re-bases the HWM, the daily start and the halt in one call), so a run without a reset reports a book that never trades again. Write the re-entry rule before the run and implement it in `on_data`: after `liquidate` equity is frozen, so only a time rule (N sessions) or a lagged market-state rule (the regime label of `06`) can re-enter, and the re-entry must re-base the mandate on the surviving capital (`rm.initialize(...)`, logged as a new mandate) or the drawdown limit halts again at once; after `halt` (positions kept) `rm.current_drawdown < warn_threshold` then `reset_halt()` alone works. Report halted sessions beside the overlay's Sharpe, count flattened sessions as `(overlay == 0) & (baseline != 0)`, and leave them inside the reported drawdown (equity stays at the halted level; a post-halt tracked index is not money anyone made).
+**Halt and re-entry in backtests** (guardrails §9 "Adaptive logic and halts"; `RiskManager` verified in `risk/portfolio/manager.py`): keep portfolio limits as governance, never as sweep variants. Once a limit returns `halt` or `liquidate`, `rm.is_halted` stays True and `can_open_position()` False across sessions until `rm.reset_halt()` (which also re-arms the one-shot liquidation but keeps the high-water mark, so a `MaxDrawdownLimit` re-fires on the very next `update()` while equity sits below `(1 - max_drawdown) x HWM`; `rm.initialize(equity, timestamp)` re-bases the HWM, the daily start and the halt in one call), so a run without a reset reports a book that never trades again. Write the re-entry rule before the run and implement it in `on_data`: after `liquidate` equity is frozen, so only a time rule (N sessions) or a lagged market-state rule (the regime label of `06`) can re-enter, and the re-entry must re-base the mandate on the surviving capital (`rm.initialize(...)`, logged as a new mandate) or the drawdown limit halts again at once; after `halt` (positions kept) `rm.current_drawdown < warn_threshold` then `reset_halt()` alone works. Report halted sessions beside the overlay's Sharpe, count flattened sessions as `(overlay == 0) & (baseline != 0)`, and leave them inside the reported drawdown (equity stays at the halted level; a post-halt tracked index is not money anyone made). Bound the flat time: a state-based re-entry (regime label, drawdown back above the warn threshold) carries a time fallback `MAX_FLAT_SESSIONS`, and the self-test prints the longest flat run, the flat share and the halt / re-entry counts and fails above the bound (`precommitted_controls.md` §2).
 
 ```python
 def on_data(self, timestamp, data, context, broker):
@@ -285,7 +285,7 @@ Kill criteria as rules: one row per rule with layer, measured quantity and windo
 
 ### Vol targeting, exposure caps and turnover tightening (19.7 adaptive controls; `ml4t.backtest` wiring, no dedicated notebook)
 
-No library rule implements vol targeting (`ml4t.backtest.risk` holds position rules and portfolio limits only): it is a weight transform applied before `TargetWeightExecutor`, with every input lagged one session (pre-flight 30(c)). Defaults are conventions, not fitted values: target 10-15% annualized (ch17 `12` uses `VOL_TARGET_ANN=0.15`, `VOL_LOOKBACK=63`), lookback 21 or 63 sessions, leverage cap 1.0 on a cash account and 1.0-1.5 on a margin account (`allow_leverage=True`, else the gatekeeper rejects the levered orders).
+No library rule implements vol targeting (`ml4t.backtest.risk` holds position rules and portfolio limits only): it is a weight transform applied before `TargetWeightExecutor`, with every input lagged one session (pre-flight 30(c)) — one decision period when the input is a completed daily quantity, two when the prior row holds a multi-session forward return (the strategy's own 21-session period return at a monthly cadence) that is not booked before the next decision; compute the admissible lag from each row's `resolves_at` rather than assuming it (`precommitted_controls.md` §1). Defaults are conventions, not fitted values: target 10-15% annualized (ch17 `12` uses `VOL_TARGET_ANN=0.15`, `VOL_LOOKBACK=63`), lookback 21 or 63 sessions, leverage cap 1.0 on a cash account and 1.0-1.5 on a margin account (`allow_leverage=True`, else the gatekeeper rejects the levered orders).
 
 ```python
 VOL_TARGET_ANN, VOL_LOOKBACK, MAX_LEVERAGE = 0.15, 63, 1.5                   # conventions; state them in the term sheet
@@ -302,7 +302,7 @@ self.executor.execute({a: s * w_t[a] for a in w_t}, data, broker, timestamp=time
 - Per-asset variant (ch17 `12`): `w_i = VOL_TARGET_ANN / (sqrt(252) * max(vol_{i,t-1}, 1e-4) * N) * signal_i`; the 1/N keeps the book at the target rather than sqrt(N) times it.
 - Exposure caps: `RebalanceConfig(max_gross_leverage=...)` rescales the whole vector when `sum|w|` exceeds it and `max_single_weight` clips one name; `GrossExposureLimit` / `NetExposureLimit` are the governance check on the realized book, not the sizing rule.
 - Turnover tightening: sweep `min_weight_change` (0.005-0.02), `min_trade_value` and the cadence (`RebalanceSchedule.fixed_n_sessions(n)`) on the calibration window only; read turnover from fills and net Sharpe against the ch18 break-even curve.
-- Evaluate each control as an overlay row against its own un-scaled parent through the same engine (flattened sessions `(overlay == 0) & (baseline != 0)`); deploy only from the win-win quadrant (Sharpe up and drawdown down) confirmed out of sample (`chapters/20_strategy_synthesis.md`, `07_regime_risk`).
+- Evaluate each control as an overlay row against its own un-scaled parent through the same engine, at the cadence the rule will run live (a daily-close kill rule on daily equity even for a monthly strategy, else state the mismatch), with flattened sessions `(overlay == 0) & (baseline != 0)` and the longest flat run reported as a cost; deploy only from the win-win quadrant (Sharpe up and drawdown down) confirmed out of sample (`chapters/20_strategy_synthesis.md`, `07_regime_risk`) and only a configuration that passes the precommitment pattern below.
 
 ### Systematic risk sweep (`11_systematic_risk_sweep`; Figures 19.6-19.7; capstone)
 
@@ -316,6 +316,10 @@ Params: `START_DATE="2019-01-02"`, `END_DATE="2023-12-31"`, `CALIBRATION_END="20
 6. `MAEMFEAnalyzer` percentiles on closed calibration trades -> stop/target priors (second method; small-sample priors, `mae_mfe.num_trades`).
 7. Freeze three candidates (1D pick, joint-grid pick by calibration Calmar, MAE/MFE pick); evaluate once on 2022-2023 vs no-rule baseline; rank by CAGR-based Calmar; report closed-trade counts and win rates alongside equity-curve metrics, never instead.
 
+### Precommitment pattern (sweeps, overlays, kill thresholds)
+
+"Frozen" is machine-checkable, not a word in a report: the overlay / kill-rule config carries `frozen_as_of` and the declared `grid`; the evaluation output carries `precommitted` = the evaluation window starts after `frozen_as_of` (and the config hash is the frozen one), and the CLI refuses or labels `IN-SAMPLE` anything else; the deployed configuration is a row of the declared grid, its rank in the sweep is printed with the grid size, and a rank within the top 5% of cells is said so and headlined by the population median (and the win-win share) rather than the pick's own number, because the best cell of a sweep is not the expected outcome of the rule (`07_regime_risk`). Config layout, rank snippet and the lag / re-entry / cadence self-tests: `precommitted_controls.md`.
+
 ### Parameters not visible in the source notes
 
 Treat these as unknown rather than as values stated elsewhere in this file: the default percentages inside `FixedExitConfig`, `TrailingStopConfig`, `ATRStopConfig`, `HybridExitConfig` and `ScaleOutConfig`; the stop-distance grid passed to `analyze_stop_separation`; GLD shocks for the Rising Rates and EM Crisis scenarios; `MAEMFEAnalyzer`'s threshold method and the `BarrierAnalysis` call signature; the `TighteningTrailingStop` schedule and `ScaledExit` targets/fractions in notebook 10 (the nb10 table shows the argument shapes with the library docstring demos instead); notebook 11's sweep level lists and MAE/MFE percentile choices; notebook 09's cost-sweep basis-point levels; `DriftMonitorConfig` field names and the Wasserstein threshold parameter name; which exit model and rule won on trade-path metrics in 08. `FixedFractionalConfig` defaults were also absent from the notes and were read from the repo (1% risk per trade, 25% cap), as were the library limit defaults above.
@@ -323,7 +327,7 @@ Treat these as unknown rather than as values stated elsewhere in this file: the 
 ## Guardrails and pitfalls
 
 - **Unbacktested VaR** — publishing VaR without exception counting; it is a frequency claim. Run `backtest_var` + Kupiec at the stated level; exception ratio near 1.
-- **Kupiec only counts** — ignores exception timing; clustered exceptions pass. Inspect clustering over time; (inference) add an independence test.
+- **Kupiec only counts** — ignores exception timing; clustered exceptions pass. Run Christoffersen's independence / conditional-coverage test and pre-register the Basel-zone consequence ladder (`precommitted_controls.md` §5).
 - **Historical VaR floor** — cannot exceed the worst loss in window; understates after calm periods. Compare with Student-t/CVaR; include a crisis.
 - **Cornish-Fisher instability** — truncated expansion with large kurtosis can worsen coverage. Never prefer automatically; require a coverage backtest.
 - **Sqrt-time scaling** — 10-day VaR = 1-day * sqrt(10) needs independence; exception clustering contradicts it. Estimate the horizon directly.
@@ -337,7 +341,7 @@ Treat these as unknown rather than as values stated elsewhere in this file: the 
 - **No costs in exit/sizing sims** — barrier-price fills, no slippage/spread/partials; a 3-tranche scale-out pays 3x fixed costs, enough to reverse a comparison; rules differ mainly in exit frequency. Price with ch18 before any claim (02, 03, 08, 10, 11 all flag this).
 - **Cross-section incomparability** — fixed/trailing/ATR on all entries vs ML/hybrid on test entries only. Compare within a section.
 - **Current-ATR vs entry-ATR** — stop distance breathes with the market, changing the rule. Live positions hold one `VolatilityStop` instance remembering entry ATR.
-- **Unlagged sizing inputs** — day-t weight from day-t volatility, known only after close. Window ends the session before.
+- **Unlagged sizing inputs** — day-t weight from day-t volatility, known only after close. Window ends the session before; at a coarser cadence the prior row's own period return is a forward return, so the lag is 2 or computed from `resolves_at` (`precommitted_controls.md` §1).
 - **Entry-bar excursions** — entry bar's high/low in MAE/MFE inflates excursions and apparent stop hits. Measure from the bar after a close entry.
 - **Unrounded shares** — fractional counts overstate risk-budget precision. Integer shares; recompute value and stop risk.
 - **Separation != profit** — MAE discrimination read as stop value has no PnL or costs. Re-run trades with the rule and costs under a frozen objective.
@@ -410,12 +414,12 @@ Treat these as unknown rather than as values stated elsewhere in this file: the 
 
 | Topic | Rule / default |
 |---|---|
-| Confidence levels | Report 90/95/99% side by side; backtest at 95%; stress MC at 95/99/99.9% |
+| Confidence levels | Report 90/95/99% side by side; backtest at 95%; stress MC at 95/99/99.9%; backtest ladder Kupiec -> Christoffersen independence / conditional coverage -> ES test (Acerbi-Szekely or Du-Escanciano); Basel zones per 250 days at 99%: green <= 4 keep, yellow 5-9 scale down and re-estimate, red >= 10 halt and re-model, consequences written before the test |
 | Windows | Rolling VaR 252; regime vol 63; 252 days minimum before tercile split; EWMA lambda 0.94; rolling variance 21; MC 10,000 paths, 20-day horizon |
 | Tail model | Run `analyze_distribution`/`analyze_tails` first; Student-t with large excess kurtosis; Cornish-Fisher only if coverage backtest passes; CVaR when severity or aggregation guarantees matter |
 | Volatility forecasts | Rank by QLIKE, not MSE, for sizing |
 | Exit-rule guide | Trend following -> `TrailingStop` + `TimeExit`; mean reversion -> `StopLoss` + `TakeProfit` (symmetric); high volatility -> `VolatilityStop` + `TighteningTrailingStop`; time-sensitive -> `StopLoss` + `TimeExit` (short `max_bars`); conservative -> `AllOf(TimeExit, TrailingStop)`; aggressive profits -> `TighteningTrailingStop` |
-| Adaptive sizing (conventions) | vol target 0.10-0.15 annualized, lookback 21/63 ending t-1, scale clipped to [0, 1.0-1.5] and `RebalanceConfig(max_gross_leverage=...)`; turnover via `min_weight_change` 0.005-0.02 / `min_trade_value` / cadence sweeps on calibration only; deploy from the win-win quadrant |
+| Adaptive sizing (conventions) | vol target 0.10-0.15 annualized, lookback 21/63 ending t-1, scale clipped to [0, 1.0-1.5] and `RebalanceConfig(max_gross_leverage=...)`; turnover via `min_weight_change` 0.005-0.02 / `min_trade_value` / cadence sweeps on calibration only; deploy from the win-win quadrant; input lag from each row's `resolves_at` (1 for completed daily quantities, 2 when the prior row holds a forward return); every kill rule carries a re-entry path bounded by `MAX_FLAT_SESSIONS` with the longest flat run reported; rules backtested at their live cadence; deployed configuration a row of the declared grid with its sweep rank printed (`precommitted_controls.md`) |
 | Rule-chain order | stop -> tightening trail -> target -> time cap; first non-HOLD wins; `RuleChain`/`AnyOf` for "any ends the trade", `AllOf` for "exit only when all hold" |
 | Simulation vs library | Manual numpy for mechanics/custom logic/prototyping; `ml4t.backtest.risk` for production (composable, Engine integration, exercised by case-study pipelines) |
 | Notebook holding caps | fixed 20 bars, trailing 50, ATR 30, ML 30, hybrid 30; ML threshold 0.5; adverse label -2% over 5 sessions; test fraction 30%; 100 trades |
@@ -535,6 +539,7 @@ Numeric results (VaR/CVaR levels, exception counts, p-values, state-split benefi
 - `chapters/17_portfolio_construction.md` — Kelly (`04_kelly_criterion`), conformal position sizing (`07_conformal_position_sizing`), covariance-aware allocation vs inverse-vol.
 - `chapters/18_transaction_costs.md` — cost model required before any exit, scale-out, rebalancing or sweep claim.
 - `chapters/20_strategy_synthesis.md` — cross-case-study risk-overlay comparison (`20_strategy_synthesis/07_regime_risk`).
+- `precommitted_controls.md` — the lag rule (`resolves_at`), re-entry bound and longest flat run, cadence parity, precommitment pattern (`frozen_as_of`, grid rank) and the VaR/ES backtest ladder with the Basel consequence ladder.
 - `chapters/21_rl_execution_hedging.md` — downstream of deep hedging: exploration and credit assignment for sequential policies.
 - `libraries/ml4t_backtest.md` — `ml4t.backtest.risk` rules and limits, `MAEMFEAnalyzer`, `TargetWeightExecutor`.
 - `libraries/ml4t_diagnostic.md` — `analyze_distribution`/`analyze_tails`, factor API, `BarrierAnalysis`, `TradeShapAnalyzer`, drift toolkit.
@@ -553,15 +558,13 @@ Numeric results (VaR/CVaR levels, exception counts, p-values, state-split benefi
 
 ## Glossary
 
-- **VaR** — loss not exceeded with probability a over one day; `-q_{1-a}` of returns.
-- **CVaR / expected shortfall** — mean loss given VaR is breached; subadditive, coherent.
+- **VaR / CVaR (expected shortfall)** — loss not exceeded with probability a over one day (`-q_{1-a}` of returns) / mean loss given VaR is breached; subadditive, coherent.
 - **Cornish-Fisher** — skew/kurtosis correction to the Gaussian quantile (truncated expansion).
 - **Cantelli inequality** — distribution-free one-sided tail bound `1/(1+k^2)`.
-- **Kupiec POF test** — likelihood-ratio test of exception count vs expected rate.
+- **Kupiec POF / Christoffersen tests** — likelihood-ratio test of exception count vs expected rate / independence and conditional-coverage LR tests on the exception sequence.
 - **QLIKE** — asymmetric volatility-forecast loss `log(h) + sigma^2/h`.
 - **EWMA (RiskMetrics)** — `h_t = lambda*h_{t-1} + (1-lambda)*r_{t-1}^2`, lambda 0.94.
-- **Drawdown** — wealth vs running peak (negative %); max drawdown; time-to-recovery.
-- **Calmar ratio** — CAGR divided by absolute maximum drawdown.
+- **Drawdown / Calmar ratio** — wealth vs running peak (negative %), max drawdown, time-to-recovery; Calmar = CAGR / |max drawdown|.
 - **MAE / MFE** — maximum adverse / favorable excursion of a trade, from the bar after entry; percentiles seed stop/target priors.
 - **ATR** — `max(H-L, |H-prevC|, |L-prevC|)`.
 - **Purge / embargo** — drop training rows overlapping test labels; gap bars after the boundary.
@@ -584,8 +587,7 @@ Numeric results (VaR/CVaR levels, exception counts, p-values, state-split benefi
 - **OOF stacking feature** — a model's prediction for a row from a model that never saw it.
 - **Entry confidence drop** — exit when the entry model's probability falls below 0.30.
 - **Close-to-close trade accounting** — entry at close t earns t->t+1; exit at close u earns nothing beyond u.
-- **Deep hedging** — learning hedge positions by minimizing a risk measure of terminal PnL under costs.
-- **Semi-recurrent hedger** — one MLP per timestep taking (information, previous position).
+- **Deep hedging / semi-recurrent hedger** — learning hedge positions by minimizing a risk measure of terminal PnL under costs; one MLP per timestep taking (information, previous position).
 - **Rockafellar-Uryasev / OCE** — `CVaR_{1-q}(L) = min_w [w + E[(L-w)_+]/q]`; makes CVaR differentiable.
 - **No-transaction band** — region around the frictionless target where trading is suboptimal under proportional costs.
 - **PositionState / PositionAction** — one position's state and the rule verdict (HOLD, EXIT_FULL, EXIT_PARTIAL, ADJUST_STOP).
