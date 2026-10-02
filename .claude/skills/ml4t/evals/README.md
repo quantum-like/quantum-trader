@@ -25,9 +25,53 @@ reading the routed reference files.
 
 ## What the skill changed (blind head-to-head)
 
-See the section below, filled from the judges' reports.
+Each prompt's two outputs were given to a blind judge as "A" and "B" (order alternated), who scored
+decision-time admissibility, evaluation protocol, costs and feasibility, reporting and falsifiability,
+implementability and errors with file-and-line evidence, then named a winner.
 
-HEAD_TO_HEAD_PLACEHOLDER
+| Eval | Winner | Margin | Dimension calls (admissibility, protocol, costs, reporting, implementability, errors) |
+|---|---|---|---|
+| 1 audit-baseline | with skill | clear | decision-time=without, evaluation=with, costs=with, reporting=with, implementability=with, errors=with |
+| 2 walk-forward-protocol | with skill | clear | decision-time=with, evaluation=with, costs=with, reporting=with, implementability=tie |
+| 3 cost-capacity | with skill | clear | decision-time=with, evaluation=with, costs=with, reporting=with, implementability=tie |
+| 4 polymarket-setup | with skill | clear | decision-time=with, evaluation=with, costs=with, reporting=with, implementability=with |
+| 5 risk-overlay | with skill | slight | decision-time=without, evaluation=with, costs=without, reporting=with, implementability=without, errors=without |
+
+The skill won all five. What it changed, according to the judges, was procedural: the with-skill
+agents computed what the baselines only named (Mertens Sharpe standard errors, HAC and bootstrap
+p-values, a Deflated Sharpe with a trial count derived from the repository's own tables, breakeven
+cost and participation-ceiling capacity), sealed the holdout on the label end date, set the embargo to
+zero in forward layouts, disclosed prior holdout exposure, defaulted to next-bar fills, shipped the
+setup as a machine-readable file with a pre-registration hash, pre-registered thresholds and
+disconfirming outcomes, and reported sweeps as populations rather than best-of-grid.
+
+The baselines won individual dimensions where the skill was silent or wrong, and those points fed the
+second fix round (see "What was fixed as a result"): the embargo rule was stated as "feature lookback"
+only, the holdout boundary was equated with `holdout_start - horizon` (false for variable horizons),
+breakeven was defined as a CAGR crossing in one chapter and a Sharpe crossing in another, the impact
+coefficient had no stress rule, an undated venue claim about Polymarket was copied verbatim, and the
+skill said nothing about the booking lag of a multi-session return, bounds on time out of market, VaR
+backtest consequences, or how to cite for readers who do not have the skill.
+
+### Strict re-grade
+
+The judges proposed stricter, file-checkable assertions per eval (stored as `hard_expectations` in
+`evals.json`). Re-grading the same outputs against them separates the two configurations:
+
+HARD_TABLE_PLACEHOLDER
+
+### What was fixed as a result
+
+The second fix round added or corrected, in the reference files: the two-direction purge and
+embargo rule for layouts where training can follow test; settlement-date holdout assignment with a
+holdout scoring date rule; a config round-trip check and a rebalance-gap/idle-session recipe for the
+baseline checkpoint; one breakeven definition (CAGR crossing and Sharpe crossing both reported, one
+quoted) and one cost-margin denominator; an impact-coefficient stress rule (eta >= 0.5 row, net Sharpe
+at eta = 1.0, participation-ceiling capacity); booking-lag, re-entry-bound, cadence-parity and
+precommitment patterns for overlays and kill switches; Christoffersen and Basel traffic-light rules
+for VaR backtests; dated venue facts and a Polymarket mechanics checklist; variable-horizon label
+rules; the non-vacuous disconfirmation check; and a citation rule in SKILL.md. The eval outputs
+above were produced before these fixes, so the table measures the skill as it was on the first pass.
 
 ## Reproducing
 
