@@ -1,0 +1,440 @@
+# Evidence: what the book's notebooks and case studies actually found
+
+Use this file as a bank of **priors**, not constants. Every number below is tied to one case study, one notebook, one data vintage; the companion repo rebuilds its registries on every re-derivation, so a figure quoted here is "the published-bundle reading" (mostly `v3.1.0-artifacts`), not a law. Where the notes say a number is printed only at run time, the cell says **[runtime]** and you must open the notebook or `run_log/registry.db` to get it. Where the notes marked something as an inference, it is marked **(inference)**.
+
+**Source tags.** `chNN` = `chapters/NN_*.md`; `cs_etfs`, `cs_crypto`, `cs_nasdaq`, `cs_sp500eo` (equity + option analytics), `cs_usfirm`, `cs_fx`, `cs_cme`, `cs_sp500opt` (straddles), `cs_usequities`; `lib_data`, `lib_engineer`, `lib_models`, `lib_diagnostic`, `lib_backtest`, `lib_live`. Notebook paths are repo-relative (e.g. `07_defining_the_learning_task/03_label_methods`, `case_studies/cme_futures/19_strategy_analysis`).
+
+**The nine case studies at a glance** (universe, cadence, primary label, cost regime) (ch06, ch20, cs_*):
+
+| Case study | Universe / cadence / label | Cost regime | Where results live |
+|---|---|---|---|
+| ETFs | 100 multi-asset ETFs, daily data, monthly decisions, `fwd_ret_21d` | "most cost-favorable configuration in the book", 5-15 bps per leg | `20_strategy_synthesis/output/etfs/etfs_tearsheet.html`, `results/strategy_assessment.json` |
+| CME futures | 30 products, 7 sectors, weekly Friday-close decisions, `fwd_ret_5d` | median round trip 1.13 bps | `case_studies/cme_futures/19_strategy_analysis`, registry |
+| Crypto perps funding | 19 Binance USD-M perps, 8-hourly settlements, `fwd_ret_8h` (selected on `fwd_ret_24h`) | 8 bps taker round trip; production 5 bps | notebooks 13-19, registry |
+| FX pairs | 20 G10 pairs, daily, `fwd_ret_1d` | 1-3 bps majors, 3-8 bps crosses; swap points unpriced | `19_strategy_analysis`, `run_log/registry.db` |
+| NASDAQ-100 microstructure | 114 stocks, 15-min, `fwd_ret_15m` | measured median round trip 6.16 bps; 5 bps friction floor | registry / bundle |
+| S&P 500 equity + option analytics | 634 stocks, weekly, `fwd_ret_5d` | 13 bps round trip | `triage_ledger.parquet`, registry |
+| S&P 500 options straddles | short ATM straddles, weekly, held to maturity, `fwd_ret_dh_10d` | premium-denominated; "Total costs often exceed the expected VRP edge" | notebooks 16-18, registry |
+| US equities panel | ~3,200 stocks, daily, `fwd_ret_1d`, 16 folds of 10Y/1Y | 25 bps round trip; era-dependent | `22_strategy_analysis` reading `run_log/registry.db` |
+| US firm characteristics | ~2,500 stocks, monthly, `fwd_ret_1m` | 2 x [5, 20] bps round trip | `17_strategy_analysis`, registry |
+
+Landscape: 7 material-cost vs 2 dominant-cost studies; universe sizes 19 to 3,199; cadences 15-minute to weekly; every case study reserves a holdout and uses `method: walk_forward_dml` in its modeling block (ch06). Shipped `overview.parquet` universe sizes: etfs 100, sp500_options 627, us_equities_panel 3199 (ch20).
+
+---
+
+## 1. Which model family wins where
+
+**Prior:** no family leads everywhere; the IC leader and the Sharpe leader frequently differ; within-case-study dispersion across configurations exceeds the dispersion of medians across case studies (ch20 NB03/NB04). Rankings are label-, horizon- and checkpoint-dependent.
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| Dense ridge at a very large penalty beat both sparse L1 and the boosted population on a collinear ~100-fund panel; "the one place in these case studies where the linear grid worked" | cs_etfs `06_linear`, `07_gbm` | GBM `above_zero` 14 of 15 on both labels, yet strongest full-coverage GBM < strongest full-coverage ridge on identical label/features/folds; IC-vs-alpha curve single-peaked (flat, rise, fall) = collinearity signature | Aggressive L1 posts the highest raw IC but is partial-coverage; registry leader for `fwd_ret_21d` later read as `ridge_a1000000.0` (ch25 `02`) |
+| Horizons reverse between families: GBM reads the 5-day label, L1-linear the 21-day | cs_cme `06`, `07` | GBM: every 5d config positive at final iteration, weakest a multiple of the best linear 5d; nothing above zero at 21d. Linear: only Lasso/ENet at `alpha_frac` 0.5/0.7 above zero, no Ridge config above zero at either horizon (peaks at alpha 1e6/1e7 = grid edge); ordering strong L1 > weak L1 > Ridge > OLS; `ic_std` an order of magnitude above any `ic_mean` | "21d best fifteen times the 5d best" is mostly the coverage filter |
+| IC leader and shipped strategy differ | cs_cme `19` | Raw Sharpe ranking names `latent_factors/sdf` on `fwd_ret_21d` (1.274); canonical resolver names `gbm/leaves_31_mse` on `fwd_ret_5d` (raw 1.236 -> 1.294 on 1,270 common-support sessions), allocated by `hrp` | Validation figure is "the maximum of a ranking over more than a thousand backtests" |
+| At a one-day FX horizon only heavily penalized linear models are positive; GBM "does not rank this cross-section in either direction" | cs_fx `06`, `07` | OLS/weak Ridge rank backwards on all three labels; 10 of 28 one-day configs end above zero, spread "a few thousandths"; GBM 2 of 15 one-day configs above zero, both by < 0.002; 21d best IC several times 1d best but the 21d grid's worst-to-best range exceeds that gap (penalty matters more than horizon) | Participation ratio 5.27 (~5.3 effective bets of 20) inflates IC by construction; backtest is the arbiter |
+| Direction labels, not return magnitude, carry the linear signal on crypto; GBM closes the size-vs-direction gap | cs_crypto `06`-`07` | Linear `fwd_ret_8h` best IC a fraction of a thousandth, most of grid below zero; `fwd_dir_8h` whole grid above zero at a few hundredths, AUC a little above 0.5; weakest GBM return config beats anything linear reached. Selected model: linear `enet_f0.03` on `fwd_ret_24h` | 400 candidates on two years; L1 path keeps a volatility column, never a premium column |
+| Label decides the sign, grid decides the magnitude | cs_sp500eo `06`, `07`, `13` | `fwd_ret_risk_adj_5d`: every linear config IC > 0; `fwd_ret_5d`: none, same menu/features/folds; ten orders of magnitude of ridge shrinkage never flips a label's sign. On `fwd_ret_5d` no family clears zero; corrected v3.1 registry: PCA clears zero on `fwd_ret_10d` and `fwd_ret_risk_adj_5d` | Two validation folds (2019, 2020); ICs in 06-08 are daily averages without serial-dependence adjustment |
+| On the straddle panel no linear config clears zero; squared-error GBM is last; sequence models "not expected to win" | cs_sp500opt `06`-`09` | Strongest Ridge shrinkage comes closest (curve rises toward zero as penalty grows = no ranking to defend); every squared-error GBM config below zero and below every Huber/MAE config; four of five MAE above zero; capacity orders nothing. Menu champions: ridge_a1000.0/a10000.0/a100.0; leaves_31_mae, leaves_7_huber, leaves_7_mae, leaves_15_mae, default_mae; TabM tabm_s/m/l; NLinear, lstm_h64, patchtst | Target shape, not features, explains the linear null; losing to GBM "is a result about the data" |
+| Target and loss move IC more than features, penalty or capacity | cs_usfirm `05`-`10` | Full 28-config linear grid "produced nothing" on raw `fwd_ret_1m`; same 28 configs land on the opposite side of zero on `fwd_ret_1m_win`; ten-decade Ridge sweep (1e-3..1e7) moves IC less than the label choice. Family-leader table: nonzero count of HAC intervals covering zero; winsorizing changed which families clear zero, tree families mostly already robust | TabM "extracts something the linear grid did not" is narrative; numbers in `10` [runtime] |
+| Breadth gives tight intervals around small IC; ridge IC curve flat -> rises -> falls | cs_usequities `05`, `06`, `07` | Height above the left end = signal buried by collinearity; aggressive L1 fails coverage (`ic_n_days`); GBM MAE/Huber leading is "a statement about label tails, not fit quality" | All IC/Sharpe values registry-only [runtime]; TSMixer declined at 60-80 GPU hours |
+| At 15-min cadence family choice is second-order to the cost screen; the family average carries to holdout, the single winner does not | cs_nasdaq | Linear IC "a few thousandths"; slot-grid distinctness DL 36/36, GBM 35.5/36, linear 4-5/36 (288 linear rows carry 36 distinguishable results); declared ensemble = 12 of 15 GBM members per continuous label | Validation = max over > 1,000 backtests; two folds give wide IC intervals |
+| Loss type is the single most important GBM hyperparameter; MAE wins across libraries | ch12 `05_cross_library_hpo` (CPZ, holdout 2000-2016), `12_case_study_insights` | `loss_type` most important in every Optuna study; MAE wins in all three libraries; cross-library test-IC spread smaller than the MSE-to-MAE gap; MAE tops 8 of 9 regression-primary case studies | Cross-CS tallies are registry-dependent [runtime] |
+| Untuned GBMs land at negative test IC on a single ETF fold; the library matters less than loss and tuning | ch12 `02_gbm_comparison` | Every library and preset negative on untuned 21-day regression; CPU vs CUDA ICs differ (FP32 binning); GPU `predict()` speedup can be < 1x; LambdaMART beat regression on NDCG@10 (by construction), IC comparison inconclusive on one fold | One fold |
+| Deep learning wins clearly in only a narrow slice; simple sequence models often beat elaborate forecasters; linear/GBM/TabM hard to dislodge | ch13 README, `12_case_study_insights` | Cross-CS counts (`n_above` of N DL-vs-tabular comparisons, HAC CIs excluding zero) computed at render [runtime]; four LSTM variants in registry | Values depend on registry state (inference) |
+| No latent-factor estimator leads every panel | ch14 `09` | On the US Firms primary label the five estimators' HAC intervals overlap heavily; off-diagonal monthly rank correlation among CAE/SDF/SAE "well short of one" (diversity for Ch20) | Coverage uneven: broader panels carry CAE/SDF/SAE |
+| GBM promotes interaction/regime features, linear promotes monotonic predictors; depth shows little resolution at financial SNR | ch12 `12` | Qualitative pattern from the section text | `IMPORTANCE_CASES` has four entries (only CSs with both saved boosters and linear fold models) |
+
+---
+
+## 2. Loss, tails and checkpoints
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| Robust objectives beat squared error on heavy-tailed return labels | cs_etfs `07`; cs_cme `07`; cs_crypto `07`; cs_usfirm `06`; cs_sp500opt `07` | ETFs: Huber > MAE > MSE, MSE the only objective not 5/5 above zero; CME: Huber > MAE > MSE at 5d, MSE last at both horizons; crypto: Huber > MAE > MSE on both return labels (`fwd_ret_8h` excess kurtosis ~25); US firm: objectives separate the grid on the raw label (expected mse < mae < huber) while `num_leaves` barely moves it; straddles: squared error bottom five | FX: MSE bottom at all three labels, Huber leads 1d/21d, MAE leads 5d |
+| Tail heaviness does not set the size of the objective gap | cs_etfs `07`; cs_fx `07` | ETFs: excess kurtosis `fwd_ret_5d` 10.26 vs `fwd_ret_21d` 7.00, yet Huber-minus-MSE gap 0.0143 on 21d vs 0.0075 on 5d; FX: 1d label has by far the heaviest tails yet the gap is widest at 5d and narrowest at 21d | "Tail mechanism not supported" |
+| Where daily equity tails are mild, MSE/MAE/Huber interleave: the "prefer Huber" rule is a short-straddle / perps rule | cs_sp500eo `07` | No Huber > MAE > MSE ordering; share of candidates clearing zero differs by label on an identical grid | Two folds |
+| 500 trees is longer than the data supports; checkpoint choice is a large share of configuration variation | cs_etfs `07`; cs_crypto `07`; cs_fx `07`; cs_sp500opt `07`; cs_cme `07`; ch12 `03` | ETFs: `ended_lower` 14 of 15, interior peaks 3 (21d) / 5 (5d), median within-config checkpoint IC range ~5/8 of the across-config range; crypto: median peak checkpoint 100-150 of 500, checkpoint moves the answer by 1/3 to 2/3 of the model choice; FX: config-spread vs checkpoint-range ratio ~1-3 by label (near 1 at 21d), `interior_peaks` 7/8/8 of 15; straddles: 10 of 15 configs peak at checkpoint 1 or 2, across-config spread ~3x within-config; CME: median config ends near where it started; ch12: LightGBM stops well short of its tree budget on every fold | Register every checkpoint; never report a config's best (cs_etfs lesson 4) |
+| Winsorization at (0.01, 0.99) tames a kurtosis-335 label | cs_usfirm `02` | Raw `fwd_ret_1m` std 0.17430, kurtosis 335.36; `fwd_ret_1m_win` std 0.14850, kurtosis 6.47; clipping touches ~1/50 of rows | `fwd_class_1m` base rate 0.438-0.500 monthly (mean 0.498); up to 0.084 of a month's firms tied at the median, ties appear to go to class 0 (inference) |
+| Early stopping after one tree can win a single-fold HPO; fANOVA concentrates on one parameter | ch12 `04_optuna_tuning`, `07_hpo_comparison` | Single-fold search picked a config early-stopping after one tree with near-flat predictions; walk-forward HPO costs many times the single-fold search; tuned-vs-untuned holdout margins small; Optuna cannot beat the exhaustive grid on the same categorical space (can only tie); holdout IC highest at the shortest budget | An earlier artifact vintage reversed the grid-vs-Optuna order |
+| Three LightGBM seeds span a wider val-IC range than separates any of them from the RF | ch12 `09_xai_limitations` | Top-3 SHAP contributors differ completely for near-identical predictions | Rashomon effect |
+
+---
+
+## 3. IC vs Sharpe decoupling
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| The IC ordering and the backtest-Sharpe ordering disagree; selection therefore uses Sharpe | cs_etfs `14`; cs_cme README; ch20 NB03/NB04 | ETFs: validation maximum over > 1,000 backtests; CME: SDF leads IC at 21d, GBM/5d/HRP ships (section 1); "portfolio Sharpe comes from magnitude at the top of the cross-section, not from average IC" | — |
+| The cross-stage validation rank-1 was a risk-overlay run, not the allocation leader | cs_etfs `16-17`; cs_usequities `20` | ETFs: "concentration and allocator interact"; US equities: "the validation leader is not always the risk-overlay run; the winning stage is printed, not assumed" | — |
+| A near-zero or negative IC signal can post a respectable net Sharpe via universe return and lower vol | ch11 `08_ml_backtest_intro` | IC ordering and net-Sharpe ordering of Ridge / Logistic / momentum / equal-weight differ; equal weight gross and net Sharpe nearly identical (trades only 1/N drift); monthly top-10 re-pick trades most of the book | 8 Ch11 folds; exact values [runtime] |
+| Two trading rules on one ordering differ more than two models | cs_nasdaq | Turnover is a strategy decision; allocators and overlays second-order to turnover at 15 min | — |
+| Breadth buys precision, not size: no trend between \|IC\| and universe size; the largest IRs sit at the widest universes | ch08 `case_study_feature_summary`; cs_usequities `05` | Highest \|IC\| from a ~100-instrument CS (ETFs 99 or NASDAQ-100 114, inference); two of the widest universes at middling/low IC. Implied live IRs (inference): cme_futures ~0.24, fx_pairs ~0.07, us_equities_panel ~1.76, so the 3,199-name universe reaches ~7x the IR of CME futures on a lower IC | Retired-generation contamination measured 2026-09-18 (`exclude_prediction_hashes` omitted): cme retired 0.0443 vs live 0.0430; fx 0.0150 vs 0.0149; us_equities retired `gbm/leaves_63_huber` 0.0343 vs live `gbm/leaves_63_mae` 0.0311 |
+| IC and squared-error loss measure nearly disjoint things on a long-tailed capped target | cs_sp500opt lessons | Rank-1 validation: daily-pooled IC essentially zero (HAC CI straddles zero); Sharpe CI straddles zero spanning roughly +-1; "the two pictures agree" | — |
+| A family counts as a signal only when its HAC interval excludes zero AND its decile spread clears the round trip | cs_usfirm | 2 x [5, 20] bps round trip is the bar | — |
+| Ensemble IC instability becomes portfolio losses through score-weighted sizing | ch24 NB11 (ETFs, §20.9 ensemble GBM + TabM + CAE) | Per-fold IC swings from negative to strongly positive while the LSTM baseline stays small and positive; `score_weighted_top_k` sizes on score; negative result | Validation-only; IC t-stats used 5-lag HAC vs the registry's 20-lag baseline, so uncertainties not comparable |
+| A fixed non-ML momentum/regime rule misses two of its three term-sheet criteria and is kept as the reference anyway | ch16 NB01 (10 ETFs, 2010-2024) | Which two criteria is not in the notes | Regime slice descriptive only |
+| Sizing capital changes the sign of a whole sweep | cs_nasdaq | `initial_cash` 100k gave avg Sharpe -11 across 339 signal runs; restored to 1M on 2026-05-16 | Incident, not a finding about the signal |
+
+---
+
+## 4. Labels, horizons and univariate baselines
+
+### 4.1 Single-signal baselines (what the thesis assumed vs what the data showed)
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| Raw 126-session ETF momentum does NOT clear its own HAC test | cs_etfs `02` | Mean IC 0.0266 over 4,257 dates (44-ETF minimum), naive t 5.06, HAC t 1.44, p 0.150 | Within-fund monthly autocorrelation ~0 |
+| CME carry baseline not separable from zero; the carry family ran negative in validation | cs_cme `02`, `05` | IC 0.0069 over 3,337 sessions, naive t 1.61, HAC (8 lags) t 0.87, p 0.387; strongest member is the 5-day change in carry (carry just rose -> did worse next week); carry rank autocorrelation ~0.6 vs `vol_21d` ~1 | Open readings: premium absent/reversed, or level and change carry different information |
+| Crypto premium z-score is a reversal signal | cs_crypto `02` | IC -0.0352, naive t -7.90, Newey-West (3) t -7.92 over 3,655 settlements | Integrated autocorrelation 37 periods -> <= 30 independent premium observations per contract per year (of 1,095) |
+| US-firm 12-2 momentum clears HAC | cs_usfirm `02` | `r12_2` IC +0.04398, HAC SE 0.00716, naive t +6.89, HAC t +6.14 (5 Bartlett lags); `ST_REV` rank corr +0.904 previous row, -0.028 own row; label autocorrelation -0.0227 lag 1 | "Found what the literature would lead you to expect" |
+| One-signal VRP baseline points the opposite way to the hypothesis on the straddle universe | cs_sp500opt `02` | Sign, not size, is the finding; overlap-corrected SE turns a decisive-looking t into one not separable from zero | — |
+| VRP denominator swap (realized vs GARCH) is indistinguishable from no change | cs_sp500eo `04` | 184,299 rows, 497 dates: `ivrv_spread` IC -0.0053, HAC t -0.44; `garch_ivrv_spread` IC -0.0032, HAC t -0.37; daily ICs correlate -0.25; paired difference +0.0021, HAC t 0.13; largest `garch_cond_vol` IC -0.0065, HAC t -0.34 | None of the GARCH features clears FDR standalone |
+| ETF 12-1 momentum Q5-Q1 is not significant on the full sample or in either era; spread narrower 2016-2025 than 2006-2015 | ch06 (100 ETFs, monthly, ~2006-2025) | Gross quintiles sit close to the equal-weight benchmark (mostly beta); signal rank autocorrelation high | Printed numbers [runtime] |
+| 21-day ETF momentum is a reversal signal at short horizons | ch07 `05`-`06` | Full-sample IC within a few thousandths of zero, HAC t well under 1, ICIR ~0; quintile spread and monotonicity negative at every horizon | Fold-level IC (front ~500 dates) positive: the gap is "entirely a period effect" |
+| 12-1 momentum at 21d: largest IC but fails grid-wide BH; momentum only significant in calm VIX regime | ch07 `08` (10 features x 3 horizons, ~92 ETFs, 14 years) | Positive in all three VIX terciles with ~5x magnitude variation, only the calm regime significant -> REVISE. 1-day reversal: sign flips across VIX regimes (negative low-VIX, positive high-VIX, both \|t\| > 2) cancelling to ~0 -> STOP. BH survivors all at the 5-day horizon (252d momentum, 12-1 momentum, 1-day reversal) and close to the null's expected count | Weaker than Jegadeesh-Titman 1993 / Asness et al. 2013 would suggest |
+| Shifting a 5-day label by one session roughly halves the 1-day reversal t (significant -> not) | ch07 `08` | — | Timing-artifact check |
+| Lookback sweep: the robust region is a single point and no lookback has mean IC distinguishable from zero | ch08 (ETF momentum, 20-day forward) | All error bars cross zero, peak included | — |
+| Regime-conditional momentum IC: positive and significant only in low vol | ch08 (42d SPY RV terciles, lookback 126) | Highest low-vol, smaller normal, negative high-vol; IC range clears 0.04; gating costs active days and both gated/raw are below zero most of the time | — |
+| News and filing sentiment signals are indistinguishable from zero | ch10 NB07-NB09 | All four FNSPID signals ICIR ~ 0 at 1/5/20d; 10-Q MD&A IC table (15 pairs) bars small, almost every 95% interval crosses zero; quintiles U-shaped not monotone | "Screening-grade only"; construction is the deliverable |
+
+### 4.2 Label statistics, effective sample size, horizon scaling
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| Overlapping labels shrink evidence by ~1/horizon | cs_etfs `02`; cs_cme `02` | ETFs: 418,362 dev rows -> N_eff 20,017 (4.78%; 1/21 = 4.76%); panel autocorrelation 0.942 at lag 1 -> -0.019 at lag 21. CME: ESS 97,921 -> 19,611 (0.2003 vs 0.2000) at 5d; 97,393 -> 4,669 (0.0479) at 21d; ACF 0.797 at lag 1 -> -0.004 at lag 5 | "Evidence is counted in tens of independent blocks, not hundreds of thousands of rows" |
+| Label std scales ~sqrt(horizon) | cs_etfs `02`; cs_cme `02`; cs_crypto `02` | ETFs 0.0612 (21d) vs 0.0311 (5d), ratio 1.97 vs sqrt(21/5)=2.05; CME 0.06407 vs 0.03138, ratio 2.04; crypto `fwd_ret_24h` std 0.06424 ~ sqrt(3) x `fwd_ret_8h` 0.03417; skew 1.31 (8h) vs 8.20 (24h); 24h lag-1 autocorrelation 0.673, lag-3 -0.020 | — |
+| HAC / effective-count correction deflates the label-diagnostic t by nearly 3x at 15 min; overlap factor 4.33 on straddles | cs_nasdaq; cs_sp500opt `05` | Straddles: 49 of 51 candidates measured, 13 clear a plain threshold, 3 after overlap correction (factor 4.33), 0 after family-wide FDR; largest mean daily rank IC 0.0349 on the 21-session underlying return, adjusted p 0.263 | — |
+| Cross-sectional dispersion widens in stress and has drifted down | cs_etfs `02`; cs_cme `02`; cs_usfirm `02`; cs_usequities `03` | ETFs 6.7% (2008) vs 3.9% median year; CME 3.9% (2020) vs 2.7%; US firm peak 22.4% (2000), trough 11.8% (2013), median 15.3%; US equities panel dispersion more than doubles between regimes | — |
+| Persistence sets the cadence | cs_etfs `03`; cs_sp500eo `01`; cs_nasdaq; cs_sp500opt `01` | ETFs: ret_126d, vol_63d, sharpe_126d > 0.6 autocorrelation at 42 sessions; cross-rebalance rank corr ~0.98 vol_63d, ~0.83 six-month, ~0.2 oscillators, ~0 one-month return. S&P 500: most ordering survives one week, gone within a few weeks -> weekly. NASDAQ: within-symbol within-session midpoint autocorrelation negative -> "buy what just went up" ruled out. Straddles: within-stock VRP persists a week later | — |
+| Triple-barrier labels flatter the trade; stops need > 3x ATR on SPY | ch07 `03`-`04` (`07_defining_the_learning_task/03_label_methods`) | SPY TP 2% / SL 1% / 20 days close-only: booked-vs-trigger-close gap runs the wrong way on both sides, larger on the stop side; ATR variant almost never reaches the time barrier; fixed-horizon binary skews "up". MFE/MAE: median MFE > median MAE but p90 MAE > p90 MFE; p75 stop > 3x ATR vs conventional 1x; BTC over one 8h cycle symmetric and an order of magnitude smaller than daily instruments over a month; high-vol tercile ~2x the excursion of low; no barrier rectangle separates good from bad trades | Library (close-based, signed) magnitudes narrower than manual high/low |
+| Trend scanning rejects almost every bar on a shuffled path at the same rate as real SPY | ch07 `04` | Bonferroni shifts the rejection rate by a few pp; the longest window is selected most often | — |
+| Sequential bootstrap vs plain: nearly identical uniqueness histograms | ch07 `04` | Small positive mean shift | — |
+
+### 4.3 Feature screens: what cleared FDR
+
+| Case study | Screen outcome | Numbers | Caveat |
+|---|---|---|---|
+| ETFs (`05`) | No feature clears BH at 5%; every PROCEED is `stable_and_above_threshold` | 57 features, 22 redundancy clusters at \|rho\| 0.7 ("well over half the columns repeat an ordering another column carries") | "A monthly label sampled daily on ~100 names holds too little independent evidence; not a screen fault" |
+| FX (`05`) | 0 of 63 clear BH; 27 PROCEED all via exploration route (stability >= 0.60 and \|IC\| >= 0.005), 32 REVISE, 4 STOP | — | "The next stage starts from candidates, not findings" |
+| CME (`04`, `05`) | Model-based screen: 7 of 9 rankable, one clears \|t\| > 1.96 alone, none clears BH across seven; few features clear FDR, most PROCEED via exploration | IC -0.031 (`fft_energy_63d`, HAC t -2.10) to 0.016 (`fft_dominant_period`, t 1.47); 62 features, 310,866 rows, 25 clusters at 0.7 | "A property of the measurement" |
+| Crypto (`04`, `05`) | 30 of 44 clear BH; 34 same sign in both folds; 32 PROCEED (30 FDR, 2 exploration), 12 REVISE (4 unrankable) | Largest \|IC\| -0.041 on `price_vol_7d`; the twenty strongest all negative; `garch_cond_vol` the only model-based feature clearing BH (negative IC) beside `price_vol_14d`; HAC slightly strengthens the strongest (negative dependence at the funding cycle); 45 pairs \|rho\| > 0.7; 23 clusters | Two folds; 8h cadence gives 2,189 decisions |
+| S&P 500 options (`05`) | 13 plain -> 3 overlap-corrected -> 0 FDR | See 4.2 | — |
+| S&P 500 eq+opt (`05`) | "A weak screen": naive vs HAC vs BH counts printed with an inflation factor | [runtime] in `triage_ledger.parquet` | — |
+| US firm (`04`) | Promotions can exceed BH-significant count because the two PROCEED routes are alternatives; `IC_THRESHOLD = 0.01` position in the IC distribution reported | [runtime] | — |
+| Ch7 ETF search (`07`) | 0 of 13 survive BH-FDR at 0.05 (and Holm); the two largest ICs are realized-volatility features; Rademacher ratio well below 1 (six correlated momentum lookbacks) | 5-day horizon, from 2010, Treasuries excluded | — |
+| Ch7 noise panel | 100 factors x 252 periods x 50 assets: naive p < 0.05 expects 5 false discoveries, BH and Holm expect 0; all 100 RAS lower bounds below zero (estimation term dominates, kappa = 1, T = 252) | Search penalty alone exceeded the largest IC by an order of magnitude on the standardized scale | Factor zoo (300 factors, 15 true): Harvey t > 3 keeps most true positives with far fewer FPs than t > 2 |
+
+---
+
+## 5. Allocators: which helped and when
+
+**Prior:** equal weight is the benchmark to beat; covariance-estimating allocators (MVO, HRP) pay for the estimate; allocator spread widens when the signal is weak; HRP wins where the signal is broad (ch20 NB05, ch17 `09`, cs_usequities `17`).
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| Median paired allocator effect is small; the spread dwarfs it | cs_crypto `14` (720 backtests, 720 paired) | Median paired Sharpe change: `mvo_ledoit_wolf` +0.061 (64/120 improved, turnover 1.38); `conformal_weighted` -0.018 (turnover 0.044); `score_weighted` -0.039; `inverse_vol` -0.132; `risk_parity` -0.188; `hrp` -0.324 (5/120 above zero). Best/worst change about +-2.0-2.3 for every allocator | 19 names, two folds; the selected strategy used equal weight |
+| On the full 115-name intraday universe every covariance allocator is deeply negative; equal weight ties at the top | cs_nasdaq | `risk_parity` / `mvo_ledoit_wolf` / `hrp` Sharpe -7 to -10 on every label in the every-bar sweep | Full universe, before the cost-feasible screen |
+| Equal weight is hard to beat on a 3,000-name daily cross-section | cs_usequities `17` | "Covariance allocators' estimation error does not pay for itself" (qualitative) | [runtime] |
+| Allocators converge at top-5 and separate at top-20 | cs_etfs `15` | Read `source_span` vs `allocator_span` | — |
+| Four allocators on one signal give four results; most Sharpe gaps sit inside the IID SE | ch17 `09_allocator_comparison` | Pre-selected allocator and holdout numbers [runtime] | — |
+| Selection funnel medians rise by selection alone | cs_cme `19` (`fwd_ret_21d`) | Signal 496 -> allocation 60 -> risk overlay 14 rows; median Sharpe -0.392 -> 0.192 -> 1.010 | "Compare only within a row" |
+| Static HRP concentrates: majority weight in a single bond fund via two inverse-variance splits | ch17 `06` (15 ETFs) | Walk-forward ranking across EW / IV / HRP / LW min-variance is "a fact about this run (5 assets, 252 observations, well-conditioned)" | — |
+| Max-Sharpe MVO concentrates into a handful of funds while EW, IV, ERC hold all; shorts worsen concentration | ch17 `02` (30 ETFs, train through 2019-12-31, 4% hurdle) | Condition number large despite average pairwise correlation well below one (redundant sector/broad-market pairs); min-vol can show a negative Sharpe below the hurdle | In-sample frontier |
+| Effective-position ordering is not the textbook one | ch17 `03` (11 ETFs, 2015-2023) | Min variance and min CDaR hold fewer effective positions than max Sharpe; risk parity spreads most evenly, HRP next; diagonal oracle gives 1/3 each to machine precision; cost-aware risk parity prints the return given up at 5 bp + 5 bp | — |
+| Full Kelly reaches an effectively-ruined `min_wealth_multiple` while showing a respectable Sharpe; rolling 5-year SPY Kelly fraction is unactionable | ch17 `04` | Tables ordered by gross exposure for this reason | — |
+| Matched objectives across PyPortfolioOpt, Riskfolio-Lib and skfolio agree to solver tolerance; routing through the engine moves Sharpe | ch17 `08` | Turnover penalty cuts trading distance; L2 penalty widens positions held | — |
+| Deep allocators show structural concentration and emergent turnover with no cost penalty | ch17 `11`-`13` | LSTM persistent concentration in a small ETF subset; VLSTM training curve keeps rising after validation Sharpe stops; DeePM SoftMin gap "evidence for this seeded run only"; macro-prior density share of 29^2 = 841 links | Whether they beat EW/IV [runtime]; ablations not run |
+| Low pairwise correlation among weak signals favours label-routed allocation over a uniform ensemble | cs_sp500eo `13`-`17` | Families have CI-credible estimates on different labels; GBM and linear moderately similar, structural vs supervised rankings genuinely differ | — |
+| Allocator comparison on the straddle book reads underlying equity covariance | cs_sp500opt `13` | `allocator_lookback: 63`; option exposure sized only indirectly; no allocator reported winning | — |
+| Rebalance accounting: array-side vs engine-side trades differ by two orders of magnitude | ch16 NB06 (10 ETFs, 14 years) | Array charged 78 target changes; engine attempted 3,522 rebalances, 2,911 reached the market, 6,518 fills each paying commission and slippage; daily-return correlation ~1 yet a compounding total-return gap | — |
+| Factor premia: value, momentum, carry, defensive positive gross back to 1926; SMB weaker after 1981 publication | ch17 `05` | Value-momentum correlation negative in every VME sleeve; raising the bar t=2 -> t=3 disqualifies fewer of these factors than of the literature at large; crisis table: momentum mixed (2009 crash), value generally negative (2020 especially), TSMOM positive in most windows | 1985 TSMOM start leaves earlier crises unmeasured |
+
+---
+
+## 6. Risk overlays
+
+**Prior:** a category whose median configuration loses Sharpe is the normal finding; effectiveness is strategy-specific (ch20 NB07). Tight stops on a fast cadence are destructive; time exits and wide trails are the survivors.
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| Tight stops destroy an 8h-cadence book by multiplying trades | cs_crypto `15` (56 overlays, 730 shared sessions) | On `fwd_ret_8h`: `trailing_1pct` Sharpe -3.39 (change -3.87, +1,060 trades), `trailing_2pct` -1.93, `trailing_5pct` -1.06, `stop_loss_3pct` -0.81 (+264 trades). Stage: best 1.668, median 0.31, worst -3.39, 39 of 56 above zero; 24 flattened at least one session, 5 inert; overlay helped three labels and none helped the fourth; selected overlay `time_exit_20` | Overlay parents: `fwd_ret_24h` `enet_f0.03` EW 1.556 (DD -0.467); `fwd_ret_8h` `lasso_f0.2` EW 0.487 (DD -0.707); `fwd_dir_8h` gbm `default_binary` + mvo 0.399; `fwd_dir_8h_3c` gbm `default_multiclass` + mvo 0.485 |
+| The position rule alone spans a Sharpe range of ~1 on one parent | cs_cme `19` | 14 overlays on one parent span 0.322 to 1.274 | Selection effect |
+| Overlays "buy a tighter loss distribution by trading more"; second-order to turnover at 15 min | cs_nasdaq | — | — |
+| A negative overlay gap (controls did not help) occurs for at least some FX labels | cs_fx `15`-`16` | (inference from the author's framing); `15` markdown says "four fixed stop-loss levels and five trailing stops" while setup.yaml declares 4 + 7 + 3 rules | Unresolved discrepancy; stop improvement "may not survive the holdout" |
+| Risk stage refused or empty by design in two case studies | cs_sp500opt `14`; cs_usfirm | Straddles: refused by the HTM path, nothing registered; US firm: zero registered runs by design | — |
+| A drawdown breaker can stay halted and not improve returns | ch16 NB05; ch26 `04` | SPY 2019-2021 breaker stayed halted once beyond 10% DD; SPY 2020-01-02 + 100 sessions: 31 trips because every recovery timeout (4h..5m) is shorter than the 24h step (daily-step artifact, not policy); latency breaker trips after 80% of the run when rolling mean crosses 100 ms | Kelly size falls after losing streaks on QQQ 2018-2019; XLF/KRE ratio blows out March 2023 |
+| Exit-type composition shifts reliably with stop width but mean-return differences are within SE at 100 trades | ch19 `02` | ML exit classifier OOS AUC only slightly above chance; enhanced-vs-basic crypto exit AUC gain in the third decimal while the > 0.5 filter admits almost no bars; "an architectural change can fail on AUC and still matter operationally" | — |
+| Scale-out costs 3x fixed costs | ch19 `03` | Three tranches pay 3x; mean difference computed with no costs | — |
+| Hedges reverse across crises | ch19 `06` | 2008: non-equity assets protected; 2022: the same assets were the loss source; Gaussian MC understates every tail vs kurtosis-matched Student-t; 99.9% quantile moves between seeds | — |
+| Cornish-Fisher VaR no better than plain normal on SPY; CVaR > VaR at every level; QLIKE and MSE can rank vol forecasts differently | ch19 `01` | Student-t CVaR above Gaussian at 99%; exception clustering visible | — |
+| Covariate drift arrives in days (crypto) / a quarter (ETFs) and partly reverses while the monitor stays elevated | ch19 `07` | ETF 2017 vs 2020: 20-day return vol roughly doubles; PSI, Wasserstein and domain classifier agree; crypto crisis PSI orders of magnitude above 0.25 (log colour scale) | Domain-classifier top features overlap but do not match PSI exactly |
+| Live sizing at full account value produced broker refusals | ch25 `02` | 8 refusals over the live window; a 2% `CASH_BUFFER` removed them | One window |
+| Rule contracts reproduce as declared | ch19 `10`; ch25 `10`, `13` | StopLoss 5% / TrailingStop 3% / TakeProfit 15% fire at different dates on SPY 2020; escalation warn 15%, liquidate 20%, daily loss to liquidation at 2%; rate-limit burst rejected on the 4th order; kill switch survives `SafeBroker` reconstruction; stale order rejected at 1.5 s vs 1 s threshold; 1,000 USD synthetic drop trips the kill switch | Duplicate-order filtering and price-deviation checks not demonstrated |
+
+---
+
+## 7. Cost survival by asset class and cadence
+
+### 7.1 Feasibility: move size vs round-trip cost
+
+| Case study | Round-trip cost | Typical move at the decision horizon | Clearance | Where |
+|---|---|---|---|---|
+| ETFs (monthly) | median 6.29 bps (0.86-35.23 across funds) | median \|21-session move\| 288.3 bps | 46x; 97.3% of moves exceed their own fund's round trip; turnover falls ~5x per spread tier | cs_etfs `01` |
+| CME futures (weekly) | median 1.13 bps | median \|5-session move\| 121.2 bps | ~100x; 0.991 of moves beat their spread; contract value ~$24k (ZC) to ~$340k (NQ); leverage ZT ~158x, silver ~8x | cs_cme `01` |
+| Crypto perps (8h) | taker 8 bps | median \|8h move\| 138 bps | 17x; 96.3% exceed | cs_crypto `01` |
+| NASDAQ-100 (15 min) | measured median 6.16 bps (above the 5 bps friction floor) | 9.1 bps (5 min), 15.8 bps (15 min), 30.6 bps (60 min) midpoint | same order of magnitude: "a cost figure wrong by 2x changes the sign of the answer" | cs_nasdaq |
+| US equities (daily) | 25 bps | 1-day moves "several times" the round trip | affordable; per-share cost unsupportable across a price range spanning two orders of magnitude | cs_usequities `01` |
+| S&P 500 eq+opt (weekly) | 13 bps | open-to-open move; failure criterion not triggered | — | cs_sp500eo `01` |
+| S&P 500 straddles (weekly, HTM) | one crossing = 4.44% of premium at the cheapest fifth (<= 0.0887 of premium) vs 5.92% at the median stock | premium move | inside the assumed 2-5% only for the cheapest fifth; 77-469 names carry a straddle per decision date, < 100 on 4 of 209 dates (2020-03-06 to 2020-04-09) | cs_sp500opt `01` |
+| FX (daily) | 1-3 bps majors, 3-8 bps crosses | — | tight spreads are what allow daily decisions; swap points unpriced | cs_fx, ch06 |
+| Liquid US equities (reference) | round trip ~1-2 bps; NASDAQ-100 median quoted spread ~2 bps (12 names, 2021Q4) | — | a 1,000-share order ~zero impact on AAPL vs 50+ bps on an illiquid stock | ch03, ch18 |
+
+### 7.2 Break-even and cost cascades
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| Crypto break-even leaves ~2-3 bps of margin at the production 5 bps | cs_crypto `16` | Sharpe at 0 bps -> breakeven: `fwd_ret_8h` 1.13 -> 8.6 bps; `fwd_ret_24h` 2.07 -> 19.4 bps; `fwd_dir_8h` 0.81 -> 7.1 bps; `fwd_dir_8h_3c` 0.97 -> 7.8 bps; at 50 bps every label -3.9 to -7.8; execution cost $110k-$150k on $100k capital | Oddity: `fwd_dir_8h` rises 0.81 -> 1.18 from 0 to 1 bps as trades fall 3,829 -> 2,080 (inference: thresholds and cost-dependent equity change the trade set); funding P&L ranges $2.4k-$50k across the grid (inference: notional scales with cost-dependent equity) |
+| The selected crypto book was a price bet paying to trade | cs_crypto `19` | Funding P&L +$21,932 over 38,473 settlements vs commission $95,653 and slippage $23,913; 2,746 trades; total return +416% on $100k (validation) | "A strategy whose return is mostly funding is a carry strategy and flips with the rate's sign" |
+| HTM straddle cost cascade turns a positive pre-cost rate net-negative | ch20 NB08 (hardcoded), `htm_cost_sensitivity.parquet`; cs_sp500opt | Max Sharpe -0.28 at 20% half-spread fraction; -0.47 at 50%; -0.72 at 100%; full universe uneconomic, liquid quintile marginal-but-positive; 879 registered rows carry `total_slippage` NULL because the vectorized path records no cost totals | O'Donovan & Yu (2024): 17 of 24 single-name option predictors significant gross, none survive realistic costs; equity-style bps-of-notional understates option spread cost by one to two orders of magnitude |
+| The cost-feasible screen, not the model, decided the holdout sign at 15 min | cs_nasdaq `17` | Featured config holdout Sharpe -0.42 on the full 115-name universe, positive on the cost-feasible 50 (46-50 feasible of 101-103 declared); `d_sharpe = avg_sharpe_screened - avg_sharpe_full`; random signal clearly negative (pays the spread every rebalance) | Slower cadence spreads entry cost over longer holds (heatmap values [runtime]) |
+| Gross Sharpe already slopes down toward daily cadence and the cost gap widens toward daily | ch18 nb09 (8 ETFs, 2019-2023) | High- vs medium-friction stacks differ by 1 bp round trip and give nearly identical panels; short-horizon momentum has the highest raw IC but ranks last on the persistence-cost proxy | Hypothetical inputs |
+| Leverage costs can exceed trading frictions; net Sharpe declines linearly with turnover | ch18 nb10, nb11 | Leveraged QQQ-IWM long-short loses more to margin and borrow than to frictions; high-turnover long-only QQQ loses most to per-trade costs; the high-turnover profile can fall below the net-Sharpe threshold under the measured NASDAQ-100 half-spread crossing stack | — |
+| At 10 bps per side, cost drag separates high-turnover ML strategies from low-turnover baselines | ch11 `08` | Equal weight's gross and net Sharpe nearly identical | — |
+| Square-root impact: doubling order size raises cost per dollar ~40%; linear optimizers front-load too little | ch18 nb05-06 (AC: 100k shares, $100, 30% vol, 5 days, 50 periods, ADV 1M) | Linear and sqrt matched at the even schedule agree almost exactly; concentrated schedules charged less by sqrt; doubling sigma doubles sqrt impact; two of five ETF orders exceed the 10% cap and fill partially; closing-price benchmark wanders by hundreds of bps on one path | Coefficients are stated, not measured |
+| Minute-level signed-flow regressions have median R^2 near zero | ch18 (~100 NQ-100 symbols, 2021Q4) | Coefficient usable at most as an average-cost input; some per-symbol slopes negative and excluded | — |
+| OHLCV spread estimators rank but do not level | ch18 | Corwin-Schultz returns exactly zero on most sessions (clamp); Roll degrades at daily frequency on liquid large caps; VIX conditioning raises the CS level, not the frequency of an estimate | — |
+| VWAP vs TWAP differ in width, not centre; a higher participation cap buys speed at impact risk | ch18 nb07 (held-out 2021Q4, 100k shares, 15-min grid, 5 bps impact) | Half-ADV AAPL parent completes roughly proportionally faster as the cap rises 5% -> 10% -> 25% | "Narrower = more predictable, not cheaper" |
+| Linear break-even exceeds the simulated crossing by a non-small amount over 14 years | ch16 NB14 (ETF baseline, 0-200 bps) | Turnover x fee slightly below the simulator's charge; library drag curve same shape, different zero crossing | — |
+| Futures commissions cannot be expressed as one %-of-notional | ch16 NB02 (CME 2018-2023) | $2/contract as % of notional varies materially across six products; multiplier-omission error grows with the multiplier | — |
+| BTC RSI 14/30/70 at 10 + 5 bps: gross P&L not positive, so break-even prints NaN | ch16 NB09 (2020-2024) | beta < 1 is an exposure statement, not skill | — |
+| A one-cent half-spread is ~1 bp on a $500 fund and ~5 bp on a $20 fund | cs_etfs `16-17` | — | Almost none of the nine `costs:` blocks record a round-trip spread in bps (ch18) |
+| Impact erosion is not monotonic in participation | ch21 `07` | Erosion = no-impact minus c=0.6 return; flip rate reported for liquid (< 10% ADV) vs thin (> 100% ADV) cohorts | Magnitudes [runtime] |
+| Annualize-first would charge roughly a sixth of the complexity penalty owed | ch16 NB13 | 140 correlated grid candidates on 504 periods give a deeply negative RAS lower bound; hourly 90-day series still carry the charge | — |
+
+---
+
+## 8. Deep learning vs linear and GBM baselines
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| Recurrence pays a step cost without proportional accuracy; longer windows do not help | ch13 `01` (MLP/CNN/LSTM/GRU, next-day ETF returns) | Large horizontal (step-cost) spread, small vertical (test MSE) spread; window sweep {30,60,120,240}: LSTM slower at every length, MLP cost near-flat; MLP training error drops with window while validation does not | ICs small, no intervals |
+| Zero forecast is near-optimal on SPY returns; transformers barely move under shuffling while linear models move by more than their own size | ch13 `03` | SPY mean a small fraction of a SD from zero; ACF inside +-1.96/sqrt(n) at almost all lags; closest-repeat worse than zero | — |
+| Persistence / last-value baselines are hard to beat | ch13 `02`, `11` | N-BEATS MAE ratio can exceed 1 vs persistence; every held-back SPY day above the training max on the standardised scale; Fourier basis at 5 harmonics finds little periodicity; last-value on a price level has IC near one and wins like-for-like | — |
+| Zero-shot foundation models rank ETFs no better than baselines | ch13 `09` | Chronos-t5-small / TTM-v1 at `PREDICTION_LENGTH=10` vs 21-day label useless; literature: Chronos R^2 = -1.37%, TimesFM R^2 = -2.80% on S&P 500 (Rahimikia et al. 2025); DELPHYNE (Ding et al. 2025): finance pretraining hurts general benchmarks and still fails on finance | Volatility/VaR targets and fine-tuned models fare better in the cited literature |
+| MC-dropout intervals are essentially zero-width; ensembles are wider but still far too narrow; ensemble disagreement tracks abs error | ch13 `10` | Two LSTM layers at dropout 0.2 give highly correlated passes; dropping the highest-uncertainty quartile moves IC only a few thousandths; MC-mean vs ridge IC ordering flips between runs | The disagreement-tracks-error result is the one that survives reruns |
+| LightGBM trains in a fraction of TabM's time; error bars overlap heavily | ch12 `03_dl_vs_gbm` (8 ETF folds) | MSE LightGBM negative on fold 0 where MAE positive; minimal MLP is a floor | — |
+| TabM capacity is "not a dial you turn up" on < 100 funds | cs_etfs `08`; cs_sp500eo `08` | 24 candidates per label; read whether IC moves at all, and whether within-run epoch spread matches across-config spread | No intervals; a complete TabM run can score zero dates (cs_usequities `08`) |
+| GNN hybrid vs tabular: sign undetermined | ch23 `06` (200 stocks, one 21-day window, 5 stock folds) | Paired hybrid-minus-tabular IC deltas disagree in sign; mean a small negative, a small fraction of the fold spread | Frozen-chapter numbers from a flawed earlier implementation not comparable |
+| Supervised LightGBM beats constraint-based heuristics on causal-role classification | ch15 `09` (ADIA benchmark) | Reference 0.7670 (top ADIA entry) vs ~0.4 for classical constraint-based baselines | Weakest roles are the observationally equivalent ones |
+| Transformer sentiment beats TF-IDF on clean labels, slips on mixed ones | ch10 `03`, `06` | On allagree (2,264 sentences, 20% test): FinBERT-tone > TF-IDF > GloVe-average, gain concentrated in the negative row; on mixed-agreement FinBERT-tone slips behind TF-IDF (chapter table, not measured); `ProsusAI/finbert` on FinMarBa a little above the majority rate | Fine-tuned scores separated by little, training times by far more; FinBERT row contaminated (upper bound); NER near ceiling because test sentences appear in training |
+| Word2Vec co-occurrence measures topic, not polarity | ch10 `01` | Nearest neighbor of `profit` is `loss` and vice versa; within-polarity mean cosine ~ across-polarity | GloVe separates what the 40k-token model confuses |
+| Latent-factor autoencoders reconstruct but do not forecast | ch14 `05`, `06`; cs_sp500eo `11` | CAE error ratios a fraction of a percent from the zero-return forecast, every rank-IC interval spans zero; IPCA vs PCA scored rows 194,813 vs 177,682 (`fwd_ret_5d`); CAE/SAE panel `ragged train=493/475, max_N=503` | "CAE sees exactly what IPCA saw"; reconstruction error falls with epochs by construction |
+| Three yield-curve components reproduce Litterman-Scheinkman; sector PC2 is defensive-vs-cyclical on ETFs but commodity on single stocks | ch14 `01`-`03` | PC1 share rises in stress; first 5 components roughly half of cross-sectional variance on top-500 US equities 2006-2018; residual AR(1) slopes near zero | — |
+
+---
+
+## 9. Causal findings
+
+**Prior:** confounding bias is pervasive; naive OLS and DML signs differ on some panels; predictive power and causal effect are distinct objects; the refutation column was biased toward "Passes" before the t-statistic fix (ch15 `10`).
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| Raw-effect permutation refutation is a spurious pass; studentized block permutation is honest | ch15 synthetic calibration (12 panels, true effect 0, AR(1) confounders, 40 placebo draws) | Studentized block permutation rejects 5/12 at 5%; raw-effect comparison rejects 11/12; 11/12 observed t-stats negative | Carried in `10` |
+| Carry has no defensible causal effect on CME returns | cs_cme `11` | Refutation p under t-stat comparison: `fwd_ret_5d` 0.5545, `fwd_ret_21d` 0.2673, both `Fails` (old raw-effect scale 0.0396 and 0.0099 = floor); carry autocorrelation 0.52 at lag 5, 0.14 at lag 21, ~0 at lag 63 (slower than AR(1): 0.38 / 0.02) | Author: the refutation column "carries no evidence here"; DML point estimate and HAC SE [runtime] |
+| VRP effect on straddle returns is not separable from zero | cs_sp500opt `10` | N = 166,105; effect on `ret_to_expiry` 0.4098; HAC SE 0.3509; t = 1.17; p = 0.243 under either statistic; old effect-based p = 0.0099 (floor of 100 draws) was spurious | Retired identity `d034b82943c5` is the same fit as its replacement |
+| Momentum predicts returns throughout the US equities panel; effect, naive effect and confounding bias % computed | cs_usequities `14` | Values registry-only [runtime] | — |
+| DML on crypto regimes: controls explain most treatment variance; both regime ATEs small relative to SE | ch15 `04` (19 perps) | Residual share < 1/10; permuted-treatment residual variance an order of magnitude larger; t-stat comparison moved permutation p from the floor to mid-null | cs_crypto DML `refutation_n_successful` is None on this run, so no `refutation_class` published |
+| BTC 8h ATEs differ ~5x across outcomes and drift OOS | ch15 `02` (train 2019-01-01 to 2023-06-30) | Negative control shows residual association on the returns outcome; reversion claim "the more defensible of two claims that both rest on a short sample of one asset" | None of four diagnostics establishes causality |
+| Causal scaling cannot rescue an inverted signal | ch15 `05` (ETF holdout) | IC sign flips between training and holdout; where the causal rule does not beat `SIMPLE_HEURISTIC` the machinery bought nothing | — |
+| ETF-panel DML: temporal placebo ratio ~1 is uninformative; three intervals disagree | ch15 `03` (~52,000 ETF-days) | Driscoll-Kraay inflates SE vs iid; point estimate moves with nuisance flexibility | — |
+| Causal discovery on daily ETF returns is a null | ch15 `07`, `08` | PCMCI (SPY, IEF, GLD, VIX; tau_max 5): no lagged edge stable above 0.5 robustness; NOTEARS recovers the 5-edge synthetic chain; on the 7-ETF panel FDR "materially thins the graphs"; method outputs diverge from zero to dozens of edges | Only NOTEARS edges with >= 50% bootstrap frequency called consensus |
+| Four managed factors are spanned by 10 PCs in-sample | ch15 `11` | Naive SPY loadings shrink toward zero once 10 PCs enter, HAC intervals include zero; outcome LASSO retains the full 10-PC basis | Not a replication of Feng-Giglio-Xiu (2020) |
+| Conditioning on a collider manufactures a momentum-return correlation | ch07 `08` | Conditioning on high fund flows induces negative correlation from independent X, Y | Simulation |
+| FOMC BSTS on IEF: estimates model-dependent | ch15 `06` (4 dates) | Corrected log-return run not flagged by control-as-target or placebo | Daily timing, possible spillover |
+
+---
+
+## 10. Synthetic-data utility
+
+**Prior:** the validation protocol matters more than the architecture; learned generators under-disperse (synthetic sits in a sliver at the centre of the real cloud); tails, dependence shifts and conditional dynamics are where fidelity fails (ch05).
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| Classical models order on kurtosis and clustering as theory says | ch05 `00_classical_simulation` (200 paths x 504 steps) | Excess kurtosis jump-diffusion > GARCH > Heston pairwise; jump clears GBM's 95th percentile on nearly every path; GARCH > Heston on ~3/4 of pairs; jump median excess kurtosis an order of magnitude above the others; mean reversion indistinguishable from GBM on kurtosis. Clustering (sum of 20 squared-return ACFs): GBM/OU/jump at the null; GARCH clears on every path at ~3x Heston's median | Nine SPY windows span most of the models' range (regime differences plus sampling noise) |
+| Block and stationary bootstrap at b = 22 keep ~2/3 of SPY's squared-return dependence; IID keeps none | ch05 `00` | Stationary beats moving block in the majority of paired draws, distributions overlap heavily | — |
+| Provider parameters must be passed explicitly | ch05 `00` | Provider `gbm_jump` skew ~0 vs negative from downward-tilted jumps; `mean_revert` lines up only because internal kappa equals `MR_KAPPA`; GARCH matches persistence but not level unless annual vol is passed | — |
+| TimeGAN matches moments but is under-dispersed and discriminable | ch05 `01_timegan` (6 stocks) | Mean/std match to ~2 decimals; PCA sliver at the centre; t-SNE separate regions; discriminative accuracy far from chance; price-level experiment puts many holdout cells outside [0, 1] | — |
+| Tail-GAN overstates tail severity | ch05 `02_tailgan_tail_risk` (ETF returns, 32 strategies, seed 1) | Aggregate relative errors VaR 22.5% / ES 21.0%; synthetic VaR/ES means more negative than real; median per-strategy error several times the aggregate; cross-strategy Pearson near zero; losses plateau well before epoch 3000 | No general-purpose baseline trained |
+| Sig-WGAN gets location right, tails and skew wrong | ch05 `03_sigcwgan_signatures` (S&P 500, depth 4, 16-day windows) | Loss plateaus in ~150 steps; extreme real days never reached; TSTR ratio near 1 on return sign (coin flip; paper 1.0); excess kurtosis falls toward Gaussian; negative skew not reproduced | Sig-W1 reference 2.76 not comparable |
+| GT-GAN short run: architecture demonstration only | ch05 `04_gtgan_irregular` (2000 steps) | Discriminative accuracy/AUC at maximum; TSTR MAE ratio outside (0.7, 1.5) | — |
+| Diffusion-TS under-generates variance; guidance separates regimes | ch05 `05_diffusion_ts` | Rescale applied when ratio < 0.9; eta = 1 worse than eta = 0; neither TSTR classifier reaches the naive baseline | — |
+| GReaT: no utility claim survives five reproducible draws | ch05 `06_llm_tabular_great` (distilgpt2, 50 epochs, 2,000 rows, 500 per draw) | Single-draw TSTR AUC 0.764 vs TRTR 0.736 (ratio 103.8%) was the best of five; draws 0.764, 0.720, 0.495, 0.681, 0.750 -> HIGH x3, MODERATE x1, NONE x1, range straddles 0.5; earlier non-reproducible runs 0.70, 0.30, 0.78; test positive prevalence 5% (predict-never accuracy 0.95); timings 1,603 / 1,658 / 3,481 s warm | Return features worst on KS (spike at zero) |
+| DP-GAN collapses onto a low-dimensional set; the epsilon sweep is not resolvable with one run per budget | ch05 `07_dp_gan` (epsilon 10, delta 1e-5, 20 epochs) | Synthetic correlations saturated +-1; sweep [1, 5, 10, 50] at 10 epochs: mean absolute difference several times larger at epsilon = 1; correlation distance non-monotone | — |
+
+---
+
+## 11. RL, RAG, knowledge-graph and agent evaluation results
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| With zero-mean returns and 10 bps cost no RL policy has positive expected reward; algorithms differ in turnover, not mean reward | ch21 `01` (BTCUSDT hourly, GARCH sim) | Squared-return autocorrelation positive to lag 48; DQN / PPO / A2C over 10 episodes | — |
+| Execution RL: honest reading is PPO vs TWAP on paired paths; Almgren-Chriss is an oracle | ch21 `02`, `04` | Amihud impact estimate for BTC falls below the lower clamp (temporary 0.001, permanent 0.01; inference); 2024 evaluation year not a quiet corner of 2022-2024 | Hourly-range spread proxy makes every strategy overpay |
+| Market-making PPO: ordering called only at 3 SE over 240 episodes; learned contribution is skew and adaptive width only | ch21 `03` | — | — |
+| Deep hedging: delta hedging is at its strongest because paths come from its own model | ch21 `05`; ch19 `09` | BS delta on Heston paths misspecified; hedgers minimise ES_0.05; learned policy trades less near the delta benchmark (no-trade-band-like) | P&L stats [runtime], device-dependent |
+| IRL on TWAP demonstrations cannot identify a preference | ch21 `06` | Only two distinct actions; BC degrades when driving | — |
+| Q-learning execution: a few hundred states; actions change with lagged volatility regime | ch18 nb08 | Paired held-out counts vs TWAP and VWAP [runtime] | Descriptive |
+| RAG embedding choice cannot be decided on 15 queries | ch22 `02`, `03` | BGE-large vs MiniLM "separated by a single document"; labels settled by hash tie-break; label rule correlates far more with BM25 than dense; cross-encoder two-stage scores below the fusion it reranks; precision ceiling 3/10 at TOP_K=10 | All retrieval numbers describe the supplier window from `01` |
+| RAG safety gates: injection refused by defended policy, not baseline; one metric false positive | ch22 `04`, `08` | `retrieval_hit` = 1 on every answerable fixture, 0 on unanswerable; out-of-scope refused, injection not (baseline); defended policy: zero unsafe actions, zero citation failures, abstention 2 of 6 (inference: `inj_01`, `inj_02`) | "No model ran; rates are code properties" |
+| ESG screen is overwhelmingly environmental | ch22 `06` | S and G together "a rounding error" (counts span three orders of magnitude); cause: single-word E terms, compound S/G phrases, E tested first | — |
+| 13F co-holding similarity saturates | ch22 `07`; ch23 `05` | "Millions of pairs" at cosine 1; over a third of stocks held by exactly one manager; crowding: 3 equal holders -> 9, 4 with one dominant -> ~4; 50 largest names held by nearly all ten managers | — |
+| LLM supply-chain extraction: identity, not precision, is the measured result | ch23 `02` (601 10-Ks, Qwen2.5-7B-Instruct, ~27 min RTX 3090, ~14 GB VRAM) | 133 distinct subject strings: 51 unchanged, 61 re-spellings, 21 subsidiaries/brands; almost every supplier named by exactly one company | Edge precision not established |
+| Graph RAG validator: original diagnostics 3/3 uninformative; control set 6 hostile refused, 2 benign accepted | ch23 `03` | Earlier versions accepted whole-graph scans | — |
+| Vector RAG on holder questions is driven by issuer naming | ch23 `04` (7 questions, 10 institutions) | Recovered one holder question completely, missed another completely; relational 5-6 rows x 4 fields vs vector 10 x 6 | Oracle recall 1.0 by construction |
+| Correlation-network contagion reach does not separate scenarios | ch23 `10` (100 assets) | MST 99 edges; at corr > 0.5 a shock reaches the same assets within 5 rounds; equal weight effective names = 100, max weight 0.01 vs 0.10 cap; leaf centrality ~0.0101 vs floor 0.01 | — |
+| Agent forecasters: identical agents disagree, Neyman aggregation can go negative, debate narrows disagreement not error | ch24 NB04, NB06, NB07, NB08 | 40 search results, 0 dated, 0 prompts with the market price (NB04); three different probabilities from identical agents; under near-independence the Neyman formula returns a negative probability (clamped); debate narrowed the gap "by a few points"; both questions unresolved -> unscoreable | Report the mean; Neyman as sensitivity |
+| Calibration transforms: exponent a > 1 undoes shrinkage; held-out Brier improves only slightly; grid stops at bound 0.5 on post-resolution inputs | ch24 NB05, NB09 | Effective panel size flattens toward 1/rho; warden blocked 4 calls; scanner blocked 3 of 5 payloads | In-sample = LOO Brier means no room to overfit, not generalisation |
+| Orchestration frameworks are not a benchmark | ch24 NB10 (CrewAI run) | Agent probs all 0.25, aggregate 0.1577, midpoint 0.335, supervisor 0.25, final 0.335, 70.3 s | — |
+| Research-operator capstone returned two negative results honestly | ch24 NB11 | ETFs ensemble: negative (section 3); US firm: removing the bottom market-cap quartile eroded validation Sharpe materially (§20.1 small-cap clustering confirmed), turnover barely moved; both runs reported via `done()` | No market impact estimated; retraining on filtered universe flagged as follow-up |
+
+---
+
+## 12. Holdout outcomes, decay and search accounting
+
+### 12.1 Holdouts
+
+| Case study | Validation reading | Holdout reading | What it taught | Where |
+|---|---|---|---|---|
+| Crypto perps | Sharpe 1.668, max DD -0.469, 95% bootstrap CI [0.42, 2.87], PSR p = 0.0049; DSR raw K -0.131, MP -0.048, ER -0.051; RAS 1.18; min-TRL (ER) 298 periods (earlier generation: 1.57, [0.27, 2.80], p 0.0107, DSR -0.15, RAS 1.09, min-TRL 374). Pool 2,807 (signal 2,031 best 1.556 / median -1.55 / 467 above zero; allocation 720 best 0.901 / median -0.33; risk 56) | Refit `918aeaf5a811`, prediction set `9adfb97d8db7` (40,821 rows, 2,190 timestamps, 19 names); backtest `ee7c119e1009`: Sharpe -0.832 over 731 periods, CAGR -44.8%, max DD -82.26%, win rate 47% | "Every uncorrected statistic said real; every DSR said not." "The largest of 2,807 draws lands near 1.6 whether or not any of them has an edge." Read the sign, not the magnitude; the drawdown reflects leverage and no stop beyond `time_exit_20` | cs_crypto `17`-`19` |
+| NASDAQ-100 | max over > 1,000 backtests | Featured config -0.42 on 115 names, positive on the cost-feasible 50; one 6-month measurement | Configuration choice on validation does not carry; the family average does; 2020-2021 unusual | cs_nasdaq |
+| S&P 500 straddles | Selected (cross-stage rank-1 after the liquid pin) has negative validation Sharpe; carried unchanged | 2021: paired val -> holdout decay and holdout-vs-EW with CI95 and p [runtime]; gates `gate1_validation_sharpe_geq_zero`, `gate2_holdout_diff_not_excludes_zero_negatively` serialized, not promoted | One year of weekly cohorts cannot separate decay from an ordinary year; statistically null under HTM full per-leg costs | cs_sp500opt `16`-`18` |
+| US equities panel | Sharpe difference vs equal weight positive with bootstrap interval spanning zero; validation spans two regimes in which the strategy behaves oppositely | Holdout 2016-2018 lies wholly within the second regime; registered drawdown is decline from peak, not capital lost | "Never distinguishable from its equal-weight benchmark"; the holdout removes one circularity but is not a fresh test | cs_usequities `22` |
+| US firm characteristics | Plumbing: random ranking passed \|Sharpe\| < 1.5 (the only standalone result of `11`) | `16` prints the validation-vs-holdout pair; `17` finds the one-year interval too short to resolve decay in at least some rows; ~12 holdout observations, paired bootstrap runs on n = 12 | A prior validation-fitted holdout generation was replaced by `15`; lineage resolver once picked a retired generation ("Incomplete holdout closure pairs"), fixed by `resolve_solvent_carrier` | cs_usfirm `15`-`17`; ch20 NB01 |
+| S&P 500 eq+opt | Stage chart 1-3 points; intervals wide at every stage | 2021 is one draw with a wide interval; current-lineage holdout unresolved | A validation-to-holdout drop has at least two sufficient explanations (selection bias, different market) | cs_sp500eo `19`-`20` |
+| CME futures | 1.236 -> 1.294 common-support (section 1) | ~100 weekly observations; Sharpe/CAGR/DD printed by `18` [runtime]; deflated Sharpe via `cohort_metrics`, paired bootstrap `val_rank1_self` | Gap = selection plus sampling error, not decay; two historical defects (validation-fitted holdout generation, per-fold HMM leak) passed every local check | cs_cme `18` |
+| ETFs | max over > 1,000 backtests; cross-stage rank-1 = risk-overlay run | Refit and backtest registered once; no numbers in notes [runtime] | Read intervals, PSR/DSR and the paired gate, not point estimates | cs_etfs `18`-`20` |
+| FX | Best-of-grid Sharpe high partly because the grid is large (28 + 150 + TabM + DL checkpoints, each at k in {5, 10}, per label) | No gate outcomes in notes; two allocator rows can tie rank-1 exactly (tie-break keeps equal weight) | Search accounting (63 columns, 150 GBM candidates, 14 overlays, 11 cost points, three labels) is the denominator of every claim | cs_fx `13`, `17`-`19` |
+| Cross-case | Five of nine CSs reach the holdout; four have predictions but no backtests (mid-rebuild); NASDAQ-100 fixed ensemble positive on point estimate but corrected intervals cross zero -> excluded from v3.0 lineage and the evidence gate | — | Incidents: 2026-08-28 three-registry run mislabelled as production; 2026-09-18 zero `equal_weight` allocation rows in all nine registries | ch20 NB01, NB04, NB08 |
+
+### 12.2 Decay and non-stationarity
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| Rolling IC paths cross zero on ETFs and FX, so no full-period average describes every regime | ch11 `07` (Figure 11.8) | Adjacent ridge penalties agree to ~5 decimals; `ols`, `ridge_a0.001`, `ridge_a0.01` tie exactly on crypto `fwd_ret_24h` | — |
+| A 63-session shadow window cannot promote a near-identical candidate | ch26 `03` (2015) | `ols` vs `ridge_a100.0`: signal correlation and position agreement "very high"; both books lost money (negative Sharpes) | "A Sharpe improvement between two negative Sharpes is not evidence either model deserves capital" |
+| One session of look-ahead moves every feature of the served vector | ch26 `05` | Eight sample names; Feast PIT join and hand-written join agree within 1e-10 | — |
+| Factor regimes: two clusters by BIC and silhouette; risk-off is short bursts | ch01 `factor_regimes` (AQR, 1,176 months 1927-2024) | K=2: BIC 26,170, silhouette 0.270, 267 switches, smallest cluster 276; at K >= 4 silhouette ~0 or negative and smallest cluster 3-8 months. Risk-on 900 months (76.5%), risk-off 276 (23.5%); risk-off mean 2.1 months, longest 14; one switch every ~4.4 months. Equity: risk-on +9.5%, vol 8.6%, Sharpe 1.11, max DD -22.9%; risk-off +2.2%, vol 19.1%, Sharpe 0.12, max DD -76.9% (an artefact of closing gaps; the index fell at most 55.4%) | Ann. means risk-on/risk-off: Value +1.6/+5.3; Momentum +4.5/+0.4; Carry +3.5/-0.6; Defensive +4.2/-0.5; US Value -1.0/+20.6; US Momentum +10.7/-0.7; Bonds +0.8/+4.2; Commodities +4.0/+8.5. Whole-sample fit; descriptive, never a timing signal |
+| Macro regimes: volatility ordering is legible, drawdown ordering is not; fit is unstable | ch01 `macro_regimes` (FRED, 276 months 2003-2025) | Core GMM silhouette 0.327; Tightening 72 months / vol 10.4% / DD 19.4%; Expansion 51 / 12.2 / 14.0; Recovery 100 / 15.7 / 52.6; Inflation 53 / 17.7 / 42.2. Perturbation ARI 0.73-0.82, smallest cluster down to 4 months; extended 25-series silhouette 0.419, k-means 0.448; PCA PC1 45.6%, PC2 34.8%, cum 80.3% | Post-2002 panel holds one recession, one pandemic, one inflation episode |
+| Risk-off and high-VIX regimes flip or kill signals | ch07 `08`; ch08; ch19 `07` | See sections 4.1 and 6 | — |
+| GARCH persistence moves slowly; quarterly refit suffices | cs_usequities `04`; cs_sp500opt `04` | 3,160 series, ~58 refits average, 110 max, ~183,000 fits; straddle panel median persistence rises and spread narrows as the expanding window grows | Most emitted model-based columns are market-level constants |
+| GARCH burn-in trades coverage for stability | cs_sp500eo `04` | 252 vs 504: coverage 76.5% vs 54.7%; non-emitting securities 57 vs 103; fold-0 training sessions consumed 22,130 (121 securities) vs 159,463 (592); degenerate fits (alpha + gamma < 0) 19.0% first block, 1.8% walk average | — |
+
+### 12.3 Search accounting demonstrations
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| 50 noise strategies over 756 days produce a respectable best Sharpe; DSR probability well short of 0.95 | ch07 `07` | Expected max under the null barely below the observed best | — |
+| PBO ~0.5 with the IS-best's median OOS rank dead centre | ch07 `07` (20 strategies, 50 combos) | — | — |
+| MinTRL: the lowest-Sharpe row needs > 10 years daily unsearched and `never` after a handful of candidates | ch07 `07` | Middle row ~2 years unsearched, longer than a career after a handful, `never` after 100; only the highest-Sharpe row stays inside a career at all search widths | — |
+| True SR 0.5 on 252 daily obs: estimates spread ~1 Sharpe unit, ~1/4 negative; five years at SR 1 still wide | ch16 NB11 | On SPY 2020-2023 the Lo multiplier is not close to sqrt(252); per-year multiplier ranges ~5 units; the top null of 30 (5 real at SR 0.8, 504 days) shows a respectable Sharpe and high PSR | — |
+| sqrt(2 log N) bound sits above the extreme-value expectation; DSR for observed 1.5 falls as trials rise | ch16 NB12 | Cross-trial Sharpe variance ~1 at one year daily, swings by a third between draws; equal-edge sweep (30 variants, SR 0.5, 504 days): max-vs-rest gap is luck | All-noise vs mixed PBO outcomes draw-dependent |
+| Nested CV is the honest procedure estimate; the single loop is always the more favourable of each pair | ch11 `04` (5 outer folds) | Single-loop alpha swings across orders of magnitude between folds; nested selection moves smoothly | — |
+| Conformal intervals under-cover in the high-vol tercile; only CQR reaches target on the purged 2023 ETF fold | ch11 `06` (99 ETFs, 90% target); ch12 `11` | All three methods near target marginally and all under-cover; across purged folds no asset class hits nominal coverage; best-coverage asset is not the highest-IC asset | ACI alpha path is a lagged record of realized coverage |
+| Robust SEs grow HC3 < cluster-by-date < two-way < Driscoll-Kraay, up to ~3x OLS | ch11 `01` | Largest coefficients mostly indistinguishable from zero under Driscoll-Kraay; OOS R^2 can be negative; many features VIF > 10 | — |
+| CPCV / purge mechanics on NYSE 2014-2025 | ch06 | `train_size=1260` clips the first two of five folds to expanding; a 21-session purge spans ~30 calendar days; a 21-calendar-day purge leaks 7 sessions; CPCV N=6, k=2 gives 15 splits and 5 paths | — |
+
+---
+
+## 13. Data-quality priors that changed results
+
+| Finding | Where | Numbers | Caveat |
+|---|---|---|---|
+| Survivorship: raw returns show survivors *underperforming*, repaired returns show overstatement | ch02 `15` (2014-2018) | Untrusted returns a small fraction of 1% of rows; scenario spread exceeds the MC band by 10x; leavers underperform survivors; WIKI panel 3,199 companies, 777 leavers all 2014+, ~52 years without an exit | Terminal scenarios literature-calibrated |
+| PIT: centered windows have ~half their inputs in the future; unemployment vintages disagree ~3 days in 4 | ch02 `14`; ch04 nb06/07 | Max > 10 points spring 2020; CPI panel steps up ~7 weeks before its release; joining COT on `report_date` leaks ~3 days | — |
+| Same-bar OFI correlation excludes zero, lagged does not; the gap is the look-ahead bias | ch08; ch03 | OFI(t-1) decile spread "within noise"; executable markout shifts left by ~one spread | — |
+| Trade classification: tick test ~78%, Lee-Ready ~94% on NVDA | ch03 Table 3.3 (5 days) | ~16 pp gap | Per-day figures not shown |
+| Event-driven bars normalise returns; no 5-bar predictability | ch03 | TIBs ~800x more bars than VIBs at the same E[T]; VR(5) ~ 1 for all bar types; volume/dollar bars pull excess kurtosis toward 0 | Daily threshold CV too large for a one-day threshold to carry |
+| Crypto funding: published formula beats `clamp(P)+I` several-fold; > 1/3 of settlements exactly at I; correlation peaks at t+8h | ch02 `11` (BTCUSDT 2020-2025) | ~0.5% of hourly bars read a premium >= 8h old; mean premium negative everywhere, mean funding positive nearly everywhere | — |
+| UTC-day FX aggregation manufactures thousands of one-bar days | ch02 `12` | Disagrees with session closes by several bps on most days | — |
+| 13F data carry filings implying > $10,000/share and trillions of dollars | ch04 nb10 (2024Q3) | Several hundred imply < $1 | — |
+| Alternative-data four-question evaluation: 12 signal-horizon pairs, none reaches \|t\| = 2; verdict "Blocked: no vintages" | ch04 nb11 | Cost $9,000/yr | — |
+| Options parity: 5-day IV change vs forward return small, negative, stable, sign shared by most of 8 names; quintiles non-monotonic | ch02 `07` | ~70% Converged; 2020 ATM IV p90 > 100% some days | — |
+| Hive partition pruning "7x" faster; wide format breaks beyond ~100 symbols; IEX ~2-3% of US volume | lib_data | Docstring claims, not reproduced | — |
+
+---
+
+## What generalizes
+
+Cross-case conclusions the author draws (each stated in at least two units):
+
+1. **Process beats model class.** The edge comes from matching model, label, horizon and evaluation design and confirming on holdout, not from the model class alone; no family leads everywhere (ch12 `12`, ch13 README, ch20 NB03, ch27).
+2. **The label decides the sign; the grid decides the magnitude.** Target shape (raw vs winsorized vs risk-adjusted vs direction) moved IC more than features, penalty or capacity on every panel where it was tested (cs_sp500eo, cs_usfirm, cs_sp500opt, cs_crypto, cs_cme).
+3. **Robust losses on heavy-tailed labels.** MAE/Huber lead MSE wherever tails are heavy (8 of 9 regression-primary case studies); the rule does not apply when daily equity tails are mild (ch12, cs_etfs, cs_cme, cs_crypto, cs_sp500eo).
+4. **IC decides nothing; select once on validation backtest Sharpe after costs.** The IC leader and the traded leader differ; portfolio construction and risk overlays mediate prediction quality; the cross-stage winner can come from the overlay stage (cs_etfs, cs_cme, cs_nasdaq, cs_sp500eo, ch11 `08`, ch20).
+5. **Evidence is counted in independent blocks.** Overlapping labels shrink N by ~1/horizon; breadth tightens the interval but does not raise IC; a dependent cross-section (FX: 5.3 bets from 20) inflates IC by construction; naive t is never evidence (cs_etfs, cs_cme, cs_fx, cs_usequities, cs_nasdaq, ch07).
+6. **Univariate screens on diversified or small universes find nothing after FDR**, and the thesis signal (momentum, carry, VRP) often fails its own HAC test or runs the wrong way; multivariate nonlinear models can still rank (cs_etfs, cs_cme, cs_sp500opt, cs_fx, ch07).
+7. **Checkpoints are configurations.** Within-config checkpoint spread is 5/8 to ~1x the across-config spread; 500 trees is longer than the data supports; register every checkpoint and never report a config's best (cs_etfs, cs_crypto, cs_fx, cs_sp500opt).
+8. **Equal weight is the benchmark to beat.** Covariance allocators pay for their estimate; median allocator effects are within +-0.1 Sharpe while the spread is +-2; HRP helps only when the signal is broad (cs_crypto, cs_nasdaq, cs_usequities, ch17, ch20).
+9. **Overlays are strategy-specific and the median one loses Sharpe.** Tight stops on fast cadences multiply trades and destroy the book; a stop's validation improvement may not survive the holdout (cs_crypto, cs_cme, cs_fx, ch20 NB07).
+10. **Cost measurement is the analysis at high frequency or in options.** The cost-feasible screen decided the NASDAQ-100 holdout sign; premium-denominated costs turned the straddle signal null; the cost unit must match the return unit (cs_nasdaq, cs_sp500opt, ch18, ch20 NB08).
+11. **Deflation, not the interval, is the honest reading of a searched maximum.** PSR/bootstrap said "real", DSR said "not", and the holdout agreed with DSR (cs_crypto); the search denominator must be declared before the claim (cs_fx, ch07, ch16).
+12. **A holdout is one draw.** Short holdouts (6-24 months) cannot separate selection bias, decay and an ordinary year; report the paired difference vs equal weight with a bootstrap interval and gate pass/fail, never a point estimate (cs_sp500opt, cs_sp500eo, cs_usfirm, cs_cme, cs_usequities).
+13. **Ensembles and family averages buy stability, not strength**; selecting a configuration on validation does not carry to a later window while the family average does (cs_nasdaq, ch20 NB08 §7).
+14. **Deep learning earns its keep rarely**; zero/persistence forecasts and ridge are the reference that decides whether an architecture bought anything; reconstruction is not forecasting (ch13, ch14, cs_sp500eo).
+15. **Confounding is pervasive and refutations must be studentized**; a causal estimate is a statement about the training period, not a forecast (ch15, cs_cme, cs_sp500opt).
+16. **Learned generators must beat the classical baseline on the diagnostics that matter**; fidelity, utility and privacy trade off (ch05).
+17. **Regime labels are a risk lens, never a timing signal**; signals flip across VIX/vol regimes and hedges reverse across crises (ch01, ch07, ch08, ch19).
+18. **Negative results reported with intervals are deliverables**; a screen that only finds signal is not a screen (cs_sp500opt, cs_sp500eo, ch10, ch24 NB11).
+
+## What did not replicate or stays unresolved
+
+- **Momentum and reversal on ETFs** are weaker than Jegadeesh-Titman 1993 / Asness et al. 2013 would suggest; 12-1 momentum fails grid-wide BH and the 21-day ETF momentum factor has near-zero IC (ch07, ch08, ch06).
+- **The carry premium on CME futures** ran negative in validation and its univariate IC is indistinguishable from zero; whether level and change carry different information is an open reading (cs_cme).
+- **The VRP hypothesis on straddles** points the opposite way and the DML effect is null; the "options contain information about the mean" question was never settled, only the width (cs_sp500opt, cs_sp500eo `01`).
+- **The tail-heaviness mechanism for the Huber-vs-MSE gap** is not supported: the gap does not scale with kurtosis on ETFs or FX (cs_etfs, cs_fx).
+- **The horizon effect for GBM** reproduces on CME (5d) but not cleanly on FX (21d ahead, 1d and 5d level) (cs_cme, cs_fx).
+- **Published checkpoints and papers**: `ProsusAI/finbert` PhraseBank figures not reproduced on FinMarBa; FinBERT-tone slips behind TF-IDF on mixed-agreement labels; the asset-embedding paper's valuation-variance and text comparisons not reproduced; Sig-W1 reference 2.76 not comparable; Feng-Giglio-Xiu not replicated (ch10, ch15 `11`).
+- **GNN hybrid vs tabular** sign undetermined on one 21-day window (ch23 `06`).
+- **Grid vs Optuna ordering** reversed across artifact vintages (ch12 `07`).
+- **RAG embedding choice** cannot be decided on 15 queries; the two-stage cross-encoder scored below the fusion it reranked on the proxy label (ch22).
+- **Agent forecasts** are unscoreable (questions unresolved) and identical agents disagree about facts; no stage of the pipeline was shown to beat the plain mean (ch24).
+- **Holdout decay** is unresolved in every case study that reached the holdout: windows of 6-24 months cannot separate selection bias from regime change or decay (cs_crypto, cs_nasdaq, cs_sp500opt, cs_sp500eo, cs_usfirm, cs_cme, cs_usequities).
+- **Numbers the notes could not carry** [runtime]: ETF/FX/US-equities/US-firm/S&P-500-eq+opt holdout Sharpe, DSR, PSR, PBO, breakeven cost and allocator winners; Ch11-Ch14, Ch17, Ch19 IC/AUC/Sharpe values; Ch20 Tables 20.3-20.11; Ch21 reward/shortfall magnitudes; Ch24 probabilities. Read them from `run_log/registry.db` (bundle `v3.1.0-artifacts`) or the chapter `*_strategy_analysis` / `*_case_study_insights` notebooks.
+- **Known defects and incidents that passed local checks**: validation-fitted holdout generations (cs_cme, cs_usfirm), a per-fold HMM leak (cs_cme), retired-generation IC contamination (ch08, measured 2026-09-18), the stranded capped DML fit `b47bd0ec208a` (cs_sp500eo), `initial_cash` 100k sweep (cs_nasdaq), mislabelled production run 2026-08-28 and zero `equal_weight` rows 2026-09-18 (ch20), FX setup.yaml vs markdown stop-rule count, ETF README 50 vs notebook 100 funds (ch02, inference), NB10 placement in ch04 (4.4 vs 4.1).
+- **Book-text-only claims with no notebook** (ch02 seven sins, ch04 ESG divergence / satellite data, ch26 realization ratios / A-B gates / CI-CD, ch27 all claims): carry them as positions, not evidence.
+
+## Related references
+
+- `chapters/01_process_is_edge.md` — regime tables and perturbation protocol behind section 12.2.
+- `chapters/02_financial_data_universe.md`, `chapters/03_market_microstructure.md`, `chapters/04_fundamental_alternative_data.md` — data-quality findings in section 13.
+- `chapters/05_synthetic_data.md` — generator-by-generator fidelity/utility protocol behind section 10.
+- `chapters/06_strategy_definition.md` — the case-study landscape and CV mechanics.
+- `chapters/07_defining_the_learning_task.md` — label, barrier, triage and multiple-testing demonstrations (sections 4, 12.3).
+- `chapters/08_financial_features.md`, `chapters/09_model_based_features.md` — feature-level and fitted-feature results, retired-generation contamination.
+- `chapters/10_text_feature_engineering.md` — text-signal nulls and model comparisons.
+- `chapters/11_ml_pipeline.md`, `chapters/12_gradient_boosting.md`, `chapters/13_dl_time_series.md`, `chapters/14_latent_factors.md` — model-family evidence in sections 1, 2, 8.
+- `chapters/15_causal_estimation.md` — refutation calibration and DML results (section 9).
+- `chapters/16_strategy_simulation.md` — rebalance accounting, Sharpe inference, DSR/PBO/RAS demos.
+- `chapters/17_portfolio_construction.md`, `chapters/18_transaction_costs.md`, `chapters/19_risk_management.md` — allocator, cost and overlay evidence (sections 5-7).
+- `chapters/20_strategy_synthesis.md` — cross-case funnel, HTM cost cascade, holdout coverage.
+- `chapters/21_rl_execution_hedging.md`, `chapters/22_rag_financial_research.md`, `chapters/23_knowledge_graphs.md`, `chapters/24_autonomous_agents.md` — section 11.
+- `chapters/25_live_trading.md`, `chapters/26_mlops_governance.md` — live-window and shadow-window findings.
+- `chapters/27_systematic_edge.md` — the process-is-edge thesis (narrative only).
+- `case_studies/etfs.md`, `case_studies/cme_futures.md`, `case_studies/crypto_perps_funding.md`, `case_studies/fx_pairs.md`, `case_studies/nasdaq100_microstructure.md`, `case_studies/sp500_equity_option_analytics.md`, `case_studies/sp500_options.md`, `case_studies/us_equities_panel.md`, `case_studies/us_firm_characteristics.md` — the per-stage numbers summarized here, with registry paths.
+- `libraries/ml4t_diagnostic.md` — DSR/PSR/MinTRL/PBO/RAS, HAC IC and conformal APIs that produce these statistics.
+- `libraries/ml4t_backtest.md` — the engine whose protocol knobs explain the rebalance-accounting and parity results.
+- `libraries/ml4t_data.md`, `libraries/ml4t_engineer.md`, `libraries/ml4t_models.md`, `libraries/ml4t_live.md` — data, feature, model and live substrates referenced in sections 8 and 13.
+- `decision_rules.md` — thresholds (`ic_floor 0.01`, `edge_to_cost_floor 1.2`, `net_sharpe_floor 0.3`, `micro_cap_concentration 0.5`, DSR 0.95) these priors calibrate.
+- `guardrails.md` — the leakage, selection and cost-unit failures the incidents above instantiate.
+- `workflow.md` — where each evidence section sits in the funnel.
+- `glossary.md` — IC, HAC, DSR, PSR, PBO, RAS, MinTRL, N_eff, PSI.
+- `companion_repo.md` — notebook paths and registry locations.
+
+Further reading:
+- Bailey & López de Prado (2014) "The Deflated Sharpe Ratio"; Bailey, Borwein, López de Prado & Zhu (2014) PBO; López de Prado, Lipton & Zoonekynd (2025) "How to Use the Sharpe Ratio".
+- Harvey, Liu & Zhu (2016) t > 3; Benjamini & Hochberg (1995); Holm (1979).
+- O'Donovan & Yu (2024) single-name option-return predictors and costs.
+- Jegadeesh & Titman (1993); Asness, Moskowitz & Pedersen (2013); Daniel & Moskowitz (2016) momentum crashes.
+- Chen, Pelger & Zhu (2020) firm-characteristics panel; Gu, Kelly & Xiu; Kelly, Pruitt & Su (IPCA); Lettau & Pelger (RP-PCA).
+- Rahimikia et al. (2025) and Ding et al. (2025) DELPHYNE on foundation models for finance.
+- Feng, Giglio & Xiu (2020) factor-zoo taming; Alur et al. (2025) AIA Forecaster.
+- Almgren & Chriss optimal execution; Litterman & Scheinkman yield-curve factors.
