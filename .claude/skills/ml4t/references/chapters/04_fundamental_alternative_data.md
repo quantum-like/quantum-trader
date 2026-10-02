@@ -1,6 +1,6 @@
 # Chapter 4: Fundamental and Alternative Data
 
-> Chapter 4 turns point-in-time (PIT) correctness "from a principle into an implementation discipline": every fundamental carries two dates (valid time = the period described, knowledge time = when the market could know it), and a backtest keyed on the wrong one "simply looks better than it was" with no visible error. It equips you to build bitemporal fundamentals from SEC XBRL with a correct as-of query, parse Form 4 and 13F filings with independent reconciliation, resolve entities on identifiers rather than names, re-date macro/COT/on-chain data to publication with source-specific timestamp authority, run a four-question alternative-data evaluation whose hard gates block alone, read prediction-market feeds for the price they actually carry, and store filing text as an auditable PIT corpus. The position it argues: "a fundamentals pipeline is only as good as its historical eligibility logic"; a wrong entity match is worse than no match; a restated series without a vintage archive cannot support a backtest no matter how strong the signal.
+> Chapter 4 turns point-in-time (PIT) correctness "from a principle into an implementation discipline": every fundamental carries two dates (valid time = the period described, knowledge time = when the market could know it), and a backtest keyed on the wrong one "simply looks better than it was" with no visible error. It equips you to build bitemporal fundamentals from SEC XBRL with a correct as-of query, parse Form 4 filings with independent reconciliation and screen bulk 13F holdings before aggregation, resolve entities on identifiers rather than names, re-date macro/COT/on-chain data to publication with source-specific timestamp authority, run a four-question alternative-data evaluation whose hard gates block alone, read prediction-market feeds for the price they actually carry, and store filing text as an auditable PIT corpus. The position it argues: "a fundamentals pipeline is only as good as its historical eligibility logic"; a wrong entity match is worse than no match; a restated series without a vintage archive cannot support a backtest no matter how strong the signal.
 
 ## When to use this reference
 
@@ -19,7 +19,7 @@
 
 - **Two dates on every fundamental; only one is usable.** Period end / reference period = valid time; filing / release / announcement date = knowledge time. "Between the two, nobody in the market knew the number." Use the filing/announcement date as the as-of timestamp for anything that will be backtested.
 - **Bitemporal as-of query: filter on knowledge time, rank on valid time.** Knowledge time decides admissibility; valid time decides recency. Filter on valid time → classic lookahead; sort on knowledge time → the latest *announced* row wins and restatements walk the answer backwards in fiscal time. The long lag tail says restatements are normal, not edge cases.
-- **Timestamp authority is source-specific.** XBRL Frames give the filing date; FRED stamps the *start* of the reference period (not a knowledge date); COT carries no publication timestamp; DeFi Llama carries no vintages; Kalshi carries only the bid. Join on recorded release timestamps where they exist; otherwise set a schedule bound deliberately *late*: "a bound that is a day or two conservative costs a little signal and an aggressive one costs the validity of the whole backtest."
+- **Timestamp authority is source-specific.** XBRL Frames give the value and accession, the Submissions API the filing date; FRED stamps the *start* of the reference period (not a knowledge date); COT carries no publication timestamp; DeFi Llama carries no vintages; Kalshi carries only the bid. Join on recorded release timestamps where they exist; otherwise set a schedule bound deliberately *late*: "a bound that is a day or two conservative costs a little signal and an aggressive one costs the validity of the whole backtest."
 - **Two separate PIT corrections: publication date and vintage.** Re-dating fixes *when* a value became visible, nothing about *which* value. Agencies revise for years; even daily Treasury yields get revised; a threshold rule can fire on the revised series and not the released one.
 - **Restated series without a vintage archive cannot support a backtest** — a hard gate no signal strength repairs. Fix: snapshot the feed daily going forward and wait.
 - **Identifiers over names, in a deliberate trust order.** CIK/LEI name an entity permanently; CUSIP/ISIN/FIGI name a security (one company issues several); a ticker names a listing at a point in time and is reused (ZOOM vs ZM, 2020). "A pipeline built on tickers will break on the first rename."
@@ -38,7 +38,7 @@
 - **Short, sign-changing samples are "unproven," not "refuted."** What changes the answer is longer price history, not a cleverer signal; often "the binding constraint on an alternative-data study is not the alternative data."
 - **Alternative data is an acquisition and engineering decision.** Four questions — Signal, Data, Legal, Commercial — combine "by rule rather than by arithmetic." Signal and Commercial only rank; Data (vintages) and Legal can block alone. A weighted score would let a strong signal outvote a failed hard gate.
 - **MNPI is about entitlement, not difficulty.** Satellite images and scraped public pages are hard to get but public; data from a company's own systems supplied by someone with a duty to it is non-public "however cheaply it arrives."
-- **Free data is not costless.** Break-even return = annual carrying cost / capital informed; both the cost-recovery bar and the target bar fall with AUM, which is why the same dataset is a reasonable purchase at one firm and not another.
+- **Free data is not costless.** Break-even return = annual carrying cost / capital informed; both the cost-recovery bar and the target bar fall with AUM, which is why the same dataset is a reasonable purchase at one firm and not another. "The question is never whether a signal is real on its own."
 - **A column name is a claim like any other.** Polymarket `volume` counts price observations; Kalshi `volume` counts contracts traded. "Nothing errors when the two are compared, and the answer is about neither."
 - **Which price does a feed carry?** Kalshi bars carry `yes_bid` → every price is a lower bound short by the spread; a ladder monotonicity check on bids is a staleness diagnostic, not an arbitrage test.
 - **Count how many of a feature's values are real before fitting.** A column defined on every row and non-zero on a handful "is a panel in shape only."
@@ -49,6 +49,8 @@
 - **The anonymized academic panel supports prediction and frictionless portfolio return, not execution.** No prices → no currency weights, spread, depth or cost; identifiers do not cross split boundaries.
 
 ## Method recipes (the how)
+
+Chapter sections → notebooks: 4.1 PIT pipeline (nb01, nb02, nb03, nb04; nb10 by its header, README lists it under 4.4); 4.2 Entity resolution (nb05); 4.3 Fundamentals across the asset-class spectrum (nb06, nb07, nb08); 4.4 Understanding alternative data (nb09, nb11, nb12, nb13); 4.5 Text data for NLP features (nb14). Network: nb02 and nb14 hit live EDGAR and need `EDGAR_IDENTITY` (as does `form4_download.py` at download time); nb03 (once filings are on disk), nb04 and nb10 read committed snapshots through the `data` loaders and never contact the SEC; nb06/07 use the in-repo FRED parquet (`FRED_API_KEY` only for live FRED downloads).
 
 ### Bitemporal as-of query on XBRL fundamentals (nb04)
 
@@ -87,8 +89,8 @@ Source: `04_fundamental_alternative_data/02_sec_filing_explorer` (live EDGAR; ne
 | Filer | `Company("AAPL")`, `Company("1318605")`/`Company("0001318605")`; `.name .cik .tickers .sic`; `find("Microsoft")` (exploration only) |
 | Filings | `company.get_filings()`, `get_filings(form="10-K")`, `form=["3","4","5"]`, `.latest()`; `filing.filing_date`, `.accession_no`, `.is_xbrl` (mandatory large filers 2009, all 2011) |
 | Statements | `company.get_financials()` → `.income_statement()`, `.balance_sheet()`, `.cashflow_statement()`; `.to_dataframe()` one column per period (digit-leading column names); 10-K = 3 years income statement, 2 balance sheet |
-| Form 4 | `filing.obj()` → `.insider_name`, `.issuer.name`, `.common_stock_purchases`, `.common_stock_sales`; try/except per filing, record `parse_error`; scan `N_RECENT_FORM4 = 10` |
-| 13F | `manager.get_filings(form="13F-HR").latest().obj()` → `.holdings`, `.report_period`, `.total_value`, `.total_holdings`; `PutCall` blank = stock, `PUT`/`CALL` = options; concentration: drop option rows, group `Issuer`, top `N_TOP_HOLDINGS = 10` |
+| Form 4 | `filing.obj()` → `.insider_name`, `.issuer.name`, `.common_stock_purchases`, `.common_stock_sales`; try/except per filing, record `parse_error`; scan the `N_RECENT_FORM4 = 10` most recent for the first with a sale |
+| 13F | `manager.get_filings(form="13F-HR").latest().obj()` → `.holdings` (pandas DataFrame), `.report_period`, `.total_value`, `.total_holdings`; `PutCall` blank = stock, `PUT`/`CALL` = options; concentration: drop option rows, group `Issuer`, top `N_TOP_HOLDINGS = 10` |
 | Index search | `get_filings(form="10-K", filing_date=f"{window_start}:")` (trailing colon = from date onward); `RECENT_FILING_DAYS = 7` |
 | Documents | `filing.text()`, `.html()`, `.open()`, `.attachments` (exhibits, XBRL instance/schema) |
 
@@ -98,7 +100,7 @@ Labels vary by filer ("Net sales" vs "Revenue"), hence regex `TOP_AND_BOTTOM_LIN
 
 Source: `04_fundamental_alternative_data/03_sec_form4_insider_transactions`. Files: `FORM4_DIR = DATA_DIR/"equities"/"positioning"/"form4"/<ticker>/*.xml` from `form4_download.py --ticker TSLA --count 20`. A file of a few hundred bytes is an error page.
 
-1. Walk the XML tree per block: `<issuerName>`, `<reportingOwner>` (one per insider; joint filings → collect owners as a list, carry `n_owners` on every row), `<rptOwnerName>`, `<officerTitle>`, `<nonDerivativeTransaction>` (common stock), `<derivativeTransaction>` (counted only), `transactionCoding/transactionCode`, `transactionDate/value`, `transactionAmounts/transactionShares/value`, `transactionPricePerShare/value` (absent on some types), `transactionAcquiredDisposedCode/value` (A/D).
+1. Walk the XML tree per block: `<issuerName>`, `<reportingOwner>` (one per insider; joint filings → collect owners as a list, carry `n_owners` on every row), `<rptOwnerName>`, `<officerTitle>`, `<nonDerivativeTransaction>` (common stock), `<derivativeTransaction>` (counted only), `transactionCoding/transactionCode`, `transactionDate/value`, `transactionAmounts/transactionShares/value`, `transactionAmounts/transactionPricePerShare/value` (absent on some types), `transactionAmounts/transactionAcquiredDisposedCode/value` (A/D) — all relative to the transaction block via `find_text(tx, ...)`.
 2. `parse_form4(path) -> {"header": {issuer, owner ("; "-joined), n_owners, title}, "trades": [...], "n_derivative", "n_incomplete"}`; a block missing code/date/shares is counted incomplete, never dropped; price `None` (never 0) when absent.
 3. Declare `TRADE_SCHEMA` explicitly (code Utf8, timestamp Date, shares/price Float64, direction/issuer/owner/title Utf8, n_owners Int64) — Polars infers dtype from first rows, so a run starting with gifts would type `price` as null.
 4. Reconcile: `raw_common = Σ text.count("<nonDerivativeTransaction>")`, `raw_derivative` likewise; `assert extracted + excluded_incomplete == raw_common`; `assert excluded_derivative == raw_derivative`.
@@ -220,7 +222,7 @@ Sources: `04_fundamental_alternative_data/12_kalshi_prediction_markets` (`load_k
 
 | | Kalshi | Polymarket |
 |---|---|---|
-| Regulation / settlement | CFTC-designated; USD; $25,000 position limit per contract; tick 1¢ | none; USDC on Polygon; no limit; closed to US persons (selection effect); user-proposed listings |
+| Regulation / settlement | CFTC-designated; USD; $25,000 position limit per contract; tick 1¢; contract pays $1 if the event occurs else $0 (price = probability), continuous trading; ticker `KXFED-27APR-T4.25` = series-meeting-threshold | none; USDC on Polygon; no limit; closed to US persons (selection effect); user-proposed listings |
 | Price carried | `yes_bid` → lower bound short by the spread | snapshot; most markets appear once, none more than twice → cross-section only |
 | `volume` | contracts traded | number of price observations in the day (provider's proxy) — not comparable |
 | Ladder regex | `THRESHOLD_TICKER = r"^KXFED-(?<meeting>[0-9]{2}[A-Z]{3})-T(?<threshold>[0-9]+(?:\.[0-9]+)?)$"` (pays if rate **above** threshold) | `LADDER_TICKER = r"(?i)^BITCOIN-ABOVE-(?<threshold_k>\d+)K-ON-(?<resolves>[A-Z]+-\d+)"` |
@@ -237,10 +239,10 @@ Sources: `04_fundamental_alternative_data/12_kalshi_prediction_markets` (`load_k
 
 Source: `04_fundamental_alternative_data/14_text_data_extraction` (live EDGAR). Writes `get_output_dir(4, "sec_text") / "sec_filing_sections.parquet"` keyed on accession number. Downstream: `10_text_feature_engineering/09_filing_text_signals`.
 
-| Form | Sections |
-|---|---|
-| 10-K | Item 1 Business, 1A Risk Factors, 7 MD&A, 7A Quantitative/Qualitative Disclosures, 8 Financial Statements |
-| 10-Q | MD&A = Part I Item 2; Risk Factors = Part II Item 1A (`"after": r"PART\s*II"` marker) |
+| Form | Item inventory (regex markers) | `SECTIONS[form]` keys actually extracted |
+|---|---|---|
+| 10-K | Item 1 Business, 1A Risk Factors, 7 MD&A; Items 7A Quantitative/Qualitative Disclosures and 8 Financial Statements appear only as end markers | `business` (ends 1A/2), `risk_factors` (ends 1B/2), `mda` (ends 7A/8) — three sections, not five |
+| 10-Q | MD&A = Part I Item 2 (ends Item 3); Risk Factors = Part II Item 1A (`"after": r"PART\s*II"` marker) | `risk_factors`, `mda` |
 
 1. Fetch `Company(TICKER).get_filings(form=FORM, amendments=False)[:N_FILINGS]` (two consecutive AAPL 10-Ks); record `cik, company_name, accession_no, form, filing_date, accepted_at (filing.acceptance_datetime), period_end (filing.period_of_report), text (filing.text())`.
 2. `html_to_text(html, drop_tables=False)`: BeautifulSoup `html.parser`, decompose script/style (and tables for sentiment work), `get_text(separator="\n")`. `clean_text`: normalize line endings, remove whole-line furniture ("table of contents", "page N", "N of M"), URLs, rules of `_=-`×3+, bullets; collapse spaces per line; cap blank lines at 2.
@@ -306,10 +308,10 @@ Source: `04_fundamental_alternative_data/01_academic_characteristics`; `load_fir
 
 ### Macro panels and fills
 
-- **Calendar-day grid mistaken for trading grid** — weekend rows carry Friday's value; 252 rows = 8 months / check row count vs calendar days; name windows in calendar days (365/90/30) or move to the trading grid.
+- **Calendar-day grid mistaken for trading grid** — weekend rows carry Friday's value; daily returns count two zero days a week; 252 rows = 8 months / check row count vs calendar days; name windows in calendar days (365/90/30) or move to the trading grid.
 - **Row count as release cadence** — forward fill makes every series look daily / count value changes per year (lower bound).
 - **Non-causal fills** — interpolation, backward fill, centred MA, whole-sample seasonal adjustment read the future silently / forward fill, trailing stats, causal forecasts only.
-- **FRED stamp read as knowledge date** — stamp = first day of reference period; CPI panel steps up ~7 weeks early / re-date: period end + agency lag; backward `join_asof` on `published_on`.
+- **FRED stamp read as knowledge date** — stamp = first day of reference period (March unemployment is published early April); CPI panel steps up ~7 weeks early / re-date: period end + agency lag; backward `join_asof` on `published_on`.
 - **Lag measured from the stamp** — monthly series appears ~4 weeks early / count lags from period end; add period length separately.
 - **Schedule bound at the early end** — a day early invalidates the backtest / set lags at the late end of the agency's range; prefer recorded vintage dates where an archive exists.
 - **Ignoring revisions (vintage)** — database holds revised values that did not exist on trade date / compare against ALFRED first-release; count revision episodes and largest revision; snapshot vintages for feeds without an archive.
@@ -334,7 +336,7 @@ Source: `04_fundamental_alternative_data/01_academic_characteristics`; `load_fir
 - **TVL level as a signal** — tracks price by construction / growth or z-score.
 - **Composition plotted against the selection** — four chains always fill the chart / shares against the published total with a residual bar.
 - **Shifted trailing return as forward return** — coincides only when momentum window == horizon / price at both ends of the forward window.
-- **Overlapping forward returns treated as independent** — ~30 views per window inflate t / HAC with `maxlags = horizon − 1`; report independent windows = n/horizon.
+- **Overlapping forward returns treated as independent** — ~30 views per window inflate t / HAC with `maxlags = horizon − 1`; report independent windows = n/horizon as the count, do not just divide n.
 - **Regime table read as evidence** — three buckets always order; "neutral" carrying the extreme mean is partitioned noise / HAC-covariance bucket means; test contrasts, not means vs zero.
 - **Warm-up rows pooled into "neutral"** — ~100 days of no measurement read as a measurement / regime = null until the window fills.
 - **Duplicate last day from CoinGecko** — live snapshot doubles the last date / `unique(subset="timestamp", keep="last")`.
@@ -344,7 +346,7 @@ Source: `04_fundamental_alternative_data/01_academic_characteristics`; `load_fir
 - **Filtering history by level** — later drawdowns re-cross low levels → false gaps / filter by date (`MODERN_ERA_START`).
 - **Restated feed with no vintages** — today's 2021 includes protocols nobody tracked in 2021 / hard gate: block; start daily snapshots; restrict claims to the snapshotted period.
 - **Composite scoring of the four questions** — strong signal outvotes a failed gate / keep hard gates separate; decide from the failed gate.
-- **MNPI confused with difficulty of access** — / record how obtained and whether the supplier was entitled.
+- **MNPI confused with difficulty of access** — satellite/scraped public data is public; insider-system data is not, however cheap / record how obtained and whether the supplier was entitled.
 - **Free data treated as costless** — integration + maintenance hours / compute cost-recovery and target bps at the fund's AUM and allocation.
 
 ### Prediction markets
@@ -353,7 +355,7 @@ Source: `04_fundamental_alternative_data/01_academic_characteristics`; `load_fir
 - **Zero-price bars in carry-forward feeds** — a pinned contract looks widest-ranging / null `close == 0 & high > 0`; forward fill within symbol.
 - **Backward fill in repair** — puts tomorrow's price on today / forward only.
 - **Range/volume features on non-traded bars** — range measures quote age or the repair; Polymarket `volume` is sampling frequency / set OHL = close on untraded bars; drop range; read provider docs.
-- **Quote revisions counted as trades** — / report `days_the_price_moved` vs `days_traded`.
+- **Quote revisions counted as trades** — the statistic measures revisions, not trading / report `days_the_price_moved` vs `days_traded`.
 - **Features with few real values** — momentum non-zero on a handful of bars / count defined and non-zero values before fitting.
 - **Near-settled contracts dominating a universe** — `extreme` flags every row / select open-question markets first.
 - **Cross-venue comparison without an identical contract** — different questions about the same institution / compare only identical contracts; separate axes otherwise.
@@ -371,7 +373,7 @@ Source: `04_fundamental_alternative_data/01_academic_characteristics`; `load_fir
 ### Academic panel and research hygiene
 
 - **IC significance assuming independent months** — serial correlation overstates t / `compute_ic_hac_stats(label_horizon=...)`; compare `t_stat` vs `naive_t_stat`.
-- **Feature ranking over the full history** — reads validation/test years / ICs on the train split only.
+- **Feature ranking over the full history** — reads validation/test years; downstream models inherit the leak / ICs on the train split only; the panel ships `split` labels for this.
 - **Identifiers across splits** — no published mapping; offset by a million / never carry a position across a split boundary.
 - **Pooled correlations without per-month normalization** — would measure level drift / pool only because each month is rank-normalized.
 - **Unregularized linear model on 46 correlated features** — coefficients split arbitrarily within blocks / regularize or use tree ensembles (`chapters/11_ml_pipeline.md`, `chapters/12_gradient_boosting.md`).
@@ -415,11 +417,11 @@ Repo loaders (`from data import ...`; all raise `DataNotFoundError` naming the d
 | `data.futures.loader.load_cot(products, start_date, end_date)`; `list_cot_products()` | `$ML4T_DATA_PATH/futures/positioning/cot/{PRODUCT}.parquet` (`diagonal_relaxed` concat) |
 | `load_etfs(symbols=["SPY"], start_date=...)` | ETF prices |
 | `load_defillama_chain_tvl(chain="total"\|"Ethereum"\|...)`; `load_coingecko_ohlcv("ethereum")` | timestamp, tvl_usd; timestamp, price_usd, volume_usd |
-| `data.prediction_markets.loader.load_kalshi(symbols, start_date, end_date)`, `load_polymarket(...)` | timestamp, symbol, open, high, low, close, volume |
+| `data.prediction_markets.loader.load_kalshi(symbols, start_date, end_date)`, `load_polymarket(...)` | timestamp, symbol, open, high, low, close, volume (Polymarket political markets filtered at download) |
 
 Utilities: `from utils import DATA_DIR`; `from utils.paths import get_output_dir` (`get_output_dir(4, "kalshi")`); `from utils.reproducibility import set_global_seeds`; `from utils.style import COLORS, ml4t_diverging, show_plotly_with_alt`.
 
-Download scripts: `data/equities/firm_characteristics/download.py`; `data/equities/positioning/form4_download.py --ticker TSLA --count 20`; `data/equities/fundamentals/xbrl_download.py [--years] [--ciks] [--concepts]`; `data/equities/positioning/13f_download.py --mode bulk --quarters 2024Q3` (or `--mode per-cik`); `data/macro/download.py`, `data/macro/download_alfred.py`; `data/futures/positioning/cot_download.py --products ES,CL,GC`; `data/etfs/market/download.py --symbol SPY`; `data/crypto/onchain/download.py [--dataset defillama|coingecko]`; `data/prediction_markets/download.py`. Env: `EDGAR_IDENTITY` (nb02, nb14, `form4_download.py`), `FRED_API_KEY` (live FRED only).
+Download scripts: `data/equities/firm_characteristics/download.py`; `data/equities/positioning/form4_download.py --ticker TSLA --count 20`; `data/equities/fundamentals/xbrl_download.py [--years] [--ciks] [--concepts]`; `data/equities/positioning/13f_download.py --mode bulk --quarters 2024Q3` (or `--mode per-cik`); `data/macro/download.py`, `data/macro/download_alfred.py`; `data/futures/positioning/cot_download.py --products ES,CL,GC`; `data/etfs/market/download.py --symbol SPY`; `data/crypto/onchain/download.py [--dataset defillama|coingecko]`; `data/prediction_markets/download.py`. Env: `EDGAR_IDENTITY` (nb02, nb14, `form4_download.py`; nb03 once filings are on disk, nb04 and nb10 read committed snapshots and never contact the SEC), `FRED_API_KEY` (live FRED only; nb06/07 parquet snapshots do not need it).
 
 ml4t libraries:
 - `ml4t.diagnostic.metrics.cross_sectional_ic_series(predictions, returns, pred_col="prediction", ret_col="forward_return", date_col="date", entity_col=None, method="spearman", min_obs=10)` → [date_col, ic, n_obs] (null ic when undefined).
@@ -493,19 +495,18 @@ Reader uncertainty (keep these marks): README places nb10 under 4.4 while its he
 ## Related references
 
 - `chapters/02_financial_data_universe.md` — exchange price feeds that extend the crypto price history bounding the TVL study; data universe and PIT foundations.
-- `chapters/03_market_microstructure.md` — trading-session grid vs calendar-day grid; acceptance-time vs next-session tradeability.
 - `chapters/08_financial_features.md` — consumes the as-of fundamentals panel (`04_fundamentals_macro_calendar`) and COT z-scores (`03_structural_cross_instrument_features`).
 - `chapters/10_text_feature_engineering.md` — `09_filing_text_signals` builds on the section corpus written by nb14.
-- `chapters/07_defining_the_learning_task.md` — overlapping forward-return labels and horizon-aware HAC corrections.
+- `chapters/07_defining_the_learning_task.md` — overlapping forward-return labels and horizon-aware HAC corrections (inference on placement: not a chapter cross-reference, but the same overlap correction used by nb09/nb11).
 - `chapters/11_ml_pipeline.md`, `chapters/12_gradient_boosting.md` — regularized / tree models for the 46 correlated characteristics; train-only feature selection.
 - `chapters/14_latent_factors.md` — SDF GAN that uses the 178-series macro companion of the CPZ panel.
 - `chapters/22_rag_financial_research.md`, `chapters/23_knowledge_graphs.md` — `07_institutional_holdings_graph` and graph models consume `load_13f_edges`.
-- `chapters/26_mlops_governance.md` — daily vintage snapshotting and data lineage as governance.
+- `chapters/26_mlops_governance.md` — as-of snapshot retrieval (`latest_snapshot`, `<=` cutoff) and per-view lineage in a feature store (inference on placement: the as-of rule applied at serving time, not a chapter cross-reference).
 - `case_studies/us_firm_characteristics.md` — the CPZ panel case study (`05_linear`, `06_gbm`, `08_latent_factors`, `10_model_analysis`, `11_backtest`).
-- `case_studies/crypto_perps_funding.md`, `case_studies/cme_futures.md`, `case_studies/etfs.md` — crypto, futures (COT) and SPY contexts used in this chapter's joins.
 - `libraries/ml4t_data.md` — `ml4t.data.cot`, `ml4t.data.macro`, `ml4t.data.providers.fred`, `ml4t.data.providers.polymarket`.
 - `libraries/ml4t_diagnostic.md` — `cross_sectional_ic_series`, `compute_ic_hac_stats`.
 - `guardrails.md`, `decision_rules.md`, `workflow.md`, `glossary.md`, `companion_repo.md` — cross-cutting PIT/leakage rules and repo conventions.
+- Data sources: SEC EDGAR / EdgarTools; SEC XBRL Frames + Submissions APIs; SEC Form 13F data sets (sec.gov/data-research/sec-markets-data/form-13f-data-sets); FRED / ALFRED; CFTC COT; DeFi Llama; CoinGecko; Kalshi; Polymarket (Polygon, USDC); Hugging Face `sentence-transformers/all-MiniLM-L6-v2`.
 - Further reading: Croushore 2008 (real-time data / vintages); Ekster & Kolm 2020; Green & Zhang 2024 (alternative data in investment management); Chen, Pelger & Zhu 2021 (panel source); Kelly, Pruitt & Su 2019 and Kozak, Nagel & Santosh 2020 (rank normalization); McCracken & Ng 2016 (FRED-MD); Welch & Goyal 2007; Alexander & Dakos 2019 and Harvey et al. 2022 (crypto data); Baur & Smales 2022 (bitcoin futures smart money); Ng et al. 2025 (prediction-market price discovery); Berg et al. 2022 (ESG divergence); Luo et al. 2014 (Seven Sins); McLean & Pontiff 2016; Hong et al. 2000; Daniel & Titman 2006; Tetlock 2005, 2014; Preis et al. 2013; Joubert et al. 2024; Chi et al. 2024; Lehar & Parlour 2021; Kertkeidkachorn et al. 2023 (FinKG); Freyberger, Neuhierl & Weber 2020.
 
 ## Glossary

@@ -1,6 +1,6 @@
 # Chapter 18: Transaction Costs
 
-> Transaction costs are a workflow constraint, not a backtest adjustment: they enter factor evaluation, simulation, portfolio construction, risk management and production monitoring, and many strategies fail "not because the forecast is wrong, but because the implementation problem was ignored." This chapter equips you to classify every cost by its charging unit, estimate spreads from OHLCV and validate them against quotes, state (never pretend to measure) a square-root impact coefficient, bound capacity at a participation ceiling, choose an execution schedule (TWAP / VWAP / percent-of-volume / Almgren-Chriss / RL) by the benchmark the decision implies, model fills with `ml4t.backtest` impact, limit, commission and slippage models, and run TCA so realized shortfall feeds back into the ex-ante model. Its position: separate what is measured (spreads, volumes, volatility, returns) from what is assumed (impact coefficients, fee schedules, persistence, gross Sharpe profiles), and let turnover, break-even alpha and capacity decide whether a strategy is deployable at all.
+> Transaction costs are a workflow constraint, not a backtest adjustment: they enter factor evaluation, simulation, portfolio construction, risk management and production monitoring, and many strategies fail "not because the forecast is wrong, but because the implementation problem was ignored." This chapter equips you to classify every cost by its charging unit, estimate and validate spreads, state (never pretend to measure) a square-root impact coefficient, bound capacity, pick an execution schedule by the benchmark the decision implies, simulate fills with `ml4t.backtest` impact, limit, commission and slippage models, and close the loop with TCA. Its position: separate what is measured (spreads, volumes, volatility, returns) from what is assumed (impact coefficients, fee schedules, persistence, gross Sharpe profiles). Turnover, break-even alpha and capacity then decide whether a strategy is deployable at all.
 
 ## When to use this reference
 
@@ -33,6 +33,7 @@
 - **Almgren-Chriss: only temporary impact responds to the schedule.** Spread and permanent impact are fixed by position size. The frontier is curved: cheap risk reductions sit at the patient end only. Express urgency as a schedule (half-life), not an adjective.
 - **Execution is a control problem, not a prediction problem.** A liquidity-only state (time, inventory, lagged spread, lagged vol) keeps an adaptive policy from drifting into directional timing.
 - **Impact models are stateless; a backtest must carry the unfilled remainder.** Permanent impact from earlier child orders is the caller's job; capping participation and then quietly filling everything assumes away the constraint.
+- **Limits and impact models answer different questions.** The limit decides how much trades now; the impact model prices the concession that slice pays; the broker composes both in sequence. The cap is the speed-vs-impact dial, and `min_volume` is a separate gate that blocks thin bars outright rather than sizing into them.
 - **TCA measures benchmark slippage but cannot attribute shortfall to impact vs timing without a counterfactual price.** Any split is a model's opinion and must be labeled as such.
 - **Capacity is not a property of a market.** It is where a stated gross return meets a modeled cost under stated turnover, participation ceiling and concentration.
 - **Faster trading does not automatically capture more usable signal.** It raises turnover; break-even alpha grows linearly with turnover; the signal's decay rate decides whether acting sooner pays.
@@ -54,7 +55,7 @@
 | fee | charged on top of spread | needs spread + impact added |
 | all-in | already contains spread + commission + impact | yes, but do not add another spread |
 | $/share or ticks/contract | per-unit | needs price (and multiplier) |
-| spread in bps | half-spread per side | yes |
+| spread in bps | already a fraction of notional | yes, once a single rate and the half-vs-full convention are stated (nb 02's `classify_cost_units` returns `is_spread_bps=False` for the `spread_bps` block because it is a range per pair class with no half/full convention) |
 
 Finding: almost none of the nine blocks record a round-trip spread in bps; most record a fee, an all-in cost, $/share or ticks/contract.
 
@@ -72,9 +73,9 @@ Use `summarize_dollar_turnover(df, symbol_col, date_col, asset_class)` (keeps `c
 
 ### Cost-component dominance and crossover size (nb 01 Section 3)
 
-- Inputs per market: `commission_bps`, `half_spread_bps`, `sigma` (daily), `adv_usd`, `impact_eta`. `cost_components(size, params) -> {commission, spread, impact}` in bps; `dominant_component_label(costs)` names the largest or ties.
+- Inputs per market (`cost_params` dict keys): `commission_bps`, `spread_bps` (the half-spread, per the notebook prose), `sigma` (daily), `adv_usd`, `impact_eta`. `cost_components(size, params) -> {commission, spread, impact}` in bps; `dominant_component_label(costs)` names the largest or ties.
 - Crossover size solves `eta * sigma * sqrt(Q / ADV) = max(commission, half_spread)` (all in bps). Below it a spread-only model may suffice; above it sqrt impact is required.
-- Scenario grid (round illustrative figures; market labels are inferred from the parameter pattern): (comm 1.0 bps, eta 0.05, sigma 0.015, ADV 5e8: large-cap equity/ETF), (4.0, 0.03, 0.04, 1e9: crypto perp), (1.5, 0.04, 0.01, 2e9: CME futures), (0.0, 0.02, 0.005, 5e9: FX, spread-only), (1.0, 0.05, 0.015, 1e8: mid-liquidity equity), (1.0, 0.10, 0.025, 5e6: small cap).
+- Scenario grid (round illustrative figures, labels as in the notebook; commission / spread / eta / sigma / ADV): ETFs 1.0 / 3.0 / 0.05 / 0.015 / 5e8; Crypto Perps 4.0 / 2.0 / 0.03 / 0.04 / 1e9; CME Futures 1.5 / 1.5 / 0.04 / 0.01 / 2e9; FX Pairs 0.0 / 2.0 / 0.02 / 0.005 / 5e9 (spread-only); S&P 500 1.0 / 2.0 / 0.05 / 0.015 / 1e8; US Equities 1.0 / 8.0 / 0.10 / 0.025 / 5e6.
 
 ### Breakeven alpha and borrow cost (nb 01 Sections 5-6; nb 09)
 
@@ -99,10 +100,10 @@ Steps:
 
 ### Quote benchmark and validation metrics (nb 02 Sections 2-3)
 
-1. `load_nq_microstructure() -> (raw, regular_session, valid_quote)` LazyFrames; the raw feed bypasses the loader's regular-hours filter, so restore 09:30-16:00 ET with `regular_session_mask()` before selecting symbols or aggregating.
+1. `load_nq_microstructure() -> (raw, regular_session, valid_quote)` LazyFrames; the raw feed bypasses the loader's regular-hours filter, so restore 09:30-16:00 ET before selecting symbols or aggregating (nb 02 filters on hour/minute inline; nb 03 packages the same mask as `regular_session_mask()`).
 2. Keep trade and quote panels separate. Quote filter drops: no quote, bid <= 0, no trade, locked (bid == ask), crossed (bid > ask). Daily bar from all regular-session trade minutes (high = max trade, low = min trade, open/close = first/last).
 3. Benchmark = per-minute relative quoted spread, volume-weighted, over valid-quote minutes; join on (symbol, date). Symbol ranking by whole-quarter volume is descriptive only (look-ahead in a backtest).
-4. Keep an integrity ledger (`session_integrity_ledger(raw, regular, selected)`) that sums every exclusion back to the raw row count.
+4. Keep an integrity ledger / filter table that sums every exclusion back to the raw row count (nb 02 builds it inline; nb 03's `session_integrity_ledger(raw, regular, selected)` is the reusable form).
 5. `compute_validation_metrics(validation)` over per-symbol medians: Pearson r (ranking, scale-invariant), MAE in bps, bias (signed mean error; positive = reads wider than quoted), identity-line R^2 = `1 - sum(y - yhat)^2 / sum(y - ybar)^2` against the 45-degree line (can go negative; not r^2). Let the validation set the weight carried by unvalidated panels.
 
 ### VIX-state conditioning (nb 02 Section 6; nb 03 Section 8)
@@ -146,7 +147,7 @@ Settings: `EXEC_SYMBOL = "AAPL"` (real AlgoSeek minute bars despite the README's
 
 Steps:
 1. Estimate the profile on sessions <= `PROFILE_END_DATE` (fixed calendar split, not a sample fraction) via `load_intraday_panel(symbols, start, end, interval_minutes)`; `day_paths(panel, symbol, n_buckets)` keeps only sessions with full `N_BUCKETS` coverage; `normalize_volume_curve(curve, n_intervals)`; `shares_from_profile(profile, total_shares)` allocates integer shares; `build_twap_schedule` / `build_vwap_schedule(..., volume_curve)`; `get_target_at_time(t)` / `latest_cumulative_target(schedule, t)`.
-2. `execute_day(shares, price_path, volume_path, impact_bps)`: each slice fills at the interval's volume-weighted price plus sqrt impact against that interval's actual volume, scaled so `IMPACT_BPS` is paid at 100% interval participation (impact_bps = 5.0 * sqrt(slice / interval_volume), inference).
+2. `execute_day(shares, price_path, volume_path, impact_bps) -> (realized_vwap, exec_price)`: `participation = shares / max(interval_volume, 1)`, `impact_fraction = impact_bps / 1e4 * sqrt(participation)`, `exec_price = price_path * (1 + impact_fraction)` (buy-side sign; interval volume floored at one share), so `IMPACT_BPS` is paid at 100% interval participation; raises on mismatched lengths, negative shares, or non-finite / non-positive prices.
 3. Compute `market_vwap_of(price, volume) = sum(p v)/sum(v)` only after the schedules execute; `run_across_days` over all held-out sessions; `summarize_tracking` reports bias (signed mean), std, MAE and worst session separately.
 4. Treat results as lower bounds: impact is charged against volume that includes the order's own shares and nothing goes unfilled.
 
@@ -183,18 +184,20 @@ Contract: `MarketImpactModel.calculate(quantity, price, volume, is_buy) -> float
 | `NoImpact()` | 0.0 | - | backtest default; flatters turnover |
 | `LinearImpact(coefficient=0.1)` | `coefficient * (Q/V) * P` | 0.1 | coefficient x 10,000 = bps at full participation; last share costs same as first; 0.0 when volume invalid |
 | `SquareRootImpact(coefficient=0.5, volatility=0.02, adv_factor=1.0)` | `coefficient * sigma * sqrt(Q/ADV) * P`, `ADV = volume * adv_factor` | 0.5 / 0.02 / 1.0 | typical coefficient 0.1-1.0; doubling sigma doubles cost; `adv_factor` = bars per session (26 for 15-min, 1 for daily) |
-| `PowerLawImpact(coefficient=0.1, exponent=0.5, min_impact=0.0)` | `coefficient * (Q/V)^exponent * P` | 0.1 / 0.5 / 0.0 | exponent 1 linear, 0.5 sqrt, (0,1) concave, >1 convex; `min_impact` is a minimum per-share move (signed when volume invalid), not a fixed fee |
+| `PowerLawImpact(coefficient=0.1, exponent=0.5, min_impact=0.0)` | `coefficient * (Q/V)^exponent * P` | 0.1 / 0.5 / 0.0 | exponent 1 linear, 0.5 sqrt, (0,1) concave, >1 convex; at a fixed coefficient a smaller exponent raises the level for participation < 1, so curvature and coefficient are chosen jointly; `min_impact` is a minimum per-share move (signed when volume invalid), not a fixed fee |
 
 Notebook 06 settings: `UNIVERSE = ["SPY","QQQ","IWM","EEM","DBC"]`, `LOOKBACK_DAYS = 365`, `IMPACT_COEFFICIENT = 0.5`, `SCENARIO_VOLATILITY = 0.02`, `MAX_PARTICIPATION = 0.10`, `PARAMETERIZATION_PARTICIPATION = 0.05`, `PERSISTENCE_FRACTION = 0.50`, `SEED = 42`. Sliced-parent simulation: equal children vs fixed daily volume; reference price for child k+1 = child k reference + `PERSISTENCE_FRACTION` x child k impact, applied identically to all models; first-child oracle asserts `linear_signed_move == coefficient * (child_shares / daily_volume) * price`. Measured: ETF mean price, ADV, daily-return std. Assumed: all coefficients (including library defaults), scenario volatility, persistence, cap.
 
 ### Participation limits and the fill pipeline (nb 06 Part 6; `07_ml4t_volume_participation`; `ml4t.backtest.execution.limits`)
 
+Base class `ExecutionLimits(ABC)`; every limit implements `calculate(order_quantity, bar_volume, price) -> ExecutionResult` (`price` is a required third positional, echoed back as the placeholder `adjusted_price`).
+
 | Limit | Behaviour |
 |---|---|
-| `NoLimits` | fillable = order, remaining 0, participation 0 |
-| `PositiveVolumeLimit` | full fill only if `bar_volume > 0` |
+| `NoLimits()` | fillable = order, remaining 0; participation = order / bar_volume (0 when volume is missing or zero) |
+| `PositiveVolumeLimit()` | full fill only if `bar_volume > 0`, else fillable 0 and remaining = order |
 | `VolumeParticipationLimit(max_participation=0.10, min_volume=0.0)` | missing volume -> full fill; `bar_volume < min_volume` -> fillable 0, remaining = order; else `fillable = min(order, bar_volume * max_participation)`, `remaining = order - fillable`, `participation_rate = fillable / bar_volume` |
-| `AdaptiveParticipationLimit(base_participation=0.10, volatility_factor=0.5, max_participation=0.25, min_participation=0.02, avg_volatility=0.02)` | reduces participation by `volatility_factor * normalized_vol` (further formula not visible) |
+| `AdaptiveParticipationLimit(base_participation=0.10, volatility_factor=0.5, max_participation=0.25, min_participation=0.02, avg_volatility=0.02)` | `calculate(..., volatility=None)`: `participation = base_participation * (1 - volatility_factor * (volatility / avg_volatility - 1))`, clamped to `[min_participation, max_participation]` (no `volatility` -> base rate); missing volume -> full fill; then the same cap arithmetic as above |
 
 - `ExecutionResult(fillable_quantity, remaining_quantity, adjusted_price, impact_cost=0.0, participation_rate=0.0)`: `adjusted_price` / `impact_cost` are placeholders on the limit's result. The production `FillExecutor` applies limit -> signed impact once -> slippage -> emits a `Fill` whose `price` includes the adjustments; read realized cost from the `Fill`.
 - Realistic-fill sequence: (1) size as % of volume; (2) apply participation limit (+ `min_volume`); (3) add signed impact once; (4) apply slippage; (5) apply commission; (6) carry `remaining_quantity` to the next bar; (7) recompute one fill by closed form (`compose_limit_and_impact(quantity, side, decision_price, volume, impact_model, max_participation)` is the nb 06 teaching helper).
@@ -212,7 +215,7 @@ Notebook 06 settings: `UNIVERSE = ["SPY","QQQ","IWM","EEM","DBC"]`, `LOOKBACK_DA
 ### Frequency trade-off (`09_frequency_tradeoff`)
 
 - Data: `ETF_SYMBOLS = ["SPY","QQQ","IWM","XLF","EEM","XLE","XLU","FXI"]`, 2019-01-01..2023-12-31; `MOMENTUM_LOOKBACK = 63`, `TOP_N = 3`; cadences daily / weekly / biweekly / monthly (`FREQUENCIES`).
-- `CostAssumptions` (half-spread, impact allowance, commission; bps one-way) with `total_one_way()`, `round_trip() = 2 x one_way`; `COST_SCENARIOS = [HIGH_FRICTION_COSTS, MEDIUM_FRICTION_COSTS, LOW_FRICTION_COSTS]` (values not in notes; high and medium differ by 1 bp round-trip).
+- `CostAssumptions(name, spread_bps, impact_bps, commission_bps)` (half-spread, impact allowance, commission; bps one-way) with properties `total_one_way` and `round_trip = 2 x one_way`; `COST_SCENARIOS`: `HIGH_FRICTION_COSTS` 3.0 + 2.0 + 0.0 = 5.0 one-way (10 round-trip), `MEDIUM_FRICTION_COSTS` 1.0 + 3.0 + 0.5 = 4.5 (9), `LOW_FRICTION_COSTS` 0.2 + 0.5 + 0.1 = 0.8 (1.6); high and medium differ by 1 bp round-trip. `FREQUENCIES`: Daily 1 session / 252 per year, Weekly 5 / 52, Biweekly 10 / 26, Monthly 21 / 12.
 - `momentum_frequency_backtest(prices, rebalance_days, lookback=63, top_n=3) -> (daily returns, turnover path)`: equal-weight top-N by lagged momentum; weights drift between rebalances; turnover compares the new target with pre-trade drifted weights; one-way turnover = 0.5 sum|dw|.
 - `real_net_by_frequency(cost_assumptions)` subtracts scenario cost on each rebalance day, then annualizes (`annualized_sharpe` uses sample vol). `simulate_frequency_comparison(gross_sharpe=2.0, annual_vol=0.15, cost_assumptions)` applies `SCENARIO_GROSS_SHARPE = 2.0`, `SCENARIO_ANNUAL_VOL = 0.15` to every cadence's measured turnover; `evaluate_decay_scenario(..., signal_decay_rate=0.1)` decays captured alpha exponentially with rebalance delay over `DECAY_RATES = [0.01, 0.03, 0.05, 0.10, 0.20]` (`EXAMPLE_DECAY_RATE = 0.05`).
 - Persistence-cost proxy (alpha-to-go teaching stand-in): `S(phi, Gamma) = phi / (1 - phi + Gamma)` for AR(1) persistence phi and cost pressure Gamma; dimensionless, may exceed 1, ranking only (log color scale).
@@ -232,15 +235,15 @@ Waterfall: Gross - spread - impact = Trading P&L; - commission/fees - financing 
 | `management_fee_annual` | 0.02 |
 | `admin_fee_annual` | 0.002 |
 
-Methods: `trading_cost_per_trade(trade_size_pct=0.1)`, `annual_trading_cost(annual_turnover)`, `annual_financing_cost(gross_leverage=1.0, short_pct=0.0)`, `annual_expense_cost()`. `build_strategy(gross_returns, annual_turnover, gross_leverage=1.0, short_pct=0.0, name)` (per-day one-way turnover implied by the annual figure), `apply_cost_stack(strategy, costs)`, `compute_performance(returns)`. Three configurations on real daily ETF returns 2021-01-01..2023-12-31: QQQ high-turnover long-only, dollar-neutral QQQ-IWM leveraged long-short, SPY low-turnover. Section 8: net Sharpe vs annual one-way turnover at fixed cost (linear decline). Section 9: vector-L2 diagnostic (20 assets, fixed base covariance rotated slightly each period, rolling min-variance weights, L1 `sum|w_t - w_{t-1}|` and L2 norms) measures maintenance turnover from covariance drift; not an alpha decomposition.
+Methods: `trading_cost_per_trade(trade_size_pct=0.1)`, `annual_trading_cost(annual_turnover)`, `annual_financing_cost(gross_leverage=1.0, short_pct=0.0)`, `annual_expense_cost()`. `build_strategy(gross_returns, annual_turnover, gross_leverage=1.0, short_pct=0.0, name)` (per-day one-way turnover implied by the annual figure), `apply_cost_stack(strategy, costs)`, `compute_performance(returns)`. Three configurations on real daily ETF returns 2021-01-01..2023-12-31: QQQ high-turnover long-only, dollar-neutral QQQ-IWM leveraged long-short, SPY low-turnover. Section 8: net Sharpe vs annual one-way turnover at fixed cost (linear decline). Section 9: vector-L2 diagnostic (20 assets, fixed base covariance rotated slightly each period, rolling min-variance weights, L1 `sum|w_t - w_{t-1}|` and L2 norms) measures maintenance turnover from covariance drift; not an alpha decomposition. Section 11 bins the three configurations by net Sharpe at two presentation thresholds (> 1.0, (0.5, 1.0], <= 0.5), explicitly not a go/no-go rule.
 
 ### Cost cliff for intraday strategies (`11_cost_cliff`)
 
 1. `measure_nasdaq100_spreads(start, end)` with `SPREAD_START_DATE = "2021-12-01"`, `SPREAD_END_DATE = "2021-12-31"`: per-symbol volume-weighted relative quoted spread (bps) over the regular session; anchor = `MEASURED_HALF_SPREAD_BPS = median_rel_spread_bps / 2` (median symbol, not the mega-cap).
-2. `IntradayCostStack` defaults (bps per side): `spread_half=3.0`, `market_impact=2.0`, `slippage=1.5`, `commission=0.5`, `exchange_fee=0.3`, `clearing_fee=0.1` -> `one_way_bps()` = 7.4, `round_trip_bps()` = 14.8 (inference: sums of defaults; presets override fields). Presets `CROSSING` (measured half-spread), `WORKED_ORDER` (fraction of spread), `PASSIVE_LOW_COST` (passive spread cost); only the crossing spread is measured.
-3. `IntradayStrategy(NamedTuple)`: gross Sharpe, annual vol, daily round-trip NAV turnover tau; profiles `HIGH_TURNOVER`, `MODERATE_TURNOVER`, `LOW_TURNOVER` (values not in notes).
+2. `IntradayCostStack` dataclass (bps per side) with defaults `spread_half=3.0`, `market_impact=2.0`, `slippage=1.5`, `commission=0.5`, `exchange_fee=0.3`, `clearing_fee=0.1` (properties `one_way_bps` = 7.4, `round_trip_bps` = 14.8 for the bare defaults). The presets the notebook actually applies override them: `CROSSING` = (`MEASURED_HALF_SPREAD_BPS`, 3.0, 2.0, 0.0 commission-free, 0.3, 0.1) = measured half-spread + 5.4 bps one-way; `WORKED_ORDER` = (0.375 x measured half-spread, 2.5, 1.0, 0.3, 0.2, 0.05); `PASSIVE_LOW_COST` = (0.0, 0.5, 0.2, 0.05, -0.2 maker rebate, 0.02). Only the crossing spread is measured; every other field is an illustrative assumption.
+3. `IntradayStrategy(NamedTuple)`: name, gross Sharpe, annual vol, daily round-trip NAV turnover tau; hypothetical profiles `HIGH_TURNOVER` (2.5, 0.20, 1.0/day), `MODERATE_TURNOVER` (2.0, 0.15, 0.4), `LOW_TURNOVER` (1.5, 0.12, 0.1); no signal is fit.
 4. `calculate_intraday_net_performance(strategy, costs, trading_days=252)`: `C_ann = D tau c_rt / 1e4`, `S_n = (S_g sigma - C_ann) / sigma` (cost changes return, not vol); cost / gross return = fractional Sharpe reduction.
-5. `calculate_break_even_turnover(target_net_sharpe, gross_sharpe, annual_vol, costs, trading_days=252)`: max daily round-trip NAV turnover for a target net Sharpe; (inference) `tau_max = (S_g - S_target) sigma 1e4 / (D c_rt)`; plot on a log y-axis.
+5. `calculate_break_even_turnover(target_net_sharpe, gross_sharpe, annual_vol, costs, trading_days=252)`: max daily round-trip NAV turnover for a target net Sharpe; (inference) `tau_max = (S_g - S_target) sigma 1e4 / (D c_rt)`; the ceilings table uses `target_net_sharpe=0.5`, gross Sharpe in {1.5, 2.0, 2.5, 3.0}, `annual_vol=0.15` under each preset; plot on a log y-axis.
 6. Scope: excludes financing, taxes, passive-fill risk, impact uncertainty; vol held fixed. A sensitivity, not a backtest or capacity estimate.
 
 ### Commission and slippage models (`12_commission_slippage_comparison`, `ml4t.backtest.models`)
@@ -263,7 +266,7 @@ Methods: `trading_cost_per_trade(trade_size_pct=0.1)`, `annual_trading_cost(annu
 2. The `kind` column separates six measured rows from the one assumed input (half-spread subtracted from every fill); mark every line measurement vs assumption.
 3. Pick the benchmark that matches the decision: IS for alpha strategies with decay; VWAP measures "average, reliably". Closing-price benchmark is informative only averaged over many executions.
 4. Never report an impact/timing split without naming the model that produced it.
-5. Feed realized shortfall back into eta; this is the only calibration path for the coefficient.
+5. Feed realized shortfall back into eta: the coefficient is estimated from execution records (own fills vs decision price, Almgren et al. 2005), never from market data alone; TCA is where those records come from.
 
 ## Guardrails and pitfalls
 
@@ -287,8 +290,8 @@ Spread estimation
 - **Pre-market/overnight minutes in a benchmark or flow regression** — far wider spreads and thin volume dominate averages; restore 09:30-16:00 ET with `regular_session_mask()` before selecting symbols.
 - **Discarded rows nobody counts** — the benchmark quietly becomes a different benchmark; keep an integrity ledger that sums back to the raw count; keep trade and quote panels separate.
 - **Locked or crossed quotes** — bid == ask or bid > ask cannot be executed against; filter them out.
-- **Reading a volatility-conditioned spread rise as widening** — CS reads the high-low range, which widens with volatility on its own; decompose rate vs level; settle with a quote benchmark.
-- **Mega-cap spread as anchor for a broad universe** — not representative; use the median per-symbol volume-weighted spread.
+- **Reading a volatility-conditioned spread rise as widening** — CS reads the high-low range, which widens with volatility on its own; decompose rate vs level; settle with a quote benchmark (one exists here for only one quarter of one market).
+- **Mega-cap spread as anchor for a broad universe** — the most liquid name understates what the median holding pays; check which symbol the anchor came from; use the median per-symbol volume-weighted spread across the index (nb 11).
 
 Look-ahead
 - **Selecting liquid symbols by full-sample volume** — end-of-window information; descriptive only; in a backtest select from information available at the time.
@@ -325,7 +328,7 @@ Execution simulation
 - **Small test orders never exercise the cap** — size the parent as a fraction of measured ADV (0.5 in nb 07).
 - **Judging a schedule on one session** — either can win by chance; run all held-out sessions; report bias separately from std, MAE, worst.
 - **Reading a tight VWAP-tracking distribution as cheaper execution** — it means "average, reliably"; under an arrival benchmark slow trading is a risk; pick the benchmark that matches the decision.
-- **Predictable VWAP schedules** — others trade ahead of a large one; accept as the price of auditability or randomize/adapt (nb 08).
+- **Predictable VWAP schedules** — the slice sequence is deterministic given the profile, so other participants can anticipate and trade ahead of a large one; accept as the price of auditability or randomize/adapt (nb 08).
 - **Simulation optimism** — impact charged against volume that includes the order's own shares, fills at interval VWAP, nothing unfilled; treat results as lower bounds.
 - **Fictitious terminal liquidity** — force-filling at the close hides infeasible schedules; the cap applies in the last interval and the residual pays the 100 bps shortfall penalty.
 - **Partial-session data in intraday grids** — missing intervals misalign price/volume/spread/vol arrays; keep only sessions with full `N_BUCKETS` coverage.
@@ -335,7 +338,7 @@ Execution simulation
 
 Almgren-Chriss and TCA
 - **Continuous-time kappa approximation** — misstates the optimum when theta is not small; use the exact discrete sinh solution.
-- **Lambda has no natural scale** — depends on position size and price; label schedules by liquidation half-life; never treat lambda values as universal.
+- **Lambda has no natural scale** — it converts dollars-squared to dollars, so its value depends on position size and price; a lambda quoted without X, S0 and T is unreadable; label schedules by liquidation half-life, report the sweep, never treat lambda values as universal.
 - **Comparing schedules on independent draws** — the difference contains sampling noise; share shocks and use antithetic pairs (N even) so the simulated mean equals E[C].
 - **Linear temporary impact in AC** — overstates the cost of trading fast, so the optimizer front-loads too little; price the schedule under the matched power law and expect the sqrt optimum to be more front-loaded.
 - **Closing-price benchmark on one execution** — price wanders hundreds of bps over a multi-day horizon; informative only averaged over many executions.
@@ -380,22 +383,25 @@ Frequency, cost stack and cost cliff
 | Frequency grid | daily, weekly, biweekly, monthly (nb 09); daily, weekly, 21-session (nb 12); do not extrapolate to intraday or quarterly |
 | Persistence-cost ranking | prefer high AR(1) phi and low cost pressure Gamma via `S = phi/(1 - phi + Gamma)` |
 | Net-of-cost waterfall defaults | 2 bps spread, 5 bps impact, 1 bp commission, 0.5 bp exchange fee, 5%/yr margin, 1%/yr borrow, 2% mgmt, 0.2% admin |
-| Intraday conservative stack | 3.0 + 2.0 + 1.5 + 0.5 + 0.3 + 0.1 = 7.4 bps one-way, 14.8 bps round-trip; `C_ann = 252 tau c_rt / 1e4`; `S_n = S_g - C_ann / sigma` |
+| Intraday conservative stack | the `CROSSING` preset: measured NQ-100 median half-spread + 3.0 impact + 2.0 slippage + 0.0 commission + 0.3 exchange + 0.1 clearing = half-spread + 5.4 bps one-way (x2 round-trip); the bare `IntradayCostStack` defaults sum to 7.4 / 14.8 bps but are not what nb 11 applies; `C_ann = 252 tau c_rt / 1e4`; `S_n = S_g - C_ann / sigma` |
 | Intraday go/no-go | annual cost / gross return under the crossing stack approaching 1 -> reject; compare proposed NAV turnover with `calculate_break_even_turnover` at the target net Sharpe |
 | Asset-class cost models | equities per-share $0.005 (min $1) + 5 bp slippage; ETFs 3 bp + `VolumeShareSlippage(0.05)`; futures $2.25/block + 0.25 pts; crypto 10 bp + 20 bp; use `VolumeShareSlippage` whenever order size relative to bar volume matters |
 | Fee-type rule of thumb | percentage/tiered scale with notional; per-share scales with share count; minimum/fixed fees punish small tickets |
 | First lever | slippage-heavy stack -> execution; fee-heavy -> broker/venue schedule; financing-heavy -> leverage/borrow, not turnover |
 
-Sequencing (the chapter's order of operations):
+Sequencing (the chapter's own order of operations, as the notes state it):
 1. Classify every cost input by unit; write down the trade detail each still needs (nb 01).
 2. Measure dollar turnover only where volume and price describe the same transaction; otherwise keep native units (nb 01/03).
 3. Estimate spread from OHLCV, validate on quoted data, record zero-share before trusting a level (nb 02).
 4. State or calibrate the impact coefficient; compute the dominance crossover and breakeven hurdle for the intended size and turnover (nb 01/03).
 5. Bound capacity at the participation ceiling and at impact = gross alpha (nb 03).
-6. Choose a schedule (TWAP/VWAP/POV/AC/RL) by volume forecastability and by the benchmark the decision implies (nb 04/05/07/08).
-7. Simulate fills as limit -> impact -> slippage -> commission -> carry remainder; recompute one fill by closed form (nb 06/12).
-8. Test cadence against break-even alpha and decay; attribute gross-to-net by layer; check the intraday cost cliff (nb 09/10/11).
-9. After trading, run TCA against arrival/VWAP/close and feed realized shortfall back into the coefficient (nb 05/10).
+6. Choose a schedule (TWAP/VWAP/POV/AC) by volume forecastability and by the benchmark the decision implies (nb 04/05).
+7. After trading, run TCA against arrival/VWAP/close and feed realized shortfall back into the coefficient (nb 05/10).
+
+Added steps from notebooks 06-12 (this reference's synthesis, not the chapter's stated order; they sit between steps 6 and 7):
+- Adaptive execution: a participation cap or RL policy conditioned on lagged liquidity regimes when a static schedule is too predictable (nb 07/08).
+- Simulate fills as limit -> impact -> slippage -> commission -> carry remainder; recompute one fill by closed form (nb 06/12).
+- Test cadence against break-even alpha and decay; attribute gross-to-net by layer; check the intraday cost cliff (nb 09/10/11).
 
 Pre-publication intraday checklist (nb 11): anchor spread to the measured median per-symbol quote; state impact/slippage/fee assumptions explicitly; express activity as daily round-trip NAV turnover; compute `C_ann`, `S_n`, cost/gross ratio and break-even turnover under crossing, worked-order and passive stacks; disclose that passive fills are not established.
 
@@ -424,11 +430,12 @@ move = model.calculate(quantity=q, price=p, volume=adv, is_buy=True)   # signed 
 fill_price = p + move
 ```
 
-Limit + impact composition with carried remainder (nb 06 Part 6 pattern):
+Limit + impact composition with carried remainder (nb 06 Part 6 pattern; `calculate` takes `price` as a required third argument):
 
 ```python
-res = VolumeParticipationLimit(max_participation=0.10, min_volume=0.0).calculate(order_quantity=q, bar_volume=v)
-move = model.calculate(res.fillable_quantity, price, v, is_buy)
+limit = VolumeParticipationLimit(max_participation=0.10, min_volume=0.0)
+res = limit.calculate(order_quantity=abs(q), bar_volume=v, price=price)   # nb 06: .calculate(abs(quantity), volume, decision_price)
+move = model.calculate(quantity=res.fillable_quantity, price=price, volume=v, is_buy=is_buy)
 fill = price + move
 carry = res.remaining_quantity        # queue to the next bar; never drop it
 ```
@@ -448,7 +455,9 @@ Antithetic simulation: draw N/2 shock paths, append their negatives, reuse the s
 
 Polars panel discipline: `pl.col(...).shift(1).over("symbol")`; rolling windows `.over("symbol")`; sort before `.last()` for an explicit daily close. Settings pattern: module-level UPPERCASE constants with a "what each setting decides" block; `MAX_SYMBOLS = 0` means all.
 
-Chapter helper functions by notebook (all in `18_transaction_costs/`; shared helper `_cost_analysis.py` not covered by the notes):
+Shared helper module `18_transaction_costs/_cost_analysis.py` (also imported by case-study `costs.py`; verified from source, not from the notes). Imported by the notebooks: nb 01 `breakeven_alpha(turnover, cost_bps)` (annual one-way turnover x round-trip bps / 1e4 -> decimal); nb 02 `corwin_schultz_spread(high, low, window=1)` and `roll_spread(close, window=20)` (Polars Series/Expr in, spread as a fraction not bps, negatives clamped to 0); nb 03 `compute_adv(volume, window=20)` and `estimate_kyle_lambda(price_changes, signed_volume) -> {lambda_, r_squared, std_err, n_obs}` (Huber with intercept, needs >= 30 non-zero-flow rows). Not called by the chapter notebooks: `compute_adv_usd(volume, close, window=20)`; `calibrate_sqrt_impact(returns, volume, sigma, adv, min_adv=1e3) -> {eta, r_squared, std_err, n_obs}` (no-intercept OLS of `|r|/sigma` on `sqrt(V/ADV)` over market data, i.e. a same-interval association, not the own-fill calibration the chapter requires for eta); `estimate_capacity(adv_usd, impact_coeff, gross_alpha_bps, turnover=1.0, max_participation=0.01) -> {max_aum_usd, breakeven_participation, impact_at_max_bps}` (solves `gross_alpha_bps = impact_coeff * 1e4 * sqrt(participation)`, caps at `max_participation`, `AUM = participation * ADV / turnover`); `get_fee_schedule(asset_class)` over `FEE_SCHEDULES` keys `us_equities`, `etfs`, `crypto_perps`, `cme_futures`, `fx_spot`, `sp500_options`; `standardized_cost_per_100k(asset_class, price=50.0) -> {commission_bps, exchange_bps, total_bps}`.
+
+Chapter helper functions by notebook (all in `18_transaction_costs/`):
 - nb 01: `limit_symbols`, `summarize_dollar_turnover`, `fee_evidence_row`, `cost_components`, `dominant_component_label`, `cost_schema_row`, `CASE_STUDIES`.
 - nb 02: `load_nq_microstructure`, `estimate_spreads`, `compute_validation_metrics`, `keep_top_symbols`, `aggregate_crypto_daily`, `classify_cost_units`.
 - nb 03: `keep_top_symbols`, `add_impact_features`, `regular_session_mask`, `session_integrity_ledger`, `load_nq_signed_flow_sample`, `estimate_normalized_lambda`, `capacity_curve`, `regime_impact_row`, `ETA_SCENARIO`.
@@ -456,9 +465,9 @@ Chapter helper functions by notebook (all in `18_transaction_costs/`; shared hel
 - nb 05: `AlmgrenChrissParams` (properties `tau`, `sigma_daily`, `sigma_price_daily`, `gamma_price`, `eta_price`, `epsilon_price`), `compute_trajectory_from_list`, `expected_cost`, `execution_variance`, `execution_std`, `optimal_trajectory`, `trajectory_to_trades`, `liquidation_half_life`, `compute_efficient_frontier`, `simulate_single_execution`, `simulate_execution`, `ExtendedParams`, `expected_cost_nonlinear`, `generate_tca_report`, `executed_fills`.
 - nb 06: `compose_limit_and_impact`. nb 07: `load_intraday_panel`, `execution_frame`, `participation_walk`, `add_execution_traces`.
 - nb 08: `interval_cost_bps`, `capped_fill`, `schedule_components`, `schedule_score_bps`, `observable_regime`, `encode_state`, `run_episode(sess, q_table, epsilon, learn)`, `train_q_policy(train_days, sessions)`, `shares_from_weights`, `execute_static_schedule`, `evaluate(test_days, sessions, q_table) -> pl.DataFrame`, `participation_diagnostics`, `matched_volatility_policy(q_table)`, `session_arrays`.
-- nb 09: `CostAssumptions.total_one_way/round_trip`, `momentum_frequency_backtest`, `annualized_sharpe`, `calculate_break_even_alpha`, `real_net_by_frequency`, `simulate_frequency_comparison`, `evaluate_decay_scenario`.
+- nb 09: `CostAssumptions` (properties `total_one_way`, `round_trip`), `HIGH/MEDIUM/LOW_FRICTION_COSTS`, `FREQUENCIES`, `momentum_frequency_backtest`, `annualized_sharpe`, `calculate_break_even_alpha`, `real_net_by_frequency`, `simulate_frequency_comparison`, `evaluate_decay_scenario`.
 - nb 10: `CostStack` methods, `build_strategy`, `apply_cost_stack`, `compute_performance`.
-- nb 11: `measure_nasdaq100_spreads`, `IntradayCostStack.one_way_bps/round_trip_bps`, `IntradayStrategy`, `calculate_intraday_net_performance`, `calculate_break_even_turnover`.
+- nb 11: `measure_nasdaq100_spreads`, `MEASURED_HALF_SPREAD_BPS`, `IntradayCostStack` (properties `one_way_bps`, `round_trip_bps`), presets `CROSSING` / `WORKED_ORDER` / `PASSIVE_LOW_COST`, `IntradayStrategy` profiles `HIGH/MODERATE/LOW_TURNOVER`, `calculate_intraday_net_performance`, `calculate_break_even_turnover`.
 - nb 12: `asset_class_cost_row`, `SimpleStrategy`, `make_weight_dict`, `run_backtest_variant`.
 
 Config keys: `config/setup.yaml -> costs:` (keys vary by case study; the classifier reads what is present). Panel contract columns: `supports_usd_capacity`, `volume_contract`, `coverage_start`, `coverage_end`, `configured_bps`. Plot helpers from `utils.style`: `COLORS`, `add_message_title`, `ml4t_palette(n, categorical=True)`, `show_with_alt`, `show_plotly_with_alt`.
@@ -475,7 +484,7 @@ Running: `uv run python 18_transaction_costs/<notebook>.py`; test mode `uv run p
 - Intraday volume (AlgoSeek AAPL): U-shaped; relative spread widest at the open; realized vol highest at the open; day-to-day dispersion around the mean profile is wider than any smooth parametric curve, which is why VWAP tracking is imperfect.
 - VWAP vs TWAP on held-out 2021Q4 sessions (100k shares, 15-min grid, 5 bps impact at full participation): slippage-vs-VWAP distributions differ in width, not centre; VWAP front-/back-loads and holds less through midday; narrower = more predictable, not cheaper.
 - Almgren-Chriss (100k shares, $100, 30% vol, 5 days, 50 periods, ADV 1M): spread and permanent impact constant across schedules; only temporary impact and risk move; frontier nearly flat at the patient end, steep at the urgent end; simulated mean equals analytical E[C]; the 5th-95th band contains negative shortfalls; linear and sqrt matched at the even schedule agree almost exactly, concentrated schedules are charged less by sqrt, so a linear optimizer front-loads too little; the closing-price benchmark wanders by hundreds of bps on one path.
-- nb 06: the power-law curve sits above the sqrt curve despite identical shape (no sigma factor); doubling sigma doubles sqrt impact everywhere; all exponents in (0,1) are concave; linear and sqrt sliced paths overlay when matched at the common child participation and fills climb only through the 50% carried persistence; two of five ETF orders exceed the 10% cap and fill partially; the closed-form check passes; cross-model table differences reflect conventions.
+- nb 06: the power-law curve sits above the sqrt curve despite identical shape (no sigma factor); doubling sigma doubles sqrt impact everywhere; all exponents in (0,1) are concave, and at a fixed coefficient smaller exponents bend more and raise the level; linear and sqrt sliced paths overlay when matched at the common child participation and fills climb only through the 50% carried persistence; two of five ETF orders exceed the 10% cap and fill partially; the closed-form check passes; cross-model table differences reflect conventions.
 - nb 07: a half-ADV AAPL parent completes in fewer intervals/sessions as the cap rises 5% -> 10% -> 25%, roughly proportionally; the cost of a higher cap is impact risk, not a worse benchmark fill; below `min_volume` the permitted fill is zero and both policies agree once volume recovers.
 - nb 08: Q-table of a few hundred states; paired held-out counts show how often the Q-policy scores below TWAP and VWAP; matched-state table shows actions change with lagged volatility regime (numbers not in the notes; descriptive).
 - nb 09 (8 ETFs, 2019-2023): gross Sharpe already slopes down toward daily cadence and the cost gap widens toward daily, so the effects reinforce; high- and medium-friction stacks differ by 1 bp round-trip and give nearly identical panels; under hypothetical inputs short-horizon momentum has the highest raw IC but ranks last on the persistence-cost proxy, value and quality move up.
@@ -489,11 +498,11 @@ Running: `uv run python 18_transaction_costs/<notebook>.py`; test mode `uv run p
 - `chapters/03_market_microstructure.md` — spreads, quotes, tick rule, order flow; the microstructure regime link (18.3) builds on it.
 - `chapters/16_strategy_simulation.md` — the backtest engine these cost, limit and slippage models plug into; `NEXT_BAR` fill timing.
 - `chapters/17_portfolio_construction.md` — turnover generated by rebalancing and covariance drift; cost-aware construction.
-- `chapters/19_risk_management.md` — kill criteria, capacity and participation ceilings as risk limits.
+- `chapters/19_risk_management.md` — `ml4t.backtest.risk` rules, drawdown/daily-loss limits and kill switches; its position that costs must be priced before any exit, sizing or rebalancing claim.
 - `chapters/20_strategy_synthesis.md` — cross-case-study cost survival (`20_strategy_synthesis/06_cost_survival`).
-- `chapters/21_rl_execution_hedging.md` — the RL execution agent of nb 08 in depth.
-- `chapters/25_live_trading.md` — TCA on realized fills, recalibration and production monitoring.
-- `chapters/06_strategy_definition.md` — signal half-life and urgency that determine the execution benchmark.
+- `chapters/21_rl_execution_hedging.md` — deep RL execution agents (DQN / PPO / A2C with stable-baselines3) benchmarked against TWAP and Almgren-Chriss on identical paths with paired standard errors; it lists this chapter (implementation shortfall, impact, spread) as a prerequisite.
+- `chapters/25_live_trading.md` — the live runtime where realized fills are produced: one `Strategy` through `ml4t.backtest.Engine` and `ml4t.live.LiveEngine`, parity assertions, order-lifecycle state machine, `SafeBroker` controls, shadow mode.
+- `chapters/06_strategy_definition.md` — the strategy as an executable decision process: decision schedule, signal vs holding horizon, cost class and capacity as feasibility constraints, trading-intensity diagnostics (turnover vs cost class).
 - `case_studies/nasdaq100_microstructure.md` — AlgoSeek minute bars with quotes and signed flow used for validation, lambda and execution.
 - `case_studies/etfs.md` — ETF panels used for impact demos, frequency trade-off, cost stack and commission comparison.
 - `case_studies/cme_futures.md` — contract multiplier (tick value / tick size) and futures commission/slippage units.
@@ -501,9 +510,15 @@ Running: `uv run python 18_transaction_costs/<notebook>.py`; test mode `uv run p
 - `case_studies/fx_pairs.md` — tick-count volume with no dollar axis.
 - `case_studies/sp500_options.md`, `case_studies/sp500_equity_option_analytics.md` — option cost literature cited by the chapter.
 - `libraries/ml4t_backtest.md` — `ml4t.backtest.execution` and `ml4t.backtest.models` reference.
-- `libraries/ml4t_live.md` — live execution and TCA feedback.
+- `libraries/ml4t_live.md` — the live trading runtime: IB / Alpaca broker adapters, `SafeBroker` pre-trade risk checks, shadow -> paper -> live promotion for the same `Strategy` the backtest runs.
 - `guardrails.md`, `decision_rules.md`, `evidence.md`, `glossary.md`, `workflow.md`, `companion_repo.md` — cross-cutting indexes.
-- Further reading: Almgren & Chriss (2001) optimal execution; Almgren, Thum, Hauptmann, Li (2005) Direct Estimation of Equity Market Impact; Corwin & Schultz (JF 67(2)); Roll (JF 39(4)); Kyle (1985); Hasbrouck (1991); Amihud (2002); Toth et al. (2011) and Sato & Kanazawa (2024) on the square-root law; Frazzini et al. (2018) Trading Costs; Obizhaeva & Wang (2013); Avellaneda & Stoikov (2008); Ho & Stoll (1981); Nevmyvaka, Feng, Kearns (2006) RL for execution; Donnelly (2022) review; Chan (2022) impact decay and capacity; Gabaix & Koijen (2021) and Bouchaud (2022) inelastic markets; Cont et al. (2014), Eisler et al. (2010), Hautsch & Huang (2012) order-book impact; Karnaukh et al. (2015) FX liquidity; Chordia et al. (2000) liquidity commonality; Muravyev & Pearson (2020), O'Donovan & Yu (2024), Heston et al. (2023) option costs; Schwarz et al. (2022) retail execution; Madhavan (2002); Paleologo (2025) alpha-to-go; Said (2022); Taranto et al. (2018).
+- Further reading:
+  - Almgren & Chriss (2001), Optimal execution of portfolio transactions; Almgren, Thum, Hauptmann & Li (2005), Direct estimation of equity market impact, Risk 18(7).
+  - Corwin & Schultz (JF 67(2)) high-low spread estimator; Roll (JF 39(4)) serial-covariance estimator; Kyle (1985); Hasbrouck (1991); Amihud (2002).
+  - Toth et al. (2011) and Sato & Kanazawa (2024) on the square-root law; Obizhaeva & Wang (2013); Cont et al. (2014), Eisler et al. (2010), Hautsch & Huang (2012) order-book impact; Chan (2022) impact decay and capacity.
+  - Frazzini, Israel & Moskowitz (2018), Trading costs; Gabaix & Koijen (2021) and Bouchaud (2022) inelastic markets; Chordia et al. (2000) liquidity commonality; Karnaukh et al. (2015) FX liquidity.
+  - Avellaneda & Stoikov (2008); Ho & Stoll (1981); Nevmyvaka, Feng & Kearns (2006) RL for optimized trade execution; Donnelly (2022) review.
+  - Muravyev & Pearson (2020), O'Donovan & Yu (2024), Heston et al. (2023) option costs; Schwarz et al. (2022) retail execution; Madhavan (2002); Paleologo (2025) alpha-to-go; Said (2022); Taranto et al. (2018).
 
 ## Glossary
 

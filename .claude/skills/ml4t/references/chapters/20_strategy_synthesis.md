@@ -36,6 +36,13 @@
 
 ## Method recipes (the how)
 
+### Inputs and upstream requirements
+
+- Test bed: nine CSs — equity ETFs (`etfs`), crypto perpetuals (`crypto_perps_funding`), intraday NASDAQ-100 microstructure (`nasdaq100_microstructure`), equity plus options (`sp500_equity_option_analytics`), monthly firm characteristics (`us_firm_characteristics`), FX (`fx_pairs`), CME futures (`cme_futures`), pure options (`sp500_options`), broad equity panel (`us_equities_panel`). They differ on four dimensions that `overview.parquet` records: asset class, rebalance cadence, universe size and cost assumption (`cost_bps`).
+- Upstream requirement: every `case_studies/{cs}/run_log/registry.db` must hold training, prediction and backtest rows on the primary label, plus `causal_runs` rows for §20.8. Holdout rows are written by each CS's own `NN_holdout_predictions` + `NN_holdout_backtest` pair (registered in `prediction_sets` with `split='holdout'`), never by Ch20; when "No holdout evidence" / "Holdout not available" fires, that pair is where to look.
+- NB01 input contract: `registry.db` + `config/setup.yaml` per CS only, no JSON inputs ("nothing is hardcoded"). NB08's only hardcoded elements are the HTM cost-cascade figures and the sp500_options cost handling.
+- Per-CS drill-down: each CS's `NN_strategy_analysis` notebook (§2 stage-transition waterfall, §6 holdout decay + holdout-vs-benchmark, §7 benchmark-aware diagnostics) is where the detail behind any Ch20 cross-section number lives.
+
 ### Selection rule and spine (carrier) resolution — NB01
 
 1. Selected configuration per CS = highest-Sharpe validation backtest across signal, allocation and risk stages **jointly**.
@@ -47,10 +54,10 @@
 | Restriction | Rule | Source |
 |---|---|---|
 | Label restriction (sp500_options) | Pin to hold-to-maturity (HTM) label (`ret_to_expiry` / HTM dispatch) with coherent option costs; exclude the four fixed-horizon straddle labels (vectorized path, generic bps cost) from cluster diagnostics. "Do not retarget." | `LABEL_RESTRICTIONS` |
-| Rung restriction (O'Donovan–Yu 2025 cascade) | Rung 1 naive round trip; rung 2 full HTM (demoted variant, §18.8); rung 3 HTM restricted to the liquid bottom-spread quintile = registered strategy. Rungs 1 and 2 share the universe filter, so pin `universe_filter` AND `exit_at_max_days` together. Fetch all rows (`top_n=1_000_000`) before applying `rung["predicate"]`. | `RUNG_PINS` (`predicate`, `universe_filter`, `exit_at_max_days`) |
+| Rung restriction (O'Donovan–Yu 2025 cascade) | Rung 1 naive round trip; rung 2 full HTM (demoted variant, §18.8); rung 3 HTM restricted to the liquid bottom-spread quintile = registered strategy. Rungs 1 and 2 share the universe filter, so pin `universe_filter` AND `exit_at_max_days` together. Fetch all rows (`top_n=1_000_000`) before applying `rung["predicate"]`. Repo contents (not inspected in the digest): `sp500_options` → `universe_filter == "liquid"` and `exit_at_max_days` null (rung 3); `nasdaq100_microstructure` → `universe_filter == "cost_feasible"` and `label == "fwd_ret_15m"`, so NASDAQ-100 is pinned too. | `RUNG_PINS` (`predicate`, `universe_filter`, `exit_at_max_days`) |
 | Stage-not-applicable | `("sp500_options","allocation")`: HTM short-straddle has fixed 1/n_roll cohort weighting. `("sp500_options","risk")`: HTM expiration structure sets the risk profile. us_firm_characteristics vectorized path has portfolio overlays purged. | `_stage_applicable(cs, stage)` |
 
-CSs without a pin entry skip the filter. Both pins are imported from `case_studies.utils.paired_metrics`.
+CSs without a pin entry skip the filter. `RUNG_PINS` is imported from `case_studies.utils.paired_metrics` (the same module holds `populate_paired_metrics`, which decides the canonical carrier and retired identities); `LABEL_RESTRICTIONS` is defined in `case_studies.utils.strategy_analysis` and NB01 imports it from there (the chapter digest places both in `paired_metrics`; importing `LABEL_RESTRICTIONS` from it fails).
 
 ### Rank-1 cluster diagnostics — NB01
 
@@ -63,7 +70,7 @@ CSs without a pin entry skip the filter. Both pins are imported from `case_studi
 
 | Artifact | What it holds | Reading rule |
 |---|---|---|
-| `backtest_comparison.parquet` | Per (CS, stage) Sharpe / CAGR / drawdown; each stage's best taken **independently** | The signal topping one column may be a different model from the allocation topping the next; do not read it as a path |
+| `backtest_comparison.parquet` | Per (CS, stage) Sharpe / CAGR / drawdown; each stage's best taken **independently** | The signal topping one column may be a different model from the allocation topping the next; do not read it as a path. The digest's artifact list also calls it the "canonical record of one spine `prediction_hash` per CS"; the two descriptions conflict, and the independent-best reading is the one the method section gives — treat the spine reading as unresolved |
 | `sharpe_progression.parquet` | One `prediction_hash` followed through allocation, costs, risk | `null` = that hash not tested at the stage, not "stage absent" |
 | `lineage.parquet` | Selected signal → highest-Sharpe allocation on it → cost-tested version → risk-managed version | Stage-to-stage differences are attributable only where the later stage carries the earlier configuration; paired rows say which transitions qualify |
 
@@ -92,24 +99,36 @@ Six pair types (`benchmark_kind`):
 
 | # | Challenger ↔ benchmark | `benchmark_kind` | Caveat |
 |---|---|---|---|
-| 1 | Selected signal (overall) ↔ equal weight (overall) | — | |
-| 2 | Selected signal (holdout) ↔ equal-weight holdout window | `equal_weight_holdout_side_artifact` | |
-| 3 | Selected config holdout ↔ same config validation | `val_rank1_self` | Windows disjoint and unequal; both truncated to `min(len(val), len(ho))`; CI = resample each window independently and difference; always carries the truncation caveat |
+| 1 | Selected signal (overall) ↔ equal weight (overall) | Not named in notes; repo: `equal_weight_side_artifact` (prefix = `SIGNAL_BASELINE_BY_CASE_STUDY.get(cs, "equal_weight")`) | |
+| 2 | Selected signal (holdout) ↔ equal-weight holdout window | `equal_weight_holdout_side_artifact` (same prefix rule) | |
+| 3 | Selected config holdout ↔ same config validation | `val_rank1_self` | Windows disjoint and unequal. Notes/NB01 comment: both truncated to `min(len(val), len(ho))` and fed to the paired helper. Repo code: `_populate_pair(..., disjoint_windows=True)` passes the untruncated windows to `compute_independent_diff_uncertainty`, which resamples each window independently (own block length per side) and differences the draws; `info_ratio` is NaN (no difference series). `compute_paired_uncertainty` refuses unequal lengths (returns `{}`) rather than truncating. The "truncation caveat" wording on `val_rank1_self` is stale; the live caveat is "disjoint windows, not a paired comparison" |
 | 4 | allocation ↔ signal | `signal_leader` | Only if the later stage carries the earlier configuration |
 | 5 | risk_overlay ↔ allocation | `allocation_leader` | same |
 | 6 | cost_sensitivity ↔ risk_overlay | `risk_overlay_leader` | same; order follows `STAGE_SEQUENCE` |
 
-A stage that does not carry the previous stage's configuration yields no pair. CSs pinned at the signal stage (sp500_options rung 2) surface zero transition rows.
+A stage that does not carry the previous stage's configuration yields no pair. CSs pinned at the signal stage (sp500_options, whose allocation and risk stages are declared not applicable) surface zero transition rows. The notes and an NB01 comment label this "rung 2", but `RUNG_PINS["sp500_options"]` selects `universe_filter == "liquid"` (rung 3, the registered strategy) and NB01's holdout query says the same; the "Rung-2" label in that comment is stale, and only the full-universe rung-2 rows survive for the §18.8 cascade comparison.
 
 ### Stage attrition funnel — independent (NB01) vs cumulative (NB08)
 
-| Gate | NB01 (independent, against `bt_df` / `holdout_df`) | NB08 (cumulative, pipeline order) |
-|---|---|---|
-| 1 Good predictor | IC > 0 | Positive validation IC |
-| 2 Tradable | Gross Sharpe > 0 | Validation ML Sharpe of the **selected configuration** (`backtest.ml_sharpe`) > 0, NOT the risk-stage baseline |
-| 3 Cost-surviving | Sharpe > 0 at assumed cost | `costs.survives_costs` and `net_sharpe_at_actual > 0`; pass-through if `costs.not_applicable_reason` (sp500_options uses §18.8 option-native bid-ask accounting) |
-| 4 Holdout-valid | Holdout Sharpe > 0 | `holdout_sharpe > 0` |
-| 5 Risk-tolerable / Evidence ready | Managed Sharpe > 0 | `risk.managed_sharpe > 0` or risk not applicable; NASDAQ-100 (`NASDAQ_ID`) excluded explicitly (point estimate positive, but corrected validation and holdout intervals both cross zero) |
+NB01 counts each gate independently against `bt_df` / `holdout_df`; `stage_attrition.json` keys in NB01's own order (the order is irrelevant for independent counts, but it differs from NB08's):
+
+| NB01 key | Test |
+|---|---|
+| `good_predictor` | `ic_best > 0` (max over the CS's families in `ic_df`) |
+| `tradable_gross` | `signal_sharpe > 0` (gross signal-stage Sharpe) |
+| `cost_surviving` | `survives_costs` flag in `bt_df` is true (Sharpe > 0 at assumed cost) |
+| `risk_tolerable` | `managed_sharpe > 0` |
+| `holdout_valid` | `holdout_sharpe > 0` |
+
+NB08 is cumulative, five gates in pipeline order; each gate is applied to the survivors of the one above it:
+
+| NB08 gate | Test |
+|---|---|
+| 1 Good predictor | Positive validation IC |
+| 2 Tradable | Validation ML Sharpe of the **selected configuration** (`backtest.ml_sharpe`) > 0, NOT the risk-stage baseline |
+| 3 Cost-surviving | `costs.survives_costs` and `net_sharpe_at_actual > 0`; pass-through if `costs.not_applicable_reason` (sp500_options uses §18.8 option-native bid-ask accounting) |
+| 4 Holdout-valid | `holdout_sharpe > 0` |
+| 5 Evidence ready | `risk.managed_sharpe > 0` or risk not applicable; NASDAQ-100 (`NASDAQ_ID`) excluded explicitly (point estimate positive, but corrected validation and holdout intervals both cross zero) |
 
 - NB01: a row's failures = 9 − count; adjacent-row differences are NOT gate removals.
 - NB08: drop a CS only on a genuine negative at an applicable stage. Use NB08 for strict survivors and named dropouts, NB01 for per-stage attrition.
@@ -144,7 +163,7 @@ A stage that does not carry the previous stage's configuration yields no pair. C
 - Ledger columns per feature: IC moment estimates, HAC-adjusted t-stat, BH-adjusted p-value `fdr_p`, fold sign consistency, monotonicity, coverage, decision in {PROCEED, REVISE, STOP}, `note` with the reason.
 - Two routes to PROCEED (union):
   1. `fdr_significant`: BH at `FDR_ALPHA = 0.05`, recomputed cross-CS from stored p-values on a common scale.
-  2. `stable_and_above_threshold`: |mean IC| above a per-CS effect-size floor of 0.003–0.01 AND sign held across enough folds (minimum fold count not listed in notes).
+  2. `stable_and_above_threshold`: |mean IC| above a per-CS effect-size floor of 0.003–0.01 AND sign held across enough folds (which CS uses which floor, and the minimum fold count, are not listed in the notes).
 - Show the three counts side by side, never stacked (Table 20.3).
 - Forward link: PROCEED rate vs selected config's validation and holdout Sharpe. A handful of points; shown to display the absence of a relationship, not to settle it.
 
@@ -168,10 +187,10 @@ A stage that does not carry the previous stage's configuration yields no pair. C
 
 ### Allocator cross-section — NB05
 
-- Allocators with the signal held fixed: equal weight, inverse-vol, MVO, risk parity, score-weighted, HRP. Load `stage: "allocation"` runs restricted to the spine `prediction_hash` only (no Ch19 overlays, which would credit the allocator with overlay work).
+- Allocators with the signal held fixed: equal weight, inverse-vol, MVO, risk parity, score-weighted, HRP (notes); NB05's actual allocator filter is `equal_weight, inverse_vol, score_weighted, mvo_ledoit_wolf, risk_parity, hrp, conformal_weighted` — MVO is the Ledoit-Wolf variant and conformal-weighted is included. Load `stage: "allocation"` runs restricted to the spine `prediction_hash` only (no Ch19 overlays, which would credit the allocator with overlay work).
 - Table 20.6 = max across rebalance and top-K variants within the allocation stage; `extract_top_k(spec_json)` reads `top_k`.
 - EW baseline read from the SIGNAL stage on the spine prediction via `is_unallocated` (no `equal_weight` allocator rows exist). Uplift = best allocator − EW on the same spine; taking the best baseline across all predictions would let uplift absorb a change of model or label.
-- Uplift breadth: "Broad" if `n_better / n_total > 0.5` of non-EW allocators beat EW; "Narrow" if only one or two; "None" if no allocator beats EW.
+- Uplift breadth (NB05 code, four lowercase labels on the share of non-EW allocators beating EW): `none` if `n_better == 0`; `broad` if `n_better / n_total > 0.5`; `moderate` if `> 0.25`; `narrow` otherwise (share ≤ 0.25). The notes' three-label version ("Narrow if only one or two") predates the split of `narrow` from the zero case.
 - Allocator sensitivity (Table 20.7) = best-minus-worst Sharpe spread per CS.
 - "When does MVO help" scatter: x = EW baseline Sharpe, y = uplift, bubble = universe size from `overview.parquet`; `uplift_interpretation(mvo_df)` reads the result off the frame.
 - Section claim: HRP wins where the signal is broad; the allocator spread widens when the signal is weak.
@@ -200,7 +219,7 @@ A stage that does not carry the previous stage's configuration yields no pair. C
 
 - A bps-of-notional model fails options: the dominant cost is the bid-ask spread on premium, scaling with quote width, not notional. sp500_options has no bps sweep and appears in no cost table.
 - Executable-label backtesting at actual bid/ask. One prediction decomposed across three labels: priced at mid unhedged, delta-hedged at mid, priced at executable quotes — separating signal contribution from execution. Ranking on signal AND spread jointly is a different strategy from ranking on signal alone.
-- HTM cascade numbers (hardcoded in NB08, reproducing `htm_cost_sensitivity.parquet`): max Sharpe = −0.28 at 20% half-spread fraction; −0.47 at 50%; −0.72 at 100% → "Net-negative under realistic costs". The positive-Sharpe variant rate before execution costs is misleading.
+- HTM cascade numbers (hardcoded in NB08, reproducing `case_studies/sp500_options/evaluation/htm_cost_sensitivity.parquet`, written by that CS's `15_costs` notebook): max Sharpe = −0.28 at 20% half-spread fraction; −0.47 at 50%; −0.72 at 100% → "Net-negative under realistic costs". The positive-Sharpe variant rate before execution costs is misleading.
 
 ### Risk overlays and holdout decay — NB07
 
@@ -253,7 +272,7 @@ Next-iteration handles (inside the Ch6 iterative workflow):
 - **Comparing validation max-IC with holdout IC** — validation artifact = max over a hyperparameter sweep; holdout = IC of one selected prediction; a max over dozens of draws sits above the typical draw by construction, so every arrow "decays" whether or not anything did ("the figure manufactured the decay it was meant to measure"). Compare like with like: holdout IC vs holdout Sharpe; validation vs holdout Sharpe of the SAME selected configuration.
 - **Selection optimism / multiple testing** — selected Sharpe is the maximum of a sample; within-CS variant spread exceeds the spread of medians across CSs; allocator, overlay and cost headroom were all chosen on validation. Show the distribution each max came from; read rank1–rank10 spread vs fold-SE; treat best-of-sweep deltas as inflated by sweep size; DSR would discount for trials but is not computed and no deflation is applied in NB05/NB07.
 - **Reporting absence as zero** — four CSs had predictions but no backtests and were plotted at 0% positive; an IC leader compared against an empty string produced four "No" rows. Denominator = variants actually backtested; exclude and NAME unmeasured CSs; heatmap blanks mean "not attempted", never "attempted and failed".
-- **Equal-weight allocator rows do not exist** — EW is the baseline and is never listed as an allocator (`reference/CASE_STUDY_PIPELINE.md` §4); on 2026-09-18 all nine registries held zero `equal_weight` rows at `stage='allocation'`, so the old filter returned all-null `ew_sharpe`, `sharpe_diff`, `pct_improvement`. Read the EW baseline from the signal stage on the spine prediction (`is_unallocated`).
+- **Equal-weight allocator rows do not exist** — EW is the baseline and is never listed as an allocator (NB05 cites `reference/CASE_STUDY_PIPELINE.md` §4, a document the checkout does not ship); on 2026-09-18 all nine registries held zero `equal_weight` rows at `stage='allocation'`, so the old filter returned all-null `ew_sharpe`, `sharpe_diff`, `pct_improvement`. Read the EW baseline from the signal stage on the spine prediction (`is_unallocated`).
 - **Typed-in constants drift** — a hardcoded universe-size dict had all nine entries wrong (etfs 64 vs 100, sp500_options 480 vs 627, us_equities_panel 311 vs 3199); an earlier takeaway named leading allocators for six CSs with no allocation backtests. Read every number from `overview.parquet` / registry; compute summaries from the table, never type them.
 - **Null spine vs missing key** — a key-existence check let a null spine pass and then drop silently at the filter. Missing key = stale selection file (error); null spine = registry has no backtests (name and exclude).
 - **Stale spine pin** — a pin matching no rows would pool cost/risk figures from full-universe rows when the strategy runs on a restricted subset. `build_all_synthesis` raises on a non-matching pin; CSs with empty registries are left unpinned with cost/risk reported not applicable.
@@ -277,9 +296,9 @@ Next-iteration handles (inside the Ch6 iterative workflow):
 - **Max drawdown has no interval** — single realized-path statistic; a few percentage points are indistinguishable. Do not rank overlays on small drawdown differences.
 - **Per-family IC means with unequal sweep counts** — 28 vs 150 configurations give incomparable precision and no interval is attached. Report counts; keep `ic_best` and `ic_mean` on separate axes.
 - **Validation IC is in-sample to the selection process** — configurations were chosen by looking at it. The holdout comparison in NB01 is where that selection is priced.
-- **Pair #3 window mismatch** — validation and holdout windows are disjoint and of different length; `compute_paired_uncertainty` needs equal lengths. Truncate to `min(len)`; `val_rank1_self` always carries the caveat.
+- **Pair #3 window mismatch** — validation and holdout windows are disjoint and of different length; `compute_paired_uncertainty` refuses unequal lengths (returns `{}`, no truncation). NB01 routes the pair through `_populate_pair(..., disjoint_windows=True)` → `compute_independent_diff_uncertainty` (each window resampled on its own block length, draws differenced). Its interval covers the difference between the two windows' own Sharpes, not "is this decay noise?"; `val_rank1_self` always carries that caveat. The notes' "truncate to `min(len)`" recipe is a stale NB01 comment, not what the code does.
 - **Ex-post ensemble rescue** — reselecting after seeing the holdout invalidates it. Fix the ensemble before holdout scoring; the corrected holdout is a comparator only.
-- **Section cross-reference drift** — eleven references pointed at sections that did not carry the claimed material. Verify a reference carries the material before citing it.
+- **Section cross-reference drift** — eleven references pointed at sections that did not carry the claimed material. Pin comments in the notebooks explain why the §20.5 / §20.6 references are correct; verify a reference carries the material before citing it.
 - **Generated artifacts not versioned** — triage ledgers and registries regenerate, so numbers move. Pin nothing to a generation; compute everything at run time.
 - **Ranking vs construction disagreement** — holdout Sharpe and holdout IC need not agree; both negative while validation Sharpe is strongly positive = ranking inverted on holdout. Print both columns; the holdout exists to report exactly this.
 
@@ -295,7 +314,7 @@ Next-iteration handles (inside the Ch6 iterative workflow):
 | Turnover vs daily | 15min 26x; hourly 6.5x; 8h 3x; weekly 1/5; monthly 1/21 |
 | Cumulative gates (NB08), in order | IC > 0 → validation ML Sharpe > 0 → net Sharpe at actual cost > 0 (or cost n/a) → holdout Sharpe > 0 → managed Sharpe > 0 (or risk n/a) and evidence resolved. Drop only on a genuine negative at an applicable stage |
 | Evidence profile | holdout decay `(val − ho)/val < 0.50` = modest; `\|worst_drawdown_pct\| > 50` = unacceptable; holdout CI spanning zero = statistically unresolved; gates counted as passed/applicable |
-| Allocation uplift breadth | Broad if > 50% of non-EW allocators beat EW (trustworthy); Narrow if 1–2 (possible selection bias); None if 0. Wide best−worst spread → construction is load-bearing and was chosen on validation; tight spread → decide on turnover, capacity, explicability |
+| Allocation uplift breadth | `broad` if > 50% of non-EW allocators beat EW (trustworthy); `moderate` if > 25%; `narrow` if ≤ 25% (possible selection bias); `none` if 0 (NB05 code; notes give a three-level broad / narrow / none scale). Wide best−worst spread → construction is load-bearing and was chosen on validation; tight spread → decide on turnover, capacity, explicability |
 | Overlay deployment | Default none; deploy only from the win-win quadrant (Sharpe up AND drawdown down) confirmed out of sample; judge by the population (median configuration), not best-of-sweep |
 | Cost model choice | Proportional bps sweep where fees scale with notional; executable quote-based backtest where the bid-ask spread dominates (single-name options, intraday equities) |
 | Comparability | IC comparable within a CS row (same label), not across CSs; never put `ic_mean` and `ic_best` on one axis; never put validation max-IC and holdout IC on one axis |
@@ -316,13 +335,27 @@ uv run pytest tests/test_chapter_notebooks.py -v -k "20_strategy_synthesis"     
 
 Docker image `ml4t`. Notebooks are Jupytext pairs (`0N_*.py` + `.ipynb`); all read NB01's `output/` unless stated.
 
-Registry access (one `BacktestExplorer` per CS registry):
+Notebook → book tables and figures:
+
+| Notebook | Produces |
+|---|---|
+| NB01 `01_aggregate_synthesis` | `output/` artifacts (below) + `backtest_paired_metrics` rows in each CS registry |
+| NB02 `02_feature_evaluation` | Table 20.3 (cross-CS triage funnel); feature-survival vs strategy-survival figure |
+| NB03 `03_signal_quality` | Table 20.4 (family summary); Figure 20.2 (IC vs Sharpe scatter); IC landscape and signal-Sharpe heatmaps; IC vs asset-class panel |
+| NB04 `04_signal_to_strategy` | Table 20.5 (family cascade); Figure 20.3 (two-panel IC → Sharpe holdout); Figure 20.4 (top-K sweep); cadence table; per-CS Sharpe box plots; positive-Sharpe rate |
+| NB05 `05_portfolio_allocation` | Table 20.6 (allocator winners); Table 20.7 (best−worst spread); uplift breadth; "when does MVO help" scatter |
+| NB06 `06_cost_survival` | Table 20.8 (breakeven scorecard); Figure 20.5 (cost waterfall); resilience classification; cadence-regime chart |
+| NB07 `07_regime_risk` | Figure 20.6 (validation-vs-holdout decay); Figure 20.7 (overlay impact); quadrant analysis |
+| NB08 `08_recommendations` | Figure 20.18 (cumulative funnel waterfall); exclusion taxonomy; Table 20.11 (evidence snapshot); structural features vs gate passage; ensembling note |
+
+Registry access (one `BacktestExplorer` per CS registry; the class lives in the companion repo at `case_studies/utils/backtest_explorer.py`, not in an ml4t library):
 
 ```python
 explorer.best(stage=stage, top_n=top_n, prediction_hashes=_live_predictions(cs))
 explorer.progression(..., universe_filter=rung["universe_filter"],
                      exit_at_max_days=rung["exit_at_max_days"])   # one prediction_hash through stages
-from case_studies.utils.paired_metrics import RUNG_PINS, LABEL_RESTRICTIONS  # also populate_paired_metrics
+from case_studies.utils.paired_metrics import RUNG_PINS            # also populate_paired_metrics (canonical carrier, retired identities)
+from case_studies.utils.strategy_analysis import LABEL_RESTRICTIONS  # NB01 imports it here; it is not in paired_metrics
 ```
 
 NB01 helpers (by role):
@@ -362,18 +395,18 @@ Registry tables and fields:
 | Table / key | Fields |
 |---|---|
 | `prediction_metrics` | `ic_mean` |
-| `prediction_sets` | `split='holdout'` |
+| `prediction_sets` | `split='holdout'` — rows written by each CS's `NN_holdout_predictions` + `NN_holdout_backtest` pair, not by Ch20 |
 | `backtest_paired_metrics` | `benchmark_kind`, `sharpe_diff`, `ret_diff`, `info_ratio`, `prob_challenger_wins`, `p_value`, `bootstrap_block_length`, `bootstrap_n` |
 | `causal_runs` | §20.8 inputs |
 | Stages (`STAGE_SEQUENCE`) | `signal`, `allocation`, `risk_overlay`, `cost_sensitivity` |
 | Spec JSON | `strategy.risk.name`, `top_k`; Ch19 rows tagged `chapter: "ch19"` |
 | Holdout fields | `holdout_sharpe`, `holdout_ic`, `holdout_sharpe_ci_lo`, `holdout_sharpe_ci_hi` |
-| `setup.yaml` | primary label; `labels.{label}.rebalance_step`; cadence strings (`monthly_month_end`, `daily_ny_close`); cost assumption → `cost_bps` |
+| `config/setup.yaml` (per CS) | primary label; `labels.{label}.rebalance_step`; cadence strings (`monthly_month_end`, `daily_ny_close`); cost assumption → `cost_bps` |
 | `all_synthesis.json` | per CS `pipeline_summary.models[family].ic_mean` (stores the per-family MAX), `.backtest.ml_sharpe`, `.costs.{net_sharpe_at_actual, survives_costs, not_applicable_reason}`, `.risk.{managed_sharpe, worst_drawdown_pct, not_applicable_reason}` |
 
-NB01 `output/` artifacts: `overview.parquet` (asset class, frequency, universe size, cost assumption, primary label, n families), `ic_comparison.parquet` (`ic_mean`, `ic_best`; read by NB03/NB04), `backtest_comparison.parquet`, `sharpe_progression.parquet`, `lineage.parquet`, `holdout_results.parquet` (validation vs holdout Sharpe), `rank1_cluster_diagnostics.parquet`, `measurement_quality.parquet`, `variant_analysis.parquet`, `stage_attrition.json`, `all_synthesis.json` (consumed by NB02–06 and `generate_figures.py`). NB01 also writes `backtest_paired_metrics` rows into each CS registry.
+NB01 `output/` artifacts: `overview.parquet` (asset class, frequency, universe size, cost assumption, primary label, n families), `ic_comparison.parquet` (`ic_mean`, `ic_best`; read by NB03/NB04), `backtest_comparison.parquet`, `sharpe_progression.parquet`, `lineage.parquet`, `holdout_results.parquet` (validation vs holdout Sharpe), `rank1_cluster_diagnostics.parquet`, `measurement_quality.parquet`, `variant_analysis.parquet`, `stage_attrition.json`, `all_synthesis.json` (consumed by NB02–06; an NB01 comment also names a `generate_figures.py` consumer that the checkout does not ship). NB01 also writes `backtest_paired_metrics` rows into each CS registry.
 
-Paths: `20_strategy_synthesis/0N_*.py`, `20_strategy_synthesis/output/`, `case_studies/{cs}/run_log/registry.db`, `case_studies/{cs}/setup.yaml`, `case_studies/{cs}/evaluation/triage_ledger.parquet`, `case_studies/utils/paired_metrics.py`, `reference/CASE_STUDY_PIPELINE.md`, `htm_cost_sensitivity.parquet`, `generate_figures.py`, `tests/test_chapter_notebooks.py`.
+Paths (checked in): `20_strategy_synthesis/0N_*.py`, `case_studies/{cs}/config/setup.yaml`, `case_studies/{cs}/NN_holdout_predictions.py`, `NN_holdout_backtest.py`, `NN_strategy_analysis.py` (NN varies per CS, e.g. etfs 18/19/20, sp500_options 16/17/18), `case_studies/utils/paired_metrics.py`, `case_studies/utils/strategy_analysis.py`, `case_studies/utils/backtest_explorer.py`, `case_studies/sp500_options/15_costs.py`, `tests/test_chapter_notebooks.py`. Run-time outputs a fresh clone lacks until the upstream notebooks run: `20_strategy_synthesis/output/`, `case_studies/{cs}/run_log/registry.db`, `case_studies/{cs}/evaluation/triage_ledger.parquet`, `case_studies/sp500_options/evaluation/htm_cost_sensitivity.parquet`. Cited by notebook comments but not shipped: `reference/CASE_STUDY_PIPELINE.md`, `generate_figures.py`.
 
 ## Evidence from the book
 
@@ -384,7 +417,7 @@ All headline tallies are registry-dependent and computed at run time; the digest
 | No model family leads everywhere | Family rankings shift across the pipeline; IC leader and Sharpe leader frequently differ | NB03, NB04 |
 | Universe size does not order CSs by IC | Asset-class panel | NB03 |
 | Within-CS dispersion dominates | Sharpe dispersion across variants within a CS exceeds the dispersion of medians across CSs | NB04 |
-| sp500_options HTM cost cascade | Max Sharpe −0.28 at 20% half-spread fraction; −0.47 at 50%; −0.72 at 100% → net-negative under realistic costs; pre-cost positive-Sharpe rate is misleading | NB08 (hardcoded), `htm_cost_sensitivity.parquet` |
+| sp500_options HTM cost cascade | Max Sharpe −0.28 at 20% half-spread fraction; −0.47 at 50%; −0.72 at 100% → net-negative under realistic costs; pre-cost positive-Sharpe rate is misleading | NB08 (hardcoded), `case_studies/sp500_options/evaluation/htm_cost_sensitivity.parquet` (from `15_costs`) |
 | Holdout coverage | Five of nine CSs reach the holdout; four CSs have registered predictions but no backtests (mid-rebuild); several registries were empty at writing | NB04 |
 | Cost-sweep coverage | Three CSs absent: ETFs (carrier lineage has no sweep), sp500_options (8 rows, not the carrier), NASDAQ-100 (24 `equal_weight_top_k` rows vs carrier `slot_persistent_signal_exit`) | NB06 |
 | NASDAQ-100 | Fixed ensemble positive on point estimate, but corrected validation and holdout intervals cross zero; excluded from v3.0 lineage and the evidence gate; cost/risk grids deferred to v3.1 | NB01, NB08 |
@@ -405,17 +438,17 @@ All headline tallies are registry-dependent and computed at run time; the digest
 - `chapters/12_gradient_boosting.md`, `chapters/13_dl_time_series.md`, `chapters/14_latent_factors.md` — the model families whose IC and Sharpe are compared in NB03/NB04.
 - `chapters/15_causal_estimation.md` — DML and `causal_runs` rows read in §20.8.
 - `chapters/16_strategy_simulation.md` — IC → Sharpe introduction (repeated here with holdout) and the registry/backtest machinery.
-- `chapters/17_portfolio_construction.md` — allocation-stage backtests (EW, inverse-vol, MVO, risk parity, score-weighted, HRP) read in NB05.
+- `chapters/17_portfolio_construction.md` — allocation-stage backtests (EW, inverse-vol, Ledoit-Wolf MVO, risk parity, score-weighted, HRP, conformal-weighted) read in NB05.
 - `chapters/18_transaction_costs.md` — cost taxonomy, `cost_sensitivity` sweeps and §18.8 options cost cascade read in NB06.
 - `chapters/19_risk_management.md` — risk-overlay machinery (stop-loss, trailing stop, daily loss limit, drawdown breaker, time exit, vol target) read in NB07.
-- `chapters/27_systematic_edge.md` — the book's closing argument on process as edge, which this synthesis evidences.
+- Per-CS `NN_strategy_analysis` notebooks (via each `case_studies/*.md` reference) — the drill-down for one case study: §2 stage-transition waterfall, §6 holdout decay + holdout-vs-benchmark, §7 benchmark-aware diagnostics.
 - `case_studies/sp500_options.md` — HTM label, rung cascade, executable-quote costs, `RUNG_PINS` / `LABEL_RESTRICTIONS`.
 - `case_studies/nasdaq100_microstructure.md` — the fixed ensemble, carrier `slot_persistent_signal_exit`, v3.0 exclusions.
 - `case_studies/us_firm_characteristics.md` — monthly cadence, vectorized path with overlays purged, n = 12 holdout bootstrap.
 - `case_studies/etfs.md`, `case_studies/crypto_perps_funding.md`, `case_studies/sp500_equity_option_analytics.md`, `case_studies/fx_pairs.md`, `case_studies/cme_futures.md`, `case_studies/us_equities_panel.md` — the remaining members of the nine-CS test bed.
-- `libraries/ml4t_backtest.md` — `BacktestExplorer`, registry stages and spec JSON.
+- `libraries/ml4t_backtest.md` — the simulation engine behind the registry's backtest rows (it does not document `BacktestExplorer`).
 - `libraries/ml4t_diagnostic.md` — IC, fold statistics, FDR and paired-uncertainty tooling.
-- `workflow.md` — end-to-end pipeline ordering; `guardrails.md` — cross-cutting leakage / multiple-testing rules; `decision_rules.md` — thresholds collected across chapters; `evidence.md` — empirical findings index; `glossary.md`; `companion_repo.md` — repo layout, `uv run`, Papermill tests.
+- `workflow.md` — end-to-end pipeline ordering; `guardrails.md` — cross-cutting leakage / multiple-testing rules; `decision_rules.md` — thresholds collected across chapters; `evidence.md` — empirical findings index; `glossary.md`; `companion_repo.md` — repo layout, `uv run`, Papermill tests, and `BacktestExplorer` (`case_studies/utils/backtest_explorer.py`: `summary / best / progression / champion_lineage / ...`), registry stages and spec JSON.
 
 Further reading:
 - Avramov, Cheng & Metzker (2020/2021), Machine Learning vs. Economic Restrictions.
@@ -444,7 +477,7 @@ Further reading:
 - **Holdout decay** — (validation Sharpe − holdout Sharpe) / validation Sharpe; modest if < 0.50.
 - **Breakeven cost** — per-leg bps at which the cost-sweep Sharpe crosses zero; censored if still positive at the grid ceiling.
 - **Cost margin ratio** — breakeven / assumed cost (headroom); drives the resilience label.
-- **Uplift breadth** — share of non-EW allocators beating equal weight (broad / narrow / none).
+- **Uplift breadth** — share of non-EW allocators beating equal weight; NB05 labels `broad` (> 0.5) / `moderate` (> 0.25) / `narrow` (≤ 0.25) / `none` (0).
 - **Exclusion taxonomy** — data-assigned failure types in three buckets: signal invalidity, implementation infeasibility, evidence-quality failure.
 - **PROCEED / REVISE / STOP** — triage ledger decisions; PROCEED via `fdr_significant` or `stable_and_above_threshold`.
 - **`ic_mean` vs `ic_best`** — family average IC over the sweep vs family maximum.
