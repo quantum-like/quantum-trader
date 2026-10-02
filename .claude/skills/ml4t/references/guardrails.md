@@ -10,7 +10,7 @@ Cross-cutting reference compiled from the guardrail sections of every chapter, c
 
 ## Pre-flight checklist
 
-Moved to `preflight.md`: 35 questions ordered by workflow stage, to answer before trusting or reporting any research result. Load that file (about 1,500 words), not this index or a catalog part, when SKILL.md says to run the pre-flight.
+Moved to `preflight.md`: 35 questions ordered by workflow stage, to answer before trusting or reporting any research result. Load that file (about 1,300 words), not this index or a catalog part, when SKILL.md says to run the pre-flight.
 
 ## Section map
 
