@@ -245,6 +245,8 @@ Runtime behaviours:
 2. Paper (`shadow_mode=False`) with the SAME `SafeBroker` configuration; monitor 2–4 weeks; watch the state file for kill-switch activations.
 3. Live gradually with small positions and conservative limits.
 
+Steps 1–2 are plumbing and parity checks (signals, sizes and fills match the backtest; kill switch and reconciliation behave), not performance evidence: one or two weeks of daily sessions cannot resolve a Sharpe difference. Any capital decision for a candidate against an incumbent runs through the Ch26 promotion gate, whose shadow window is `SHADOW_SESSIONS` = `MIN_OBSERVATION_SESSIONS` = 63 sessions (annualized Sharpe SE still ~2), before paper or live money is sized on the candidate (`chapters/26_mlops_governance.md`, "Shadow mode and promotion gate").
+
 ## Guardrails and pitfalls
 
 - **Two-pipeline divergence** — a live rewrite differs from the backtest in a detail nobody noticed until money was on it / one `Strategy` class, two engines; run both on the same tape and assert field-by-field equality (nb 01, 08).
@@ -333,7 +335,7 @@ Runtime behaviours:
 - Rank-and-size: filter predicted return > 0, then top-K; long-only in demos.
 - Venue split: one venue for both planes when it exists (FX on IB IDEALPRO); otherwise split data (OKX public) from execution (Alpaca paper) and track failures per plane.
 - Crypto cadence: hourly fetch (limit 300, use 250) -> 8H windows at UTC 00/08/16 labelled by window start; >= 21 complete 8H bars; funding age <= 8.0 h; live coverage >= 0.75 or stop. Funding hours (Binance) 00:00/08:00/16:00 UTC; hold-across-window decisions belong in execution.
-- Rollout: shadow 1–2 weeks -> paper (`shadow_mode=False`) 2–4 weeks with the same `SafeBroker` config -> live gradually with small positions.
+- Rollout: shadow 1–2 weeks -> paper (`shadow_mode=False`) 2–4 weeks with the same `SafeBroker` config -> live gradually with small positions. The shadow and paper weeks verify plumbing and parity; a capital decision against an incumbent needs the Ch26 promotion window (63 sessions) first.
 - Residual-delta triage: rejected status or large `fill_price` vs `last_close` gap -> investigate before the next rebalance; residual with a risk-cap or kill-switch status -> the control fired, not a bug.
 - Health-state response: `feed_silent` -> investigate feed / widen window / halt; `broker_disconnected` -> reconnect; `idle_market_closed` -> expected. Stale-data response options carried in the error: widen the staleness window, investigate the feed, or halt; never trade the stale price.
 - Order FSM: only `is_active` states can fill; `can_cancel` per state; reject any (state, event) not in `VALID_TRANSITIONS`.
