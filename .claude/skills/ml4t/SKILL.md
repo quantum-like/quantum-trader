@@ -29,9 +29,11 @@ references" entry is relative to `references/`.
    (recipes, guardrails, defaults, APIs, evidence); the cross-cutting catalogs are large and are for
    lookup, not sequential reading. Read one file at a time: start with its "When to use this
    reference" block, then Grep for the recipe, guardrail or API you need.
-3. Run `references/preflight.md` (the pre-flight checklist) before trusting or reporting any
-   research number. Fix protocol problems before tuning anything. The full stage-grouped catalog
-   behind each question is `references/guardrails.md`.
+3. Run `references/preflight.md` (the 35-question pre-flight checklist) before trusting or
+   reporting any research number. Fix protocol problems before tuning anything. The catalog behind
+   each question is indexed by `references/guardrails.md`, which maps each section to one of three
+   part files (data and features; evaluation and backtest; portfolio, costs, risk and live); open
+   one part and Grep it for the item.
 4. When a method decision comes up (which label, which split, which model family first, which
    allocator, which cost model), look it up in `references/decision_rules.md` and cite the rule.
 5. When you need to say "what usually works", use `references/evidence.md` as priors, with the
@@ -72,7 +74,7 @@ designing a new pipeline; its setup contract and stage table are the template.
 
 ## Non-negotiable guardrails (the short list)
 
-The full, stage-grouped checklist is `references/guardrails.md`. These are the ones that invalidate
+The full catalog is indexed by `references/guardrails.md` (410 items in three part files); the pre-flight questions are `references/preflight.md`. These are the ones that invalidate
 results most often; treat a violation as a bug to fix before any other work.
 
 1. **Decision-time admissibility.** Every feature, label, scaler, imputer, regime model, universe
@@ -155,7 +157,8 @@ When asked to extend or validate that work, run the audit pattern above first.
 
 Cross-cutting (open these first for any multi-stage task):
 - `references/workflow.md` — the end-to-end process: 14 stages with purpose, outputs, gate questions and which file to open; run-log discipline; how the nine case studies instantiate it; common failure modes.
-- `references/guardrails.md` — pre-flight checklist and the stage-grouped catalog of every guardrail with detection and prevention.
+- `references/preflight.md` — the 35 pre-flight questions, ordered by stage; answer every one before reporting a number.
+- `references/guardrails.md` — index of the 410-item guardrail catalog (tag legend, section map by workflow stage) pointing to `references/guardrails_data_features.md` (§1-5), `references/guardrails_evaluation_backtest.md` (§6-9) and `references/guardrails_portfolio_live.md` (§10-16); each item gives what, why, and how to detect or prevent.
 - `references/decision_rules.md` — numeric defaults, thresholds and sequencing rules in tables, with sources.
 - `references/evidence.md` — what the nine case studies found; what generalizes and what did not.
 - `references/glossary.md` — vocabulary and abbreviations.
