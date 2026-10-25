@@ -1,0 +1,27 @@
+analyze: traj/hs_charges_20p20m  source=xyz [float64 (xyz, %.10f text)]  frames=721 N=1000 L=11.436949
+  integrator: collision Verlet (HLL 2000) + F2 physical-velocity collision rule, q1=1, q2=1.5 dt=0.005; 243150 Verlet sub-steps, 0 vmin events, 0 drift fixes, max contact error 1.9e-14  [from json]
+  min pair distance over all frames: 1.000000381452 (frame 698, t=17.4500); tolerance 1-1.0e-09  -> OK, no overlap  [27.7s]
+  simulator's own per-frame min_dist (double precision, cell list): min 1.000000381495
+  contract (FORMAT.md): OK (types 1/2/3 non-decreasing, charges consistent, json fields/machine string, uniform frame times)
+  temperature: mean 0.998996  std 0.002698  (kT target 1; KE mean 1496.9957, PE mean -71.6447)
+  energy: E0=1425.33330502 E_end=1425.36632293  drift (E_end-E0)/|E0| = 2.317e-05  max|E-E0|/|E0| = 2.360e-05  rms/|E0| = 7.453e-06  slope = 1.425e-06 /tau
+  collisions in production: 128814  (14.313 per particle per tau)
+  Z_virial 5.2239 vs Z_CS 5.2057 (+0.35%)  [from json]
+  stationarity (first half | second half of production): T 0.9985 | 0.9995   PE -70.969 | -72.318   +/- pairs(1.2s) 7.90 | 8.69
+  linear trends over the run: dPE/dt = -0.0177 kT/tau (|dPE/dt|*t_run = 0.32 kT = 0.4% of |PE|), dT/dt = +1.31e-05 /tau (|dT/dt|*t_run = 0.02% of T)
+  initial relaxation check: PE first 2 tau -71.39 vs rest -71.68 (2-tau block std 3.70; difference +0.1 sigma)
+  T_mean - 1 = -0.0010 (NVE: set by PE at the end of equilibration; expected scatter +-0.0027 from PE fluctuations)
+  stationarity: OK (no significant PE/T trend)
+  ions: 40 (+20/-20), bond criterion r(+-) < 1.2 sigma
+  fraction of ions whose nearest opposite ion is within 1.2 sigma: mean 0.377 (min 0.100, max 0.650); mean nearest-opposite distance 1.643 sigma
+  +/- contact pairs per frame: mean 8.29 (min 2, max 15)
+  cluster-size histogram (mean clusters per frame / fraction of ions):
+      size  1:  24.935 clusters    62.34% of ions
+      size  2:   5.497 clusters    27.48% of ions
+      size  3:   1.075 clusters     8.06% of ions
+      size  4:   0.169 clusters     1.69% of ions
+      size  5:   0.021 clusters     0.26% of ions
+      size  6:   0.011 clusters     0.17% of ions
+  largest cluster per frame: mean 3.02, max 6; clusters of size>=3 per frame: chains (max degree 2) 1.265, branched 0.011
+  verdict: partially paired: on average 38% of ions sit in a +/- contact pair (pairs form and break; 62% free at any instant); occasional triplets/short chains (10% of ions in clusters of >=3)
+  overlap check: passed; contract check: passed; analysis wall time 28.4s
