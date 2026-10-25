@@ -1,0 +1,29 @@
+{
+ "file": "fig_cv_scheme",
+ "width": "full",
+ "caption": "Collision Verlet (Houndonougbo, Laird & Leimkuhler 2000) as implemented. (a) The +/\u2212 Coulomb pair potential \u03c6c = \u2212l_B/r (l_B = 5 \u03c3) is split into a long-range part \u03c6\u2082 that follows the Hermite cubic P(r) on [q\u2081, q\u2082] = [1, 1.5] \u03c3 and is flat at P(q\u2081) = \u22123.70 kT inside q\u2081, and a short-range part \u03c6\u2081 = \u03c6c \u2212 \u03c6\u2082 that vanishes beyond q\u2082; the hard core r < \u03c3 is shaded. (b) The corresponding pair forces: F\u2082 and its slope vanish at contact, F\u2081 carries the full contact force \u22125 kT/\u03c3 and goes to zero continuously at q\u2082. (c) One step h: outer half-kicks with F\u2082, exact hard-sphere propagation in between in which every hard collision (anywhere in the system) cuts the step into velocity-Verlet sub-steps with F\u2081; accelerated ions follow parabolic paths and their collision times are the smallest positive root of the quartic |\u0394q + \u0394v\u03c4 + \u00bd\u0394a\u03c4\u00b2|\u00b2 = \u03c3\u00b2. The shipped cv-phys variant reflects the physical velocity v + F\u2082(\u03c4\u1d62 \u2212 h/2) at each collision instead of the drift velocity.",
+ "numbers": {
+  "l_B_sigma": 5.0,
+  "q1_sigma": 1.0,
+  "q2_sigma": 1.5,
+  "A0_kT": -6.66666666666667,
+  "A1_kT_per_sigma": 8.88888888888889,
+  "A2_kT_per_sigma2": -8.88888888888889,
+  "A3_kT_per_sigma3": 2.9629629629629632,
+  "P_q1_kT": -3.7037037037037064,
+  "phi_c_q2_kT": -3.3333333333333335,
+  "dphi_c_dr_q2_kT_per_sigma": 2.2222222222222223,
+  "phi_c_contact_kT": -5.0,
+  "phi1_contact_kT": -1.2962962962962936,
+  "F_c_contact_kT_per_sigma": -5.0,
+  "F1_contact_kT_per_sigma": -5.0,
+  "F2_contact_kT_per_sigma": 0.0,
+  "F_c_q2_kT_per_sigma": -2.2222222222222223,
+  "plotted_r_range_sigma": [
+   0.8,
+   3.0
+  ],
+  "step_h_tau": 0.005,
+  "mean_collision_interval_system_tau": 0.00014
+ }
+}

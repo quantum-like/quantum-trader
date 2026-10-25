@@ -1,0 +1,47 @@
+{
+ "file": "fig_render_cost",
+ "width": "half",
+ "caption": "Rendering cost per 1280\u00d7720 frame on the 4-core Xeon box (no GPU), measured on the 1000-sphere test trajectory including overlay and PNG writing: OVITO/Tachyon cpk at final quality (16 ambient-occlusion samples, 16 Tachyon threads) takes 1.43 s per frame, i.e. \u2248 17 min for a 721-frame movie, the x-ray preset 1.27 s (\u2248 15 min), the AO-free draft preset 0.26 s (\u2248 3 min) and the numpy fallback renderer with 4 worker processes 0.24 s wall (\u2248 3 min). Vertical ticks mark the three production runs (1028 s, 1031 s and 896 s wall for render plus encode).",
+ "numbers": {
+  "seconds_per_frame_incl_overlay_png": {
+   "OVITO cpk, final (AO 16 samples)": 1.43,
+   "OVITO x-ray, final": 1.27,
+   "OVITO cpk, draft": 0.26,
+   "numpy, 4 workers": 0.24
+  },
+  "minutes_per_721_frame_movie_estimate": {
+   "OVITO cpk, final (AO 16 samples)": 17.2,
+   "OVITO x-ray, final": 15.3,
+   "OVITO cpk, draft": 3.1,
+   "numpy, 4 workers": 2.9
+  },
+  "production_wall_s_render_plus_encode": {
+   "hs_neutral (cpk final)": 1028,
+   "hs_charges_20p20m (cpk final)": 1031,
+   "hs_charges_20p20m_xray (x-ray final)": 896
+  },
+  "production_s_per_frame_incl_encode": {
+   "hs_neutral (cpk final)": 1.426,
+   "hs_charges_20p20m (cpk final)": 1.43,
+   "hs_charges_20p20m_xray (x-ray final)": 1.243
+  },
+  "production_minutes": {
+   "hs_neutral (cpk final)": 17.1,
+   "hs_charges_20p20m (cpk final)": 17.2,
+   "hs_charges_20p20m_xray (x-ray final)": 14.9
+  },
+  "render_only_s_per_frame_readme": {
+   "ovito cpk final AO16 16 threads": 1.38,
+   "ovito cpk final AO16 4 threads": 2.02,
+   "ovito cpk final AO6": 0.65,
+   "ovito cpk draft": 0.2,
+   "ovito xray final": 1.22,
+   "ovito cpk final 1920x1080": 3.49,
+   "numpy cpk final 1 process": 0.56
+  },
+  "ovito_thread_count": 16,
+  "cpu": "4 x Intel Xeon 2.10 GHz, no GPU",
+  "ffmpeg_encode_s_per_721_frames": 20,
+  "xray_ao_on_rejected_s_per_frame": 12.3
+ }
+}

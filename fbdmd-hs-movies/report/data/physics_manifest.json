@@ -1,0 +1,1148 @@
+{
+ "generated_by": "report/physics_analysis.py + report/physics_figures.py",
+ "system": {
+  "N": 1000,
+  "eta": 0.35,
+  "L_sigma": 11.4369,
+  "kT": 1.0,
+  "frames": 721,
+  "dt_frame_tau": 0.025,
+  "t_run_tau": 18.0,
+  "ions": "20 (+e) / 20 (−e), l_B = 5 σ, Ewald",
+  "movie_fps": 30,
+  "movie_seconds_per_tau": 1.33
+ },
+ "runs": {
+  "neutral": "traj/hs_neutral (EDMD)",
+  "charged cv-phys": "traj/hs_charges_20p20m",
+  "charged cv": "traj/_test/cv_confirmer_prod/charged_cv (reused, integrator_id cv, default production parameters)",
+  "charged kdk-phys": "traj/_test/cv_confirmer_prod/charged_kdk (reused, integrator_id kdk-phys)",
+  "charged naive": "traj/_test/report/charged_naive (new run)"
+ },
+ "data_files": [
+  "physics_numbers_raw.json",
+  "energy_timeseries.csv",
+  "pairing_timeseries.csv",
+  "cluster_hist.csv",
+  "contact_episodes.csv",
+  "lifetime_survival.csv",
+  "gr_neutral.csv",
+  "gr_charged.csv",
+  "pmf_pm.csv",
+  "msd.csv",
+  "displacement_hist.csv",
+  "freeflight.csv"
+ ],
+ "notes": [
+  "All statistics from the float32 npz positions (721 frames); pair counts per frame agree with the simulator's own double-precision n_pairs_pm_1p2 column in all 721 frames.",
+  "Energy panels use the per-frame _diag.csv Etot of each integrator run; cv and kdk-phys reuse traj/_test/cv_confirmer_prod/charged_{cv,kdk} (same command-line defaults as production, integrator_id checked); naive was run for this report.",
+  "fig_energy (b) uses two stacked sub-panels instead of twin axes.",
+  "Contact-episode lifetime = number of consecutive frames with r < 1.2 sigma times dt_frame (resolution 0.025 tau); 17 of 287 episodes touch the first or last frame and are included uncensored (excluding them changes the mean by 0.005 tau).",
+  "g(r) normalised per pair type with the exact shell volume and minimum-image distances; g_HS in the PMF is the neutral run rebinned to 0.05 sigma. The PMF is a finite-N (40 ions) canonical quantity: g_pm averages 0.987 at r > 4.5 sigma.",
+  "D is the slope of MSD(t) over 1-4 tau divided by 6; MSD/(6t) averaged over the same window is 10 % lower because MSD has a negative intercept after the ballistic regime.",
+  "Free-flight criterion evaluated on npz float32 data: roundoff cluster ends at 2.9e-6 sigma, the 1e-5 threshold lies in a clean gap (float64 xyz on frames 0-11 gives the identical fraction 0.4969).",
+  "Floats are quoted to 3 significant digits; integer counts are exact."
+ ],
+ "figures": [
+  {
+   "file": "fig_energy",
+   "width": "full",
+   "caption": "Energy conservation and collision statistics of the production runs (N = 1000, η = 0.35, 18 τ NVE). (a) Total-energy deviation E(t) − E(0) for the four integrators of the charged system (20+/20−, l_B = 5 σ, Δt = 0.005 τ): the naive splitting drifts by +1.48 kT, literal collision Verlet (cv) by −0.19 kT, kdk-phys by +0.075 kT and the shipped cv-phys by +0.033 kT (2.3 × 10⁻⁵ of |E₀|; inset without naive). (b) cv-phys: kinetic and potential energy fluctuate by ±4 kT in antiphase while their sum changes by 0.034 kT at most. (c) Instantaneous temperature of the cv-phys run, ⟨T⟩ = 0.9990 ± 0.0027 kT. (d) Cumulative hard-sphere collisions in the neutral and charged runs against the Enskog rate N Γ_E/2 with Γ_E = 14.24 per particle per τ; both runs exceed Enskog by 0.6 % (inset).",
+   "numbers": {
+    "naive": {
+     "run": "traj/_test/report/charged_naive",
+     "integrator": "EDMD + kick-drift-kick (naive splitting, HLL eq. 9)",
+     "drift_E_end_minus_E0": {
+      "value": 1.48,
+      "unit": "kT"
+     },
+     "drift_rel": {
+      "value": 0.00104,
+      "unit": "1 (relative to |E0|)"
+     },
+     "drift_per_particle": {
+      "value": 0.00148,
+      "unit": "kT per particle"
+     },
+     "max_abs_dev": {
+      "value": 1.81,
+      "unit": "kT"
+     },
+     "max_abs_dev_rel": {
+      "value": 0.00127,
+      "unit": "1 (relative to |E0|)"
+     },
+     "max_abs_dev_per_particle": {
+      "value": 0.00181,
+      "unit": "kT per particle"
+     },
+     "rms_dev_from_E0": {
+      "value": 0.989,
+      "unit": "kT"
+     },
+     "rms_about_mean": {
+      "value": 0.611,
+      "unit": "kT"
+     },
+     "rms_about_mean_rel": {
+      "value": 0.000427,
+      "unit": "1 (json energy_rms_rel)"
+     },
+     "frame_to_frame_scatter_rms": {
+      "value": 0.0321,
+      "unit": "kT"
+     },
+     "drift_slope": {
+      "value": 0.111,
+      "unit": "kT/τ"
+     },
+     "T_mean": {
+      "value": 1.0,
+      "unit": "kT"
+     },
+     "T_mean_minus_1": {
+      "value": 0.00256,
+      "unit": "kT"
+     },
+     "T_std": {
+      "value": 0.00325,
+      "unit": "kT"
+     },
+     "PE_mean": {
+      "value": -71.9,
+      "unit": "kT"
+     },
+     "PE_std": {
+      "value": 4.86,
+      "unit": "kT"
+     },
+     "KE_std": {
+      "value": 4.87,
+      "unit": "kT"
+     },
+     "n_collisions_production": {
+      "value": 129026,
+      "unit": "collisions in 18 τ"
+     },
+     "collision_rate": {
+      "value": 14.3,
+      "unit": "collisions per particle per τ"
+     },
+     "Z_virial": {
+      "value": 5.23,
+      "unit": "1 (collisional pressure PV/NkT)"
+     },
+     "Z_rel_dev_from_CS": {
+      "value": 0.00491,
+      "unit": "1"
+     },
+     "pairs_per_frame_mean": {
+      "value": 8.94,
+      "unit": "+/− pairs with r < 1.2 σ"
+     },
+     "wall_seconds_sim": {
+      "value": 4.74,
+      "unit": "s"
+     }
+    },
+    "cv": {
+     "run": "traj/_test/cv_confirmer_prod/charged_cv",
+     "integrator": "collision Verlet (HLL 2000), q1=1, q2=1.5",
+     "drift_E_end_minus_E0": {
+      "value": -0.185,
+      "unit": "kT"
+     },
+     "drift_rel": {
+      "value": -0.000129,
+      "unit": "1 (relative to |E0|)"
+     },
+     "drift_per_particle": {
+      "value": -0.000185,
+      "unit": "kT per particle"
+     },
+     "max_abs_dev": {
+      "value": 0.232,
+      "unit": "kT"
+     },
+     "max_abs_dev_rel": {
+      "value": 0.000162,
+      "unit": "1 (relative to |E0|)"
+     },
+     "max_abs_dev_per_particle": {
+      "value": 0.000232,
+      "unit": "kT per particle"
+     },
+     "rms_dev_from_E0": {
+      "value": 0.102,
+      "unit": "kT"
+     },
+     "rms_about_mean": {
+      "value": 0.102,
+      "unit": "kT"
+     },
+     "rms_about_mean_rel": {
+      "value": 7.16e-05,
+      "unit": "1 (json energy_rms_rel)"
+     },
+     "frame_to_frame_scatter_rms": {
+      "value": 0.00903,
+      "unit": "kT"
+     },
+     "drift_slope": {
+      "value": -0.0143,
+      "unit": "kT/τ"
+     },
+     "T_mean": {
+      "value": 1.0,
+      "unit": "kT"
+     },
+     "T_mean_minus_1": {
+      "value": 0.00251,
+      "unit": "kT"
+     },
+     "T_std": {
+      "value": 0.00237,
+      "unit": "kT"
+     },
+     "PE_mean": {
+      "value": -70.9,
+      "unit": "kT"
+     },
+     "PE_std": {
+      "value": 3.54,
+      "unit": "kT"
+     },
+     "KE_std": {
+      "value": 3.55,
+      "unit": "kT"
+     },
+     "n_collisions_production": {
+      "value": 129033,
+      "unit": "collisions in 18 τ"
+     },
+     "collision_rate": {
+      "value": 14.3,
+      "unit": "collisions per particle per τ"
+     },
+     "Z_virial": {
+      "value": 5.23,
+      "unit": "1 (collisional pressure PV/NkT)"
+     },
+     "Z_rel_dev_from_CS": {
+      "value": 0.00439,
+      "unit": "1"
+     },
+     "pairs_per_frame_mean": {
+      "value": 8.24,
+      "unit": "+/− pairs with r < 1.2 σ"
+     },
+     "wall_seconds_sim": {
+      "value": 10.6,
+      "unit": "s"
+     }
+    },
+    "kdk-phys": {
+     "run": "traj/_test/cv_confirmer_prod/charged_kdk",
+     "integrator": "EDMD + kick-drift-kick (physical-velocity collision rule)",
+     "drift_E_end_minus_E0": {
+      "value": 0.0749,
+      "unit": "kT"
+     },
+     "drift_rel": {
+      "value": 5.23e-05,
+      "unit": "1 (relative to |E0|)"
+     },
+     "drift_per_particle": {
+      "value": 7.49e-05,
+      "unit": "kT per particle"
+     },
+     "max_abs_dev": {
+      "value": 0.0749,
+      "unit": "kT"
+     },
+     "max_abs_dev_rel": {
+      "value": 5.23e-05,
+      "unit": "1 (relative to |E0|)"
+     },
+     "max_abs_dev_per_particle": {
+      "value": 7.49e-05,
+      "unit": "kT per particle"
+     },
+     "rms_dev_from_E0": {
+      "value": 0.0423,
+      "unit": "kT"
+     },
+     "rms_about_mean": {
+      "value": 0.0211,
+      "unit": "kT"
+     },
+     "rms_about_mean_rel": {
+      "value": 1.47e-05,
+      "unit": "1 (json energy_rms_rel)"
+     },
+     "frame_to_frame_scatter_rms": {
+      "value": 0.000323,
+      "unit": "kT"
+     },
+     "drift_slope": {
+      "value": 0.00404,
+      "unit": "kT/τ"
+     },
+     "T_mean": {
+      "value": 1.0,
+      "unit": "kT"
+     },
+     "T_mean_minus_1": {
+      "value": 0.00309,
+      "unit": "kT"
+     },
+     "T_std": {
+      "value": 0.00248,
+      "unit": "kT"
+     },
+     "PE_mean": {
+      "value": -70.7,
+      "unit": "kT"
+     },
+     "PE_std": {
+      "value": 3.71,
+      "unit": "kT"
+     },
+     "KE_std": {
+      "value": 3.71,
+      "unit": "kT"
+     },
+     "n_collisions_production": {
+      "value": 128660,
+      "unit": "collisions in 18 τ"
+     },
+     "collision_rate": {
+      "value": 14.3,
+      "unit": "collisions per particle per τ"
+     },
+     "Z_virial": {
+      "value": 5.22,
+      "unit": "1 (collisional pressure PV/NkT)"
+     },
+     "Z_rel_dev_from_CS": {
+      "value": 0.00244,
+      "unit": "1"
+     },
+     "pairs_per_frame_mean": {
+      "value": 8.36,
+      "unit": "+/− pairs with r < 1.2 σ"
+     },
+     "wall_seconds_sim": {
+      "value": 4.76,
+      "unit": "s"
+     }
+    },
+    "cv-phys": {
+     "run": "traj/hs_charges_20p20m",
+     "integrator": "collision Verlet (HLL 2000) + F2 physical-velocity collision rule, q1=1, q2=1.5",
+     "drift_E_end_minus_E0": {
+      "value": 0.033,
+      "unit": "kT"
+     },
+     "drift_rel": {
+      "value": 2.32e-05,
+      "unit": "1 (relative to |E0|)"
+     },
+     "drift_per_particle": {
+      "value": 3.3e-05,
+      "unit": "kT per particle"
+     },
+     "max_abs_dev": {
+      "value": 0.0336,
+      "unit": "kT"
+     },
+     "max_abs_dev_rel": {
+      "value": 2.36e-05,
+      "unit": "1 (relative to |E0|)"
+     },
+     "max_abs_dev_per_particle": {
+      "value": 3.36e-05,
+      "unit": "kT per particle"
+     },
+     "rms_dev_from_E0": {
+      "value": 0.0206,
+      "unit": "kT"
+     },
+     "rms_about_mean": {
+      "value": 0.0106,
+      "unit": "kT"
+     },
+     "rms_about_mean_rel": {
+      "value": 7.45e-06,
+      "unit": "1 (json energy_rms_rel)"
+     },
+     "frame_to_frame_scatter_rms": {
+      "value": 0.000248,
+      "unit": "kT"
+     },
+     "drift_slope": {
+      "value": 0.00203,
+      "unit": "kT/τ"
+     },
+     "T_mean": {
+      "value": 0.999,
+      "unit": "kT"
+     },
+     "T_mean_minus_1": {
+      "value": -0.001,
+      "unit": "kT"
+     },
+     "T_std": {
+      "value": 0.0027,
+      "unit": "kT"
+     },
+     "PE_mean": {
+      "value": -71.6,
+      "unit": "kT"
+     },
+     "PE_std": {
+      "value": 4.04,
+      "unit": "kT"
+     },
+     "KE_std": {
+      "value": 4.04,
+      "unit": "kT"
+     },
+     "n_collisions_production": {
+      "value": 128814,
+      "unit": "collisions in 18 τ"
+     },
+     "collision_rate": {
+      "value": 14.3,
+      "unit": "collisions per particle per τ"
+     },
+     "Z_virial": {
+      "value": 5.22,
+      "unit": "1 (collisional pressure PV/NkT)"
+     },
+     "Z_rel_dev_from_CS": {
+      "value": 0.00348,
+      "unit": "1"
+     },
+     "pairs_per_frame_mean": {
+      "value": 8.29,
+      "unit": "+/− pairs with r < 1.2 σ"
+     },
+     "wall_seconds_sim": {
+      "value": 9.96,
+      "unit": "s"
+     }
+    },
+    "neutral": {
+     "run": "traj/hs_neutral",
+     "integrator": "EDMD (exact)",
+     "n_collisions_production": {
+      "value": 128890,
+      "unit": "collisions in 18 τ"
+     },
+     "collision_rate": {
+      "value": 14.3,
+      "unit": "collisions per particle per τ"
+     },
+     "enskog_rate": {
+      "value": 14.2,
+      "unit": "collisions per particle per τ"
+     },
+     "Z_virial": {
+      "value": 5.23,
+      "unit": "1"
+     },
+     "Z_CS": {
+      "value": 5.21,
+      "unit": "1"
+     },
+     "Z_rel_dev_from_CS": {
+      "value": 0.00525,
+      "unit": "1"
+     },
+     "KE_max_rel_dev": {
+      "value": 0.0,
+      "unit": "1 (KE constant to roundoff)"
+     }
+    },
+    "enskog_slope": {
+     "value": 7120.0,
+     "unit": "collisions per τ (N Γ_E / 2)"
+    },
+    "excess_over_enskog_neutral": {
+     "value": 0.591,
+     "unit": "%"
+    },
+    "excess_over_enskog_charged": {
+     "value": 0.531,
+     "unit": "%"
+    },
+    "ratio_naive_to_cvphys_max_dev": {
+     "value": 53.8,
+     "unit": "1"
+    },
+    "ratio_cv_to_cvphys_max_dev": {
+     "value": 6.89,
+     "unit": "1"
+    },
+    "ratio_kdk_to_cvphys_max_dev": {
+     "value": 2.23,
+     "unit": "1"
+    },
+    "ratio_cv_to_cvphys_frame_scatter": {
+     "value": 36.4,
+     "unit": "1"
+    }
+   }
+  },
+  {
+   "file": "fig_pairing",
+   "width": "full",
+   "caption": "Bjerrum pairing in the charged production run (20+/20−, l_B = 5 σ, cv-phys, 721 frames). (a) Number of +/− contact pairs (r < 1.2 σ) per frame, mean 8.3 (range 2–15). (b) Fraction of ions in a contact pair (38 ± 11 %) and fraction with an opposite ion within l_B/2 = 2.5 σ (86 %); dashed and dotted lines are the random-placement baselines 0.57 (2.5 σ) and 0.08 (1.2 σ, random 20+20 subsets of the neutral run). (c) Fraction of ions in connected +/− clusters of size 1–6: 10 % sit in clusters of three or more, almost all linear chains. (d) Survival function of contact-episode lifetimes: median 0.35 τ, mean 0.52 τ, 90th percentile 1.18 τ, longest 2.48 τ (3.3 s of movie); the dotted curve is an exponential with the same mean.",
+   "numbers": {
+    "pairs_per_frame_mean": {
+     "value": 8.29,
+     "unit": "+/− pairs (r < 1.2 σ)"
+    },
+    "pairs_per_frame_std": {
+     "value": 2.52,
+     "unit": "pairs"
+    },
+    "pairs_per_frame_min": {
+     "value": 2,
+     "unit": "pairs"
+    },
+    "pairs_per_frame_max": {
+     "value": 15,
+     "unit": "pairs"
+    },
+    "pairs_first_half_mean": {
+     "value": 7.9,
+     "unit": "pairs"
+    },
+    "pairs_second_half_mean": {
+     "value": 8.69,
+     "unit": "pairs"
+    },
+    "pairs_match_simulator_diag": {
+     "value": 721,
+     "unit": "frames out of 721 with identical count"
+    },
+    "frac_ions_in_contact_pair_mean": {
+     "value": 0.377,
+     "unit": "1"
+    },
+    "frac_ions_in_contact_pair_std": {
+     "value": 0.109,
+     "unit": "1"
+    },
+    "frac_ions_in_contact_pair_min": {
+     "value": 0.1,
+     "unit": "1"
+    },
+    "frac_ions_in_contact_pair_max": {
+     "value": 0.65,
+     "unit": "1"
+    },
+    "frac_ions_opposite_within_2p5_mean": {
+     "value": 0.858,
+     "unit": "1"
+    },
+    "frac_ions_opposite_within_2p5_std": {
+     "value": 0.0386,
+     "unit": "1"
+    },
+    "frac_ions_opposite_within_2p5_min": {
+     "value": 0.75,
+     "unit": "1"
+    },
+    "frac_ions_opposite_within_2p5_max": {
+     "value": 0.925,
+     "unit": "1"
+    },
+    "opposite_ions_within_2p5_per_ion": {
+     "value": 1.48,
+     "unit": "ions"
+    },
+    "mean_nearest_opposite_distance": {
+     "value": 1.64,
+     "unit": "σ"
+    },
+    "baseline_random_2p5_ideal": {
+     "value": 0.567,
+     "unit": "1 (1 − (1 − V_shell/V)^20, hard core only)"
+    },
+    "baseline_random_2p5_neutral_subsets": {
+     "value": 0.585,
+     "unit": "1 (100 random 20+20 subsets of the neutral run)"
+    },
+    "baseline_random_2p5_neutral_subsets_std": {
+     "value": 0.0565,
+     "unit": "1"
+    },
+    "baseline_random_1p2_neutral_subsets": {
+     "value": 0.0802,
+     "unit": "1"
+    },
+    "baseline_random_1p2_neutral_subsets_std": {
+     "value": 0.0219,
+     "unit": "1"
+    },
+    "baseline_random_1p2_ideal": {
+     "value": 0.04,
+     "unit": "1 (ideal gas, no g(r) enhancement)"
+    },
+    "baseline_pairs_per_frame_random": {
+     "value": 1.66,
+     "unit": "pairs"
+    },
+    "same_sign_contacts_per_frame": {
+     "value": 0.308,
+     "unit": "++ or −− pairs with r < 1.2 σ"
+    },
+    "cluster_sizes": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "fraction_of_ions_by_cluster_size": [
+     0.623,
+     0.275,
+     0.0806,
+     0.0169,
+     0.0026,
+     0.00166
+    ],
+    "clusters_per_frame_by_size": [
+     24.9,
+     5.5,
+     1.07,
+     0.169,
+     0.0208,
+     0.0111
+    ],
+    "frac_ions_in_clusters_ge3": {
+     "value": 0.102,
+     "unit": "1"
+    },
+    "largest_cluster_mean": {
+     "value": 3.02,
+     "unit": "ions"
+    },
+    "largest_cluster_max": {
+     "value": 6,
+     "unit": "ions"
+    },
+    "chains_ge3_per_frame": {
+     "value": 1.26,
+     "unit": "clusters (max degree 2)"
+    },
+    "branched_ge3_per_frame": {
+     "value": 0.0111,
+     "unit": "clusters"
+    },
+    "frames_with_branched_cluster": {
+     "value": 0.0111,
+     "unit": "1"
+    },
+    "n_contact_episodes": {
+     "value": 287,
+     "unit": "episodes in 18 τ (incl. 17 truncated at the run ends)"
+    },
+    "episodes_per_tau": {
+     "value": 15.9,
+     "unit": "1/τ"
+    },
+    "lifetime_mean": {
+     "value": 0.521,
+     "unit": "τ"
+    },
+    "lifetime_median": {
+     "value": 0.35,
+     "unit": "τ"
+    },
+    "lifetime_p90": {
+     "value": 1.18,
+     "unit": "τ"
+    },
+    "lifetime_max": {
+     "value": 2.48,
+     "unit": "τ"
+    },
+    "lifetime_mean_movie": {
+     "value": 0.694,
+     "unit": "s at 30 fps"
+    },
+    "lifetime_median_movie": {
+     "value": 0.467,
+     "unit": "s at 30 fps"
+    },
+    "lifetime_p90_movie": {
+     "value": 1.57,
+     "unit": "s at 30 fps"
+    },
+    "lifetime_max_movie": {
+     "value": 3.3,
+     "unit": "s at 30 fps"
+    },
+    "lifetime_mean_uncensored": {
+     "value": 0.516,
+     "unit": "τ (270 episodes not touching the run ends)"
+    },
+    "lifetime_resolution": {
+     "value": 0.025,
+     "unit": "τ (one frame; lifetime = n_frames × Δt_frame)"
+    },
+    "distinct_partners_per_plus_ion_mean": {
+     "value": 2.35,
+     "unit": "− partners over 18 τ"
+    },
+    "distinct_partners_per_plus_ion_min": {
+     "value": 1,
+     "unit": "partners"
+    },
+    "distinct_partners_per_plus_ion_max": {
+     "value": 6,
+     "unit": "partners"
+    },
+    "distinct_partners_per_minus_ion_mean": {
+     "value": 2.35,
+     "unit": "+ partners over 18 τ"
+    },
+    "distinct_partners_per_minus_ion_min": {
+     "value": 0,
+     "unit": "partners"
+    },
+    "distinct_pm_pairs_ever_in_contact": {
+     "value": 47,
+     "unit": "of 400 possible"
+    },
+    "movie_seconds_per_tau": {
+     "value": 1.33,
+     "unit": "s/τ"
+    }
+   }
+  },
+  {
+   "file": "fig_structure",
+   "width": "full",
+   "caption": "Static structure. (a) Neutral–neutral pair distribution of the hard-sphere run (η = 0.35, 0.01 σ bins, 721 frames, minimum image): the contact value extrapolated from 1.0–1.1 σ is g(σ⁺) = 3.01, against the Carnahan–Starling value 3.00 and 3.02 implied by the collisional virial Z = 5.233. (b) Ion correlations in the charged run (0.05 σ bins, all 721 frames; error bars are Poisson): g₊₋ reaches 16.8 ± 0.4 in the contact bin (≈20 extrapolated to σ⁺), same-sign pairs are depleted at contact (g ≈ 0.5) and pile up at ≈2.2 σ, while ion–neutral correlations are indistinguishable from the neutral fluid. (c) Potential of mean force w₊₋ = −ln[g₊₋/g_HS] compared with the bare Coulomb pair energy −l_B/r and the linearised Debye–Hückel screened potential (κσ = 1.30): the effective attraction at contact is −1.81 ± 0.02 kT, far weaker than the bare −5 kT, because the other 38 ions screen the pair; the DH curve is shown only as a scale since l_B/σ = 5 is outside its range of validity.",
+   "numbers": {
+    "eta": {
+     "value": 0.35,
+     "unit": "1"
+    },
+    "rho": {
+     "value": 0.668,
+     "unit": "σ⁻³"
+    },
+    "frames_averaged_neutral": {
+     "value": 721,
+     "unit": "frames"
+    },
+    "frames_averaged_charged": {
+     "value": 721,
+     "unit": "frames"
+    },
+    "bin_width_neutral": {
+     "value": 0.01,
+     "unit": "σ"
+    },
+    "bin_width_charged": {
+     "value": 0.05,
+     "unit": "σ"
+    },
+    "g_contact_CS": {
+     "value": 3.0,
+     "unit": "1 ((1−η/2)/(1−η)³)"
+    },
+    "g_contact_extrapolated_quadratic_fit": {
+     "value": 3.01,
+     "unit": "1 (quadratic fit of g over 1.0–1.1 σ)"
+    },
+    "g_contact_extrapolated_linear_fit": {
+     "value": 2.98,
+     "unit": "1 (linear fit over 1.0–1.1 σ)"
+    },
+    "g_first_bin_1p00_1p01": {
+     "value": 2.96,
+     "unit": "1"
+    },
+    "g_contact_from_Z_virial_neutral": {
+     "value": 3.02,
+     "unit": "1 ((Z−1)/4η with Z = 5.233)"
+    },
+    "g_contact_from_Z_virial_charged": {
+     "value": 3.02,
+     "unit": "1 (Z = 5.224)"
+    },
+    "g_nn_first_minimum": {
+     "r": {
+      "value": 1.65,
+      "unit": "σ"
+     },
+     "g": {
+      "value": 0.801,
+      "unit": "1"
+     }
+    },
+    "g_nn_second_peak": {
+     "r": {
+      "value": 2.1,
+      "unit": "σ"
+     },
+     "g": {
+      "value": 1.12,
+      "unit": "1"
+     }
+    },
+    "g_pm_contact_bin_1p00_1p05": {
+     "value": 16.8,
+     "unit": "1"
+    },
+    "g_pm_contact_bin_err": {
+     "value": 0.364,
+     "unit": "1 (Poisson)"
+    },
+    "g_pm_contact_bin_counts": {
+     "value": 2144,
+     "unit": "pair samples"
+    },
+    "g_pm_contact_extrapolated": {
+     "value": 19.7,
+     "unit": "1 (exp. fit of ln g over 1.0–1.15 σ, 0.01 σ bins)"
+    },
+    "g_pm_decay_length_near_contact": {
+     "value": 0.14,
+     "unit": "σ"
+    },
+    "g_pm_second_peak": {
+     "r": {
+      "value": 1.67,
+      "unit": "σ"
+     },
+     "g": {
+      "value": 1.38,
+      "unit": "1"
+     }
+    },
+    "g_samesign_contact_bin": {
+     "value": 0.504,
+     "unit": "1"
+    },
+    "g_samesign_contact_bin_err": {
+     "value": 0.0646,
+     "unit": "1"
+    },
+    "g_samesign_contact_bin_counts": {
+     "value": 61,
+     "unit": "pair samples"
+    },
+    "g_samesign_peak": {
+     "r": {
+      "value": 2.23,
+      "unit": "σ"
+     },
+     "g": {
+      "value": 1.02,
+      "unit": "1"
+     }
+    },
+    "g_ion_neutral_contact_bin": {
+     "value": 2.57,
+     "unit": "1"
+    },
+    "g_nn_charged_run_contact_bin": {
+     "value": 2.75,
+     "unit": "1"
+    },
+    "g_HS_neutral_run_contact_bin_0p05": {
+     "value": 2.74,
+     "unit": "1"
+    },
+    "g_large_r_mean_4p5_5p7": {
+     "pm": {
+      "value": 0.987,
+      "unit": "1"
+     },
+     "nn": {
+      "value": 1.0,
+      "unit": "1"
+     },
+     "ion_neutral": {
+      "value": 1.0,
+      "unit": "1"
+     },
+     "samesign": {
+      "value": 1.02,
+      "unit": "1"
+     }
+    },
+    "w_contact_bin": {
+     "value": -1.81,
+     "unit": "kT (1.00–1.05 σ)"
+    },
+    "w_contact_bin_err": {
+     "value": 0.0216,
+     "unit": "kT"
+    },
+    "w_contact_extrapolated": {
+     "value": -1.88,
+     "unit": "kT (−ln[g_pm(σ⁺)/g_HS(σ⁺)] from the two extrapolations)"
+    },
+    "w_vs_r_first_bins": [
+     [
+      1.02,
+      -1.81
+     ],
+     [
+      1.08,
+      -1.56
+     ],
+     [
+      1.12,
+      -1.47
+     ],
+     [
+      1.17,
+      -1.33
+     ],
+     [
+      1.23,
+      -1.25
+     ],
+     [
+      1.27,
+      -1.06
+     ],
+     [
+      1.33,
+      -0.98
+     ],
+     [
+      1.38,
+      -0.999
+     ],
+     [
+      1.42,
+      -0.845
+     ],
+     [
+      1.48,
+      -0.614
+     ],
+     [
+      1.52,
+      -0.611
+     ],
+     [
+      1.58,
+      -0.443
+     ]
+    ],
+    "bare_coulomb_contact": {
+     "value": -5.0,
+     "unit": "kT"
+    },
+    "debye_hueckel_contact": {
+     "value": -2.18,
+     "unit": "kT"
+    },
+    "kappa_sigma": {
+     "value": 1.3,
+     "unit": "1 (κ² = 4π l_B (ρ₊+ρ₋))"
+    },
+    "debye_length": {
+     "value": 0.772,
+     "unit": "σ"
+    },
+    "l_B": {
+     "value": 5,
+     "unit": "σ"
+    },
+    "rho_ion_total": {
+     "value": 0.0267,
+     "unit": "σ⁻³"
+    },
+    "mean_ion_spacing": {
+     "value": 3.34,
+     "unit": "σ"
+    },
+    "coupling_l_B_over_sigma": {
+     "value": 5,
+     "unit": "1 (= 1/T*; DH linearisation requires ≪ 1)"
+    }
+   }
+  },
+  {
+   "file": "fig_dynamics",
+   "width": "full",
+   "caption": "Single-particle dynamics (trajectories unwrapped through the periodic box). (a) Mean-squared displacement versus lag time for neutral spheres in the neutral run, neutral spheres in the charged run and the 40 ions, with t² (ballistic) and t (diffusive) guides and the Enskog prediction; the slopes over 1–4 τ give D = 0.123, 0.125 and 0.124 σ²/τ (1.17 × Enskog), i.e. ions and neutrals diffuse alike. (b) Distribution of the displacement per frame (Δt_frame = 0.025 τ): mean 0.038 σ for neutrals, 0.039 σ for ions, maximum 0.14 σ; the dashed curve is the Maxwell speed distribution times Δt_frame. (c) Free-flight check: fraction of neutral spheres whose displacement vector is identical over two consecutive frame intervals, 0.491 on average against exp(−2ΓΔt_frame) = 0.489 for the measured collision rate Γ = 14.32 τ⁻¹.",
+   "numbers": {
+    "D_fit_slope_1_4tau": {
+     "neutral_run_neutrals": {
+      "value": 0.123,
+      "unit": "σ²/τ (slope of MSD vs t over 1–4 τ, /6)"
+     },
+     "charged_run_neutrals": {
+      "value": 0.125,
+      "unit": "σ²/τ (slope of MSD vs t over 1–4 τ, /6)"
+     },
+     "charged_run_ions": {
+      "value": 0.124,
+      "unit": "σ²/τ (slope of MSD vs t over 1–4 τ, /6)"
+     }
+    },
+    "D_msd_over_6t_mean_1_4tau": {
+     "neutral_run_neutrals": {
+      "value": 0.109,
+      "unit": "σ²/τ (mean of MSD/6t over 1–4 τ)"
+     },
+     "charged_run_neutrals": {
+      "value": 0.11,
+      "unit": "σ²/τ (mean of MSD/6t over 1–4 τ)"
+     },
+     "charged_run_ions": {
+      "value": 0.113,
+      "unit": "σ²/τ (mean of MSD/6t over 1–4 τ)"
+     }
+    },
+    "MSD_at_1tau": {
+     "neutral_run_neutrals": {
+      "value": 0.597,
+      "unit": "σ²"
+     },
+     "charged_run_neutrals": {
+      "value": 0.6,
+      "unit": "σ²"
+     },
+     "charged_run_ions": {
+      "value": 0.622,
+      "unit": "σ²"
+     }
+    },
+    "MSD_at_4tau": {
+     "neutral_run_neutrals": {
+      "value": 2.81,
+      "unit": "σ²"
+     },
+     "charged_run_neutrals": {
+      "value": 2.86,
+      "unit": "σ²"
+     },
+     "charged_run_ions": {
+      "value": 2.86,
+      "unit": "σ²"
+     }
+    },
+    "D_enskog_CS": {
+     "value": 0.105,
+     "unit": "σ²/τ (3/(8ρσ²g_CS(σ)) (kT/πm)^1/2)"
+    },
+    "D_over_D_enskog_neutral": {
+     "value": 1.17,
+     "unit": "1"
+    },
+    "rms_displacement_18tau_neutral_run": {
+     "value": 3.64,
+     "unit": "σ (single origin t=0→18 τ, 1000 spheres)"
+    },
+    "rms_displacement_18tau_charged_neutrals": {
+     "value": 3.72,
+     "unit": "σ (960 spheres)"
+    },
+    "rms_displacement_18tau_charged_ions": {
+     "value": 3.52,
+     "unit": "σ (40 ions)"
+    },
+    "mean_free_time": {
+     "value": 0.0698,
+     "unit": "τ (1/Γ)"
+    },
+    "mean_free_path": {
+     "value": 0.111,
+     "unit": "σ (⟨v⟩/Γ)"
+    },
+    "disp_per_frame_neutral_mean": {
+     "value": 0.0383,
+     "unit": "σ"
+    },
+    "disp_per_frame_neutral_rms": {
+     "value": 0.0416,
+     "unit": "σ"
+    },
+    "disp_per_frame_neutral_max": {
+     "value": 0.128,
+     "unit": "σ"
+    },
+    "disp_per_frame_ion_mean": {
+     "value": 0.0389,
+     "unit": "σ"
+    },
+    "disp_per_frame_ion_rms": {
+     "value": 0.0424,
+     "unit": "σ"
+    },
+    "disp_per_frame_ion_max": {
+     "value": 0.14,
+     "unit": "σ"
+    },
+    "disp_per_frame_maxwell_mean": {
+     "value": 0.0399,
+     "unit": "σ ((8kT/πm)^1/2 Δt_frame, no collisions)"
+    },
+    "freeflight_fraction_neutral_run": {
+     "value": 0.491,
+     "unit": "1 (mean over 719 frames)"
+    },
+    "freeflight_fraction_neutral_run_frame_std": {
+     "value": 0.0214,
+     "unit": "1"
+    },
+    "freeflight_fraction_charged_neutrals": {
+     "value": 0.493,
+     "unit": "1"
+    },
+    "freeflight_fraction_charged_ions": {
+     "value": 0.0,
+     "unit": "1 (ions are accelerated: never ballistic)"
+    },
+    "freeflight_expected_measured_Gamma": {
+     "value": 0.489,
+     "unit": "1 (exp(−2 Γ Δt_frame), Γ = 14.32/τ)"
+    },
+    "freeflight_expected_enskog_Gamma": {
+     "value": 0.491,
+     "unit": "1 (Γ_E = 14.24/τ)"
+    },
+    "freeflight_measured_over_expected": {
+     "value": 1.01,
+     "unit": "1"
+    },
+    "freeflight_tolerance": {
+     "value": 1e-05,
+     "unit": "σ"
+    },
+    "freeflight_float32_roundoff_max": {
+     "value": 2.89e-06,
+     "unit": "σ (largest |Δr_k − Δr_k+1| in the roundoff cluster)"
+    },
+    "freeflight_frac_between_1e5_and_1e3": {
+     "value": 0.0121,
+     "unit": "1 (collisions within ~1e-3/|Δv| of a frame time)"
+    },
+    "Gamma_neutral": {
+     "value": 14.3,
+     "unit": "collisions per particle per τ"
+    },
+    "Gamma_enskog": {
+     "value": 14.2,
+     "unit": "collisions per particle per τ"
+    }
+   }
+  }
+ ]
+}

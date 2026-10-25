@@ -1,0 +1,41 @@
+{
+ "file": "fig_pipeline",
+ "width": "full",
+ "caption": "Pipeline of the project: run_all.sh orchestrates the C++17 simulator (event-driven hard-sphere MD with collision Verlet and Ewald/DSF Coulomb), which writes the trajectory as extended XYZ plus an npz cache, JSON metadata and a per-frame diagnostics CSV; sim/analyze.py scans every frame for overlaps and computes energy drift and pairing statistics, while render_ovito.py (Tachyon ray tracer, numpy fallback) produces 721 PNG frames per movie that ffmpeg encodes to H.264 mp4.",
+ "numbers": {
+  "figure_size_in": [
+   7.2,
+   2.6
+  ],
+  "frames_per_movie": 721,
+  "frame_size_px": [
+   1280,
+   720
+  ],
+  "fps": 30,
+  "run_all_knobs": [
+   "N",
+   "ETA",
+   "BJERRUM",
+   "SEED",
+   "INTEGRATOR",
+   "DT",
+   "T_RUN",
+   "DT_FRAME",
+   "T_EQ_N",
+   "T_EQ_C",
+   "QUALITY",
+   "RENDERER",
+   "WIDTH",
+   "HEIGHT",
+   "FPS",
+   "ORBIT",
+   "XRAY",
+   "ORDER_TEST",
+   "SELFTEST",
+   "FORCE",
+   "PYTHON"
+  ],
+  "text_overflow_problems": []
+ }
+}

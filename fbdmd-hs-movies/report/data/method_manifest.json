@@ -1,0 +1,570 @@
+{
+ "role": "method / diagram / stills figures",
+ "generated": "2026-10-25 16:56",
+ "figure_dir": "report/figures",
+ "scripts": [
+  "report/method_fig_pipeline.py",
+  "report/method_fig_cv_scheme.py",
+  "report/method_fig_order.py",
+  "report/method_fig_stills.py",
+  "report/method_fig_pair_closeup.py",
+  "report/method_fig_render_cost.py",
+  "report/method_manifest_build.py"
+ ],
+ "raw_stills_dir": "report/figures/stills",
+ "figures": [
+  {
+   "file": "fig_pipeline",
+   "width": "full",
+   "caption": "Pipeline of the project: run_all.sh orchestrates the C++17 simulator (event-driven hard-sphere MD with collision Verlet and Ewald/DSF Coulomb), which writes the trajectory as extended XYZ plus an npz cache, JSON metadata and a per-frame diagnostics CSV; sim/analyze.py scans every frame for overlaps and computes energy drift and pairing statistics, while render_ovito.py (Tachyon ray tracer, numpy fallback) produces 721 PNG frames per movie that ffmpeg encodes to H.264 mp4.",
+   "numbers": {
+    "figure_size_in": [
+     7.2,
+     2.6
+    ],
+    "frames_per_movie": 721,
+    "frame_size_px": [
+     1280,
+     720
+    ],
+    "fps": 30,
+    "run_all_knobs": [
+     "N",
+     "ETA",
+     "BJERRUM",
+     "SEED",
+     "INTEGRATOR",
+     "DT",
+     "T_RUN",
+     "DT_FRAME",
+     "T_EQ_N",
+     "T_EQ_C",
+     "QUALITY",
+     "RENDERER",
+     "WIDTH",
+     "HEIGHT",
+     "FPS",
+     "ORBIT",
+     "XRAY",
+     "ORDER_TEST",
+     "SELFTEST",
+     "FORCE",
+     "PYTHON"
+    ],
+    "text_overflow_problems": []
+   },
+   "png": "report/figures/fig_pipeline.png",
+   "svg": "report/figures/fig_pipeline.svg"
+  },
+  {
+   "file": "fig_cv_scheme",
+   "width": "full",
+   "caption": "Collision Verlet (Houndonougbo, Laird & Leimkuhler 2000) as implemented. (a) The +/− Coulomb pair potential φc = −l_B/r (l_B = 5 σ) is split into a long-range part φ₂ that follows the Hermite cubic P(r) on [q₁, q₂] = [1, 1.5] σ and is flat at P(q₁) = −3.70 kT inside q₁, and a short-range part φ₁ = φc − φ₂ that vanishes beyond q₂; the hard core r < σ is shaded. (b) The corresponding pair forces: F₂ and its slope vanish at contact, F₁ carries the full contact force −5 kT/σ and goes to zero continuously at q₂. (c) One step h: outer half-kicks with F₂, exact hard-sphere propagation in between in which every hard collision (anywhere in the system) cuts the step into velocity-Verlet sub-steps with F₁; accelerated ions follow parabolic paths and their collision times are the smallest positive root of the quartic |Δq + Δvτ + ½Δaτ²|² = σ². The shipped cv-phys variant reflects the physical velocity v + F₂(τᵢ − h/2) at each collision instead of the drift velocity.",
+   "numbers": {
+    "l_B_sigma": 5.0,
+    "q1_sigma": 1.0,
+    "q2_sigma": 1.5,
+    "A0_kT": -6.66666666666667,
+    "A1_kT_per_sigma": 8.88888888888889,
+    "A2_kT_per_sigma2": -8.88888888888889,
+    "A3_kT_per_sigma3": 2.9629629629629632,
+    "P_q1_kT": -3.7037037037037064,
+    "phi_c_q2_kT": -3.3333333333333335,
+    "dphi_c_dr_q2_kT_per_sigma": 2.2222222222222223,
+    "phi_c_contact_kT": -5.0,
+    "phi1_contact_kT": -1.2962962962962936,
+    "F_c_contact_kT_per_sigma": -5.0,
+    "F1_contact_kT_per_sigma": -5.0,
+    "F2_contact_kT_per_sigma": 0.0,
+    "F_c_q2_kT_per_sigma": -2.2222222222222223,
+    "plotted_r_range_sigma": [
+     0.8,
+     3.0
+    ],
+    "step_h_tau": 0.005,
+    "mean_collision_interval_system_tau": 0.00014
+   },
+   "png": "report/figures/fig_cv_scheme.png",
+   "svg": "report/figures/fig_cv_scheme.svg"
+  },
+  {
+   "file": "fig_order",
+   "width": "full",
+   "caption": "Energy-error order test on the production system (N = 1000, η = 0.35, 20+/20−, l_B = 5 σ): maximum |E(t) − E(0)|/N over 2 τ of NVE dynamics versus the step h for the four integrators, with the fitted log–log slopes in the legends and dashed reference lines ∝ h and ∝ h². (a) Equilibrated start (15 τ with charges on): the shipped cv-phys is second order (slope 2.02) whereas the literal HLL collision Verlet is only first order (slope 0.73) and 35× less accurate at the production step h = 0.005 τ; kdk-phys gives 1.81 and the naive splitting 1.09. (b) Same test from the un-equilibrated start with Ewald (solid; slopes 1.40 / 0.78 / 1.69 / 0.89) and with the smooth DSF Coulomb model (dashed, cv-phys 1.92, cv 1.21); the Ewald real-space truncation erfc(αr_c) ≈ 7.5×10⁻⁵ sets a floor of ≈ 10⁻⁶ kT/N at h = 0.0025 τ that flattens every Ewald curve there.",
+   "numbers": {
+    "equilibrated_start": {
+     "cv-phys": {
+      "slope_fit": 2.019,
+      "slope_csv": 2.019179506681018,
+      "slope_end_drift_csv": 2.947010237151465,
+      "max_abs_dE_per_N_kT": {
+       "0.0025": 5.972699998437747e-07,
+       "0.005": 2.8646400000980067e-06,
+       "0.01": 6.826150000051712e-06,
+       "0.02": 4.7487660000115285e-05
+      },
+      "end_drift_per_N_kT": {
+       "0.0025": -7.553999989795557e-08,
+       "0.005": 1.987580000104572e-06,
+       "0.01": 6.826150000051712e-06,
+       "0.02": 4.536157999996249e-05
+      }
+     },
+     "cv": {
+      "slope_fit": 0.726,
+      "slope_csv": 0.7256887571470043,
+      "slope_end_drift_csv": 0.24483503940579693,
+      "max_abs_dE_per_N_kT": {
+       "0.0025": 7.465961000002608e-05,
+       "0.005": 0.00010012957999992977,
+       "0.01": 0.00011513722000017879,
+       "0.02": 0.00038110813000002963
+      },
+      "end_drift_per_N_kT": {
+       "0.0025": -7.465961000002608e-05,
+       "0.005": 9.88334199998917e-05,
+       "0.01": 7.22070500000882e-05,
+       "0.02": -0.00014594955000006847
+      }
+     },
+     "kdk-phys": {
+      "slope_fit": 1.815,
+      "slope_csv": 1.8154195568369302,
+      "slope_end_drift_csv": 2.153038485944024,
+      "max_abs_dE_per_N_kT": {
+       "0.0025": 1.818559999946956e-06,
+       "0.005": 5.97923999998784e-06,
+       "0.01": 3.430844000013167e-05,
+       "0.02": 6.736925999985033e-05
+      },
+      "end_drift_per_N_kT": {
+       "0.0025": 6.258799999159237e-07,
+       "0.005": 4.856810000092082e-06,
+       "0.01": 3.430844000013167e-05,
+       "0.02": 4.719597999996949e-05
+      }
+     },
+     "naive": {
+      "slope_fit": 1.093,
+      "slope_csv": 1.0927124283046872,
+      "slope_end_drift_csv": 1.2457499578686129,
+      "max_abs_dE_per_N_kT": {
+       "0.0025": 0.00025305870000011057,
+       "0.005": 0.0003891175200001271,
+       "0.01": 0.0009157108399999742,
+       "0.02": 0.002375706619999846
+      },
+      "end_drift_per_N_kT": {
+       "0.0025": -0.00019210739999994076,
+       "0.005": 0.00026754369000013865,
+       "0.01": -0.0007956638299999668,
+       "0.02": 0.002375706619999846
+      }
+     }
+    },
+    "unequilibrated_start": {
+     "cv-phys": {
+      "slope_fit": 1.397,
+      "slope_csv": 1.3969537448307578,
+      "slope_end_drift_csv": 1.509786929315089,
+      "max_abs_dE_per_N_kT": {
+       "0.0025": 1.4287500000591535e-06,
+       "0.005": 2.916520000098899e-06,
+       "0.01": 6.97902999991129e-06,
+       "0.02": 2.693991000001006e-05
+      },
+      "end_drift_per_N_kT": {
+       "0.0025": -1.086299999997209e-06,
+       "0.005": 2.0031599999583703e-06,
+       "0.01": 5.707250000114073e-06,
+       "0.02": 2.5081290000116497e-05
+      }
+     },
+     "cv": {
+      "slope_fit": 0.777,
+      "slope_csv": 0.7768565840712629,
+      "slope_end_drift_csv": 0.5885844077500677,
+      "max_abs_dE_per_N_kT": {
+       "0.0025": 6.480454999996255e-05,
+       "0.005": 6.972345999997742e-05,
+       "0.01": 0.00018439413999999488,
+       "0.02": 0.0002820589499999642
+      },
+      "end_drift_per_N_kT": {
+       "0.0025": -1.8633149999914168e-05,
+       "0.005": 1.9284839999954784e-05,
+       "0.01": 2.2214350000012928e-05,
+       "0.02": -6.924987000002147e-05
+      }
+     },
+     "kdk-phys": {
+      "slope_fit": 1.687,
+      "slope_csv": 1.6872190350294045,
+      "slope_end_drift_csv": 1.2509913099009586,
+      "max_abs_dE_per_N_kT": {
+       "0.0025": 9.992699999656906e-07,
+       "0.005": 7.4565499999152965e-06,
+       "0.01": 2.243739999994432e-05,
+       "0.02": 3.413630000000012e-05
+      },
+      "end_drift_per_N_kT": {
+       "0.0025": 7.104799999524403e-07,
+       "0.005": 7.4565499999152965e-06,
+       "0.01": 2.149794000001748e-05,
+       "0.02": 8.985700000039286e-06
+      }
+     },
+     "naive": {
+      "slope_fit": 0.886,
+      "slope_csv": 0.8862415424487556,
+      "slope_end_drift_csv": 1.3058423194957849,
+      "max_abs_dE_per_N_kT": {
+       "0.0025": 0.00022907994000001964,
+       "0.005": 0.0002205465899999126,
+       "0.01": 0.0001802056700000776,
+       "0.02": 0.0018989578200000778
+      },
+      "end_drift_per_N_kT": {
+       "0.0025": 0.00010207304999994449,
+       "0.005": 8.43821299999945e-05,
+       "0.01": -0.00011179306999997606,
+       "0.02": 0.0018989578200000778
+      }
+     }
+    },
+    "dsf_unequilibrated_start": {
+     "cv-phys": {
+      "slope_fit": 1.924,
+      "slope_csv": 1.9243442291564934,
+      "max_abs_dE_per_N_kT": {
+       "0.0025": 4.2329999996582046e-07,
+       "0.005": 2.516860000014276e-06,
+       "0.01": 5.983490000062374e-06,
+       "0.02": 2.705416999992849e-05
+      }
+     },
+     "cv": {
+      "slope_fit": 1.209,
+      "slope_csv": 1.2088671616154703,
+      "max_abs_dE_per_N_kT": {
+       "0.0025": 2.372276000005513e-05,
+       "0.005": 4.636460000006082e-05,
+       "0.01": 0.00013890126000001146,
+       "0.02": 0.0002687465599999541
+      }
+     },
+     "kdk-phys": {
+      "slope_fit": 1.677,
+      "slope_csv": 1.6772192855632173,
+      "max_abs_dE_per_N_kT": {
+       "0.0025": 1.7812300000059622e-06,
+       "0.005": 5.858779999925901e-06,
+       "0.01": 9.552920000032827e-06,
+       "0.02": 7.293254999990495e-05
+      }
+     },
+     "naive": {
+      "slope_fit": 1.105,
+      "slope_csv": 1.1052619238472499,
+      "max_abs_dE_per_N_kT": {
+       "0.0025": 0.0001205670500000906,
+       "0.005": 0.00047104261999993466,
+       "0.01": 0.00029543478999994477,
+       "0.02": 0.001810581720000073
+      }
+     }
+    },
+    "ratios": {
+     "cv_over_cvphys_at_dt0.005_equilibrated": 34.95363466142485,
+     "cv_over_cvphys_at_dt0.0025_equilibrated": 125.00143991754896,
+     "naive_over_cvphys_at_dt0.005_equilibrated": 135.83470173802448,
+     "kdkphys_over_cvphys_at_dt0.005_equilibrated": 2.0872570374578565
+    },
+    "test_setup": {
+     "N": 1000,
+     "eta": 0.35,
+     "nplus": 20,
+     "nminus": 20,
+     "l_B_sigma": 5.0,
+     "t_run_tau": 2.0,
+     "dt_frame_tau": 0.02,
+     "dts_tau": [
+      0.02,
+      0.01,
+      0.005,
+      0.0025
+     ],
+     "production_dt_tau": 0.005,
+     "production_energy_drift_rel_18tau": 2.3165e-05,
+     "production_energy_max_dev_rel": 2.36033e-05,
+     "ewald_floor_kT_per_N": 1e-06,
+     "erfc_alpha_rc": 7.5e-05,
+     "alpha_L": 5.6,
+     "rc_sigma": 5.718474607
+    }
+   },
+   "png": "report/figures/fig_order.png",
+   "svg": "report/figures/fig_order.svg"
+  },
+  {
+   "file": "fig_stills",
+   "width": "full",
+   "caption": "Stills taken from the three movies (frames 0, 360 and 720 of 721, i.e. t = 0, 9 and 18 τ of the NVE production run; the camera orbits from azimuth 25° to 65° over the movie): (a) the neutral control (1000 hard spheres, η = 0.35), (b) the charged run in the opaque CPK style (20 red + and 20 blue − ions, l_B = 5 σ), of which only the ions near the three camera-facing faces are visible, and (c) the same charged frames in the x-ray style with the neutrals 85 % transparent, which shows all 40 ions and their contact pairs inside the box.",
+   "numbers": {
+    "frame_indices": [
+     0,
+     360,
+     720
+    ],
+    "times_tau": [
+     0.0,
+     9.0,
+     18.0
+    ],
+    "frames_per_movie": 721,
+    "dt_frame_tau": 0.025,
+    "crop_px_x0_y0_x1_y1": [
+     320,
+     90,
+     960,
+     712
+    ],
+    "crop_size_px": [
+     640,
+     622
+    ],
+    "source_frame_px": [
+     1280,
+     720
+    ],
+    "figure_size_in": [
+     7.2,
+     6.9
+    ],
+    "camera_azimuth_deg_at_frames": [
+     25.0,
+     45.0,
+     65.0
+    ],
+    "camera_elevation_deg": 22.0,
+    "camera_fov_deg": 30.0,
+    "raw_frames_dir": "report/figures/stills",
+    "raw_frames": [
+     "hs_neutral_f0.png",
+     "hs_neutral_f360.png",
+     "hs_neutral_f720.png",
+     "hs_charges_20p20m_f0.png",
+     "hs_charges_20p20m_f360.png",
+     "hs_charges_20p20m_f720.png",
+     "hs_charges_20p20m_xray_f0.png",
+     "hs_charges_20p20m_xray_f360.png",
+     "hs_charges_20p20m_xray_f720.png"
+    ]
+   },
+   "png": "report/figures/fig_stills.png",
+   "svg": "report/figures/fig_stills.svg"
+  },
+  {
+   "file": "fig_pair_closeup",
+   "width": "full",
+   "caption": "Close-ups cut from the x-ray movie (neutrals 85 % transparent, ions opaque; red +, blue −) at frames chosen from a cluster scan of the trajectory with the r < 1.2 σ contact criterion: (a) an isolated +/− contact pair at t = 10.82 τ (nearest other ion 3.5 σ away), (b) a linear four-ion chain (+ − + −) at t = 9.75 τ and (c) a five-ion chain (+ − + − +) at t = 12.80 τ. Dotted circles enclose the cluster; the bar gives 1 σ at the depth of the cluster. Such chains are transient: clusters of four or more ions exist in 142 of the 721 frames and the largest cluster seen has six ions.",
+   "numbers": {
+    "panels": [
+     {
+      "panel": "(a)",
+      "frame_index": 433,
+      "time_tau": 10.825,
+      "label": "+/− contact pair",
+      "cluster_size": 2,
+      "charge_sequence": "+ −",
+      "max_degree": 1,
+      "member_particle_ids": [
+       962,
+       998
+      ],
+      "bonded_distances_sigma": [
+       1.017
+      ],
+      "nearest_other_ion_sigma": 3.51,
+      "pixel_centre": [
+       712.5,
+       224.7
+      ],
+      "camera_depth_sigma": 38.3,
+      "sphere_radius_px": 17.6,
+      "crop_px_x0_y0_x1_y1": [
+       563,
+       93,
+       863,
+       357
+      ],
+      "pairs_in_frame": 11,
+      "largest_cluster_in_frame": 3,
+      "source_png": "report/figures/stills/hs_charges_20p20m_xray_f433.png"
+     },
+     {
+      "panel": "(b)",
+      "frame_index": 390,
+      "time_tau": 9.75,
+      "label": "4-ion chain",
+      "cluster_size": 4,
+      "charge_sequence": "+ − + −",
+      "max_degree": 2,
+      "member_particle_ids": [
+       976,
+       987,
+       974,
+       983
+      ],
+      "bonded_distances_sigma": [
+       1.003,
+       1.021,
+       1.084
+      ],
+      "nearest_other_ion_sigma": 2.54,
+      "pixel_centre": [
+       777.9,
+       382.1
+      ],
+      "camera_depth_sigma": 39.3,
+      "sphere_radius_px": 17.1,
+      "crop_px_x0_y0_x1_y1": [
+       628,
+       250,
+       928,
+       514
+      ],
+      "pairs_in_frame": 13,
+      "largest_cluster_in_frame": 4,
+      "source_png": "report/figures/stills/hs_charges_20p20m_xray_f390.png"
+     },
+     {
+      "panel": "(c)",
+      "frame_index": 512,
+      "time_tau": 12.8,
+      "label": "5-ion chain",
+      "cluster_size": 5,
+      "charge_sequence": "+ − + − +",
+      "max_degree": 2,
+      "member_particle_ids": [
+       960,
+       981,
+       971,
+       980,
+       967
+      ],
+      "bonded_distances_sigma": [
+       1.001,
+       1.037,
+       1.16,
+       1.008
+      ],
+      "nearest_other_ion_sigma": 1.76,
+      "pixel_centre": [
+       640.6,
+       366.0
+      ],
+      "camera_depth_sigma": 48.1,
+      "sphere_radius_px": 14.0,
+      "crop_px_x0_y0_x1_y1": [
+       491,
+       234,
+       791,
+       498
+      ],
+      "pairs_in_frame": 7,
+      "largest_cluster_in_frame": 5,
+      "source_png": "report/figures/stills/hs_charges_20p20m_xray_f512.png"
+     }
+    ],
+    "scan": {
+     "bond_criterion_sigma": 1.2,
+     "n_frames": 721,
+     "largest_cluster_max": 6,
+     "largest_cluster_mean": 3.02,
+     "frames_with_largest_ge4": 142,
+     "frames_with_largest_ge5": 23,
+     "frames_with_largest_eq6": 8,
+     "first_six_ion_cluster_frames": [
+      527,
+      528,
+      529,
+      530,
+      531,
+      532,
+      533,
+      535
+     ],
+     "contact_pairs_per_frame_mean": 8.29,
+     "contact_pairs_min": 2,
+     "contact_pairs_max": 15,
+     "camera": {
+      "fov_deg": 30.0,
+      "elev_deg": 22.0,
+      "azimuth_deg_range": [
+       25.0,
+       65.0
+      ],
+      "distance_sigma": 41.417
+     }
+    }
+   },
+   "png": "report/figures/fig_pair_closeup.png",
+   "svg": "report/figures/fig_pair_closeup.svg"
+  },
+  {
+   "file": "fig_render_cost",
+   "width": "half",
+   "caption": "Rendering cost per 1280×720 frame on the 4-core Xeon box (no GPU), measured on the 1000-sphere test trajectory including overlay and PNG writing: OVITO/Tachyon cpk at final quality (16 ambient-occlusion samples, 16 Tachyon threads) takes 1.43 s per frame, i.e. ≈ 17 min for a 721-frame movie, the x-ray preset 1.27 s (≈ 15 min), the AO-free draft preset 0.26 s (≈ 3 min) and the numpy fallback renderer with 4 worker processes 0.24 s wall (≈ 3 min). Vertical ticks mark the three production runs (1028 s, 1031 s and 896 s wall for render plus encode).",
+   "numbers": {
+    "seconds_per_frame_incl_overlay_png": {
+     "OVITO cpk, final (AO 16 samples)": 1.43,
+     "OVITO x-ray, final": 1.27,
+     "OVITO cpk, draft": 0.26,
+     "numpy, 4 workers": 0.24
+    },
+    "minutes_per_721_frame_movie_estimate": {
+     "OVITO cpk, final (AO 16 samples)": 17.2,
+     "OVITO x-ray, final": 15.3,
+     "OVITO cpk, draft": 3.1,
+     "numpy, 4 workers": 2.9
+    },
+    "production_wall_s_render_plus_encode": {
+     "hs_neutral (cpk final)": 1028,
+     "hs_charges_20p20m (cpk final)": 1031,
+     "hs_charges_20p20m_xray (x-ray final)": 896
+    },
+    "production_s_per_frame_incl_encode": {
+     "hs_neutral (cpk final)": 1.426,
+     "hs_charges_20p20m (cpk final)": 1.43,
+     "hs_charges_20p20m_xray (x-ray final)": 1.243
+    },
+    "production_minutes": {
+     "hs_neutral (cpk final)": 17.1,
+     "hs_charges_20p20m (cpk final)": 17.2,
+     "hs_charges_20p20m_xray (x-ray final)": 14.9
+    },
+    "render_only_s_per_frame_readme": {
+     "ovito cpk final AO16 16 threads": 1.38,
+     "ovito cpk final AO16 4 threads": 2.02,
+     "ovito cpk final AO6": 0.65,
+     "ovito cpk draft": 0.2,
+     "ovito xray final": 1.22,
+     "ovito cpk final 1920x1080": 3.49,
+     "numpy cpk final 1 process": 0.56
+    },
+    "ovito_thread_count": 16,
+    "cpu": "4 x Intel Xeon 2.10 GHz, no GPU",
+    "ffmpeg_encode_s_per_721_frames": 20,
+    "xray_ao_on_rejected_s_per_frame": 12.3
+   },
+   "png": "report/figures/fig_render_cost.png",
+   "svg": "report/figures/fig_render_cost.svg"
+  }
+ ],
+ "notes": [
+  "fig_stills is 7.2 x 6.9 in instead of the requested ~7.2 x 4.3 in: three rows of near-square box crops (640 x 622 px each) cannot fit a 4.3 in tall full-width figure without shrinking the spheres below legibility; the per-figure height convention (2.4-4.5 in) is therefore exceeded for this one figure.",
+  "The DSF order-test data come from traj/_test/cv_confirmer_order/dsf_order.csv (identical copies exist in traj/_test/cv_impl and traj/_test/cv_fixer_order); only the cv-phys and cv DSF curves are drawn in fig_order(b) to keep the panel readable, the kdk-phys and naive DSF slopes are in the numbers.",
+  "The integrator palette of figstyle (C_INTEG) is kept as required; because the gray \"naive\" entry and the orange/green pair are weak under colour-vision deficiency, every integrator additionally has its own marker shape and the slopes are printed in the legend."
+ ]
+}

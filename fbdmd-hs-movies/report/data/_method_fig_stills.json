@@ -1,0 +1,56 @@
+{
+ "file": "fig_stills",
+ "width": "full",
+ "caption": "Stills taken from the three movies (frames 0, 360 and 720 of 721, i.e. t = 0, 9 and 18 \u03c4 of the NVE production run; the camera orbits from azimuth 25\u00b0 to 65\u00b0 over the movie): (a) the neutral control (1000 hard spheres, \u03b7 = 0.35), (b) the charged run in the opaque CPK style (20 red + and 20 blue \u2212 ions, l_B = 5 \u03c3), of which only the ions near the three camera-facing faces are visible, and (c) the same charged frames in the x-ray style with the neutrals 85 % transparent, which shows all 40 ions and their contact pairs inside the box.",
+ "numbers": {
+  "frame_indices": [
+   0,
+   360,
+   720
+  ],
+  "times_tau": [
+   0.0,
+   9.0,
+   18.0
+  ],
+  "frames_per_movie": 721,
+  "dt_frame_tau": 0.025,
+  "crop_px_x0_y0_x1_y1": [
+   320,
+   90,
+   960,
+   712
+  ],
+  "crop_size_px": [
+   640,
+   622
+  ],
+  "source_frame_px": [
+   1280,
+   720
+  ],
+  "figure_size_in": [
+   7.2,
+   6.9
+  ],
+  "camera_azimuth_deg_at_frames": [
+   25.0,
+   45.0,
+   65.0
+  ],
+  "camera_elevation_deg": 22.0,
+  "camera_fov_deg": 30.0,
+  "raw_frames_dir": "report/figures/stills",
+  "raw_frames": [
+   "hs_neutral_f0.png",
+   "hs_neutral_f360.png",
+   "hs_neutral_f720.png",
+   "hs_charges_20p20m_f0.png",
+   "hs_charges_20p20m_f360.png",
+   "hs_charges_20p20m_f720.png",
+   "hs_charges_20p20m_xray_f0.png",
+   "hs_charges_20p20m_xray_f360.png",
+   "hs_charges_20p20m_xray_f720.png"
+  ]
+ }
+}
