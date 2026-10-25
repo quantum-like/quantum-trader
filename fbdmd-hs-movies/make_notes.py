@@ -51,7 +51,23 @@ def main():
             Z=f'{m.get("Z_virial", float("nan")):.3f}', ZCS=f'{m.get("Z_CS", float("nan")):.3f}',
             drift=(f'{m.get("energy_drift_rel", float("nan")):.1e}' if charged else "exact (KE const)"),
             wall=f'{m.get("wall_seconds", float("nan")):.0f} s'))
-    lines.append("\nEquilibration: neutral stage t_equil_neutral with velocity rescaling every 0.1 τ; charged runs then switch on the charges and equilibrate t_equil_charged more (rescaled), production is NVE.\n")
+    eq = {name: (m.get("t_equil_neutral"), m.get("t_equil_charged")) for name, m in metas.items()}
+    lines.append("\nEquilibration (velocity rescaling to kT = 1 every 0.1 τ, then NVE production): " +
+                 "; ".join(f"{n}: {a} τ neutral" + (f" + {b} τ with charges on" if (metas[n].get('nplus',0)+metas[n].get('nminus',0)) > 0 else "")
+                           for n, (a, b) in eq.items()) + ". Same seed ⇒ identical neutral start for both runs.\n")
+    ex = next((m for m in metas.values() if (m.get("nplus", 0) + m.get("nminus", 0)) > 0), None)
+    if ex:
+        lines.append(f"Charged run details: Coulomb = {ex.get('coulomb')} (Ewald α = 5.6/L, |n|∞ ≤ 6 for 40 ions), "
+                     f"integrator = {ex.get('integrator')}, {ex.get('n_verlet_substeps', '?')} Verlet sub-steps, "
+                     f"T_mean = {ex.get('T_mean', float('nan')):.4f}, max |δE|/|E| = {ex.get('energy_max_dev_rel', ex.get('energy_drift_rel', float('nan'))):.1e}, "
+                     f"min pair distance {ex.get('min_dist_production', float('nan')):.9f} σ (no overlap).\n")
+    ot = os.path.join(ROOT, "notes", "order_test.txt")
+    if os.path.exists(ot):
+        lines.append("\n## Integrator energy-order test (max |E(t)−E₀|/N in kT over 2 τ, equilibrated start)\n")
+        body = [l for l in open(ot).read().splitlines() if l.strip().startswith(("dt", "0.0", "slope"))]
+        lines.append("```\n" + "\n".join(body) + "\n```")
+        lines.append("cv-phys = shipped default (HLL collision Verlet + physical-velocity rule for F₂ at collisions); cv = literal HLL; "
+                     "kdk-phys = kick–drift–kick with the same rule; naive = HLL eq. 9. Slopes ≈2 / ≈0.7 / ≈1.8 / ≈1.")
     lines.append("\n## Movies\n")
     for mp4 in sorted(glob.glob(os.path.join(ROOT, "movies", "*.mp4"))):
         lines.append(f"* `{mp4}` — {probe(mp4)}")
