@@ -25,7 +25,8 @@ Long-range part (eq. 20):  φ₂(q) = P(q₁)  (q < q₁);  P(q)  (q₁ ≤ q < 
 Short-range part (eq. 21): φ₁(q) = φ_c(q) − P(q₁) (q < q₁);  φ_c(q) − P(q) (q₁ ≤ q < q₂);  0 (q ≥ q₂)
 Properties to assert in a self-test: φ₁ + φ₂ = φ_c everywhere; φ₂′ = 0 and φ₂″ = 0 at q₁ (and below);
 φ₁(q₂) = φ₁′(q₂) = 0 (continuous force); F₁ = −φ₁′ is non-zero only for q < q₂.
-Defaults: q₁ = 1.0 σ, q₂ = 1.5 σ (Fig. 4b used q₁ = 1.000, q₂ = 1.5–1.7 and showed clean 2nd order).
+Defaults: q₁ = 1.0 σ, q₂ = 1.5 σ (Fig. 4b used q₁ = 1.000, q₂ = 1.5–1.7 and showed clean 2nd order — for a
+one-component LJ fluid; see §4a for why that does not carry over to an ion/neutral mixture).
 With Coulomb: φ_c′(q₂) = −l_B q_i q_j / q₂².
 
 Forces: F_total = Ewald (or DSF) force on each ion (as already implemented).
@@ -87,7 +88,42 @@ Event-driven realisation (recommended; equivalent to Table 1):
   * Total energy H = KE + U_coulomb(Ewald, full) must be conserved by the production (NVE) run: report
     relative drift and the maximum instantaneous |δE| / N.
   * Order test on the production system (N = 1000, η = 0.35, 20+/20−, l_B = 5, same start): run t = 2 τ at
-    h = 0.02, 0.01, 0.005, 0.0025 for BOTH --integrator cv and --integrator naive; max |E(t) − E(0)| versus h
-    must have slope ≈ 2 for CV and ≈ 1 for naive (log–log). Write the table to traj/<name>_order.csv.
+    h = 0.02, 0.01, 0.005, 0.0025 for the shipped integrator (--integrator cv-phys, see §4a), for
+    --integrator cv (HLL exactly) and for --integrator naive; max |E(t) − E(0)| versus h must have slope ≈ 2
+    for the shipped CV integrator and ≈ 1 for naive (log–log). Write the table to traj/<name>_order.csv.
   * Momentum conservation, no overlaps (analyze.py), temperature ≈ 1, collision count ≈ Enskog.
-  * Keep the naive splitting selectable (--integrator naive) for the comparison; CV is the default.
+  * Keep the naive splitting selectable (--integrator naive) for the comparison; CV (cv-phys) is the default.
+
+## 4a. Amendment after review (hsdmd 1.3): HLL's CV is first order in this mixture; cv-phys is shipped
+The slope-≈2 criterion above CANNOT be met by HLL's scheme (`--integrator cv`) on this system, and this is
+the method, not the implementation (which reproduces Table 1 to 1e-13 in an independent reference harness,
+7 scenarios, and is second order in the two-body ± test in L = 30: slope 1.92, 28× better than kdk-phys).
+HLL's order argument (p. 312: "H₂ which is constant in a neighbourhood of (q₀, p₀)", i.e. the long-range
+force vanishes for the colliding pair; otherwise eq. 18 gives the local error −φ′(δ)(h♭ − h#)p̂ of a
+collision under a non-flattened force) holds for their one-component LJ fluid, where the splitting of §1
+flattens the colliding pair's own potential. Here V₂ is NOT constant near the collision configurations:
+  (i) each ion makes ≈ 14 collisions/τ with force-free NEUTRALS while F₂ (partner beyond q₂, third ions,
+      Ewald images) acts on it — the neutral carries no potential, so no splitting can flatten anything;
+  (ii) for a +/− contact pair the third-body fields on + and − are opposite and ADD on the relative
+      coordinate instead of cancelling as in a one-component fluid.
+Each such collision carries the eq.-18 error (h/2 − τ₁)(ΔF₂·n)Δv_n with random sign → an energy random
+walk ∝ h. Measured (production order test, Ewald, max|E(t) − E(0)|/N over 2 τ): cv slope 0.78 with
+q₂ = 1.5 (2.82e-4 … 6.48e-5 kT, 8–65× worse than kdk-phys), 0.85 with q₂ = 3.0, 0.87 with q₂ = 5.5 ≈ L/2 —
+no q₂ restores second order; with the smooth DSF model cv 1.21 vs cv-phys 1.92; from the equilibrated
+start (t_equil_charged 15) cv 0.73 vs cv-phys 2.02; an all-ion system without any neutrals (N = 216,
+108+/108−) still gives cv slope 1.51 and 4–11× kdk-phys's error, i.e. mechanism (ii) alone suffices.
+The only cure inside the paper — F₁ = the full Coulomb force, re-evaluated at every one of ≈ 7000
+collisions/τ — is what HLL themselves call prohibitive for long-range potentials (p. 312).
+
+Shipped default therefore: `--integrator cv-phys` = §1–3 unchanged (splitting, F₁ Verlet sub-steps
+between collisions, quartic collision times, F₂ half kicks) plus the physical-velocity rule of kdk-phys
+applied to F₂ only: at a collision at τ₁ into the step reflect v + F₂(τ₁ − h/2) (the velocity the F₂ kick
+would have produced had it been applied continuously) instead of the F₂-drift velocity, return to the
+drift frame, and afterwards enforce a SEPARATING drift velocity (≥ 1e-9 for ballistic pairs, ≥ cv_vmin
+for accelerated ones; counted as `n_drift_fix`). The last step is mandatory: a physically-separating pair
+can still approach in the drift frame, which without the guard overlapped (ballistic pair) or re-predicted
+the same accelerated pair at τ = 0 forever (zero-time event loop, hsdmd 1.2); a watchdog now aborts with
+exit 3 after 10⁴ consecutive events at one time. cv-phys satisfies §4: slope 1.92 (DSF), 2.02 (Ewald,
+equilibrated start), 1.40 (Ewald, identical unequilibrated start, limited by the pre-existing Ewald
+real-space truncation erfc(2.8) ≈ 7.5e-5 at r_c = L/2, a floor of ≈ 1e-6 kT/N at h = 0.0025 that caps
+every integrator in that test); naive 0.89 / 1.11 / 1.09. `--integrator cv` (HLL exactly) stays selectable.

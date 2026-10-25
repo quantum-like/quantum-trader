@@ -190,6 +190,15 @@ def main(argv=None):
     ap.add_argument("--nminus", type=nonneg_int, default=0)
     ap.add_argument("--bjerrum", type=nonneg_float, default=5.0)
     ap.add_argument("--coulomb", choices=["ewald", "dsf"], default="ewald")
+    ap.add_argument("--integrator", choices=["cv-phys", "cv", "kdk-phys", "naive"], default="cv-phys",
+                    help="charged-run integrator: cv-phys (default) = collision Verlet of Houndonougbo, Laird & "
+                         "Leimkuhler 2000 plus the physical-velocity rule for the outer-kick force F2 at collisions "
+                         "(second order on the production system, best energy conservation); cv = HLL 2000 exactly "
+                         "(first order in this ion/neutral mixture, see README_sim.md); kdk-phys = kick-drift-kick "
+                         "with the physical-velocity collision rule (hsdmd <= 1.1 default); naive = HLL eq. 9 "
+                         "(O(dt), for comparison)")
+    ap.add_argument("--cv-q1", type=positive_float, default=1.0, help="cv splitting radius q1 in sigma (>= 1)")
+    ap.add_argument("--cv-q2", type=positive_float, default=1.5, help="cv splitting radius q2 in sigma (> q1, <= L/2)")
     ap.add_argument("--dt", type=positive_float, default=0.005)
     ap.add_argument("--t-equil-neutral", type=nonneg_float, default=5.0)
     ap.add_argument("--t-equil-charged", type=nonneg_float, default=15.0,
@@ -205,6 +214,8 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.nplus + a.nminus > a.N:
         ap.error(f"--nplus + --nminus = {a.nplus + a.nminus} exceeds --N = {a.N}")
+    if not (a.cv_q1 >= 1.0 and a.cv_q2 > a.cv_q1):
+        ap.error(f"need 1 <= --cv-q1 < --cv-q2 (got {a.cv_q1}, {a.cv_q2})")
     if a.t_run < a.dt_frame:
         print(f"[run_sim] warning: --t-run {a.t_run} < --dt-frame {a.dt_frame}: a single frame will be written and "
               "Z/collision rate are undefined (null)", file=sys.stderr)
@@ -217,7 +228,8 @@ def main(argv=None):
 
     binary = ensure_binary(force=a.rebuild, cxx=a.cxx)
     cmd = [binary, "--name", a.name, "--N", str(a.N), "--eta", repr(a.eta), "--nplus", str(a.nplus),
-           "--nminus", str(a.nminus), "--bjerrum", repr(a.bjerrum), "--coulomb", a.coulomb, "--dt", repr(a.dt),
+           "--nminus", str(a.nminus), "--bjerrum", repr(a.bjerrum), "--coulomb", a.coulomb,
+           "--integrator", a.integrator, "--cv-q1", repr(a.cv_q1), "--cv-q2", repr(a.cv_q2), "--dt", repr(a.dt),
            "--t-equil-neutral", repr(a.t_equil_neutral), "--t-equil-charged", repr(a.t_equil_charged),
            "--t-run", repr(a.t_run), "--dt-frame", repr(a.dt_frame), "--seed", str(a.seed),
            "--xyz", xyz, "--diag", diag, "--summary", summary_tmp]
@@ -261,7 +273,8 @@ def main(argv=None):
     para = (f"[run_sim] {a.name}: N={meta['N']} eta={meta['eta']} L={meta['L']:.4f} "
             f"{'+' + str(meta['nplus']) + '/-' + str(meta['nminus']) + ' ions, l_B=' + str(meta['bjerrum']) + ', ' + meta['coulomb'] if nion else 'neutral'}; "
             f"integrator {meta['integrator']}"
-            f"{' dt=' + format(meta['dt'], '.6g') if nion else ''}; "
+            f"{' dt=' + format(meta['dt'], '.6g') if nion else ''}"
+            f"{' (' + str(meta['n_verlet_substeps']) + ' Verlet sub-steps, ' + str(meta['n_cv_vmin_bias']) + ' vmin events, ' + str(meta.get('n_drift_fix', 0)) + ' drift fixes)' if nion and meta.get('integrator_id', '').startswith('cv') else ''}; "
             f"{meta['n_frames']} frames at dt_frame={meta['dt_frame']} over t_run={meta['t_run']} tau. "
             f"Production collisions: {meta['n_collisions']} "
             f"({fmt(meta['collision_rate_per_particle_per_tau'], '.2f')} per particle per tau, Enskog {meta['enskog_rate_per_particle_per_tau']:.2f}); "

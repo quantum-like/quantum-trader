@@ -12,3 +12,4 @@ traj/*.npz
 frames/_test/
 notes/_test/
 sim/_hsdmd*
+traj/*_order.csv

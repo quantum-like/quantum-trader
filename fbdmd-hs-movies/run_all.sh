@@ -3,12 +3,13 @@
 #   bash run_all.sh                 # full quality (default)
 #   QUALITY=draft bash run_all.sh   # quick look (smaller/faster render)
 #   FORCE=1 bash run_all.sh         # redo simulation + frames even if outputs exist
-# Knobs (env): N ETA BJERRUM SEED T_RUN DT_FRAME DT WIDTH HEIGHT FPS QUALITY RENDERER(ovito|numpy) XRAY(1|0)
+# Knobs (env): N ETA BJERRUM SEED T_RUN DT_FRAME DT INTEGRATOR(cv-phys|cv|kdk-phys|naive) ORDER_TEST(1|0)
+#              WIDTH HEIGHT FPS QUALITY RENDERER(ovito|numpy) XRAY(1|0)
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
-N=${N:-1000}; ETA=${ETA:-0.35}; BJERRUM=${BJERRUM:-5.0}; SEED=${SEED:-1}
+N=${N:-1000}; ETA=${ETA:-0.35}; BJERRUM=${BJERRUM:-5.0}; SEED=${SEED:-1}; INTEGRATOR=${INTEGRATOR:-cv-phys}
 T_EQ_N=${T_EQ_N:-5}; T_EQ_C=${T_EQ_C:-15}; T_RUN=${T_RUN:-18}; DT_FRAME=${DT_FRAME:-0.025}; DT=${DT:-0.005}
 WIDTH=${WIDTH:-1280}; HEIGHT=${HEIGHT:-720}; FPS=${FPS:-30}; QUALITY=${QUALITY:-final}
 ORBIT=${ORBIT:-40}; XRAY=${XRAY:-1}; FORCE=${FORCE:-0}
@@ -51,15 +52,23 @@ if [ "$FORCE" = 1 ] || [ ! -f traj/hs_neutral.npz ]; then
   python sim/run_sim.py --name hs_neutral "${SIM_COMMON[@]}"
 else log "traj/hs_neutral.npz exists (FORCE=1 to redo)"; fi
 if [ "$FORCE" = 1 ] || [ ! -f traj/hs_charges_20p20m.npz ]; then
-  log "simulating hs_charges_20p20m (20+/20-, l_B=$BJERRUM sigma, impulsive Verlet dt=$DT)"
+  log "simulating hs_charges_20p20m (20+/20-, l_B=$BJERRUM sigma, integrator=$INTEGRATOR, dt=$DT)"
   python sim/run_sim.py --name hs_charges_20p20m "${SIM_COMMON[@]}" --nplus 20 --nminus 20 \
-         --bjerrum "$BJERRUM" --dt "$DT" --t-equil-charged "$T_EQ_C" --coulomb ewald
+         --bjerrum "$BJERRUM" --dt "$DT" --t-equil-charged "$T_EQ_C" --coulomb ewald --integrator "$INTEGRATOR"
 else log "traj/hs_charges_20p20m.npz exists (FORCE=1 to redo)"; fi
 
 # ---------------------------------------------------------------- 3. sanity analysis (overlaps, energy, pairing)
 log "analysis"
 python sim/analyze.py traj/hs_neutral              | tee notes/analysis_hs_neutral.txt
 python sim/analyze.py traj/hs_charges_20p20m       | tee notes/analysis_hs_charges_20p20m.txt
+
+# ---------------------------------------------------------------- 3b. optional energy-order test (integrator comparison)
+if [ "${ORDER_TEST:-0}" = 1 ]; then
+  log "order test: max|E(t)-E(0)|/N vs dt for cv-phys / cv / kdk-phys / naive (equilibrated start, ~1 min)"
+  python sim/order_test.py --name _test/order --N "$N" --eta "$ETA" --nplus 20 --nminus 20 --bjerrum "$BJERRUM" \
+         --seed "$SEED" --t-equil-charged "$T_EQ_C" | tee notes/order_test.txt
+  cp -f traj/_test/order_order.csv notes/order_test.csv 2>/dev/null || true
+fi
 
 # ---------------------------------------------------------------- 4. render
 RENDER="render/render_${RENDERER}.py"
@@ -76,7 +85,7 @@ render(){ # name style label
 }
 : > notes/render_timing.txt
 render hs_neutral          cpk  "N=$N hard spheres, eta=$ETA, kT=1 (neutral control) - EDMD"
-render hs_charges_20p20m   cpk  "N=$N hard spheres, eta=$ETA, 20+ / 20- (l_B=${BJERRUM} sigma) - impulsive Verlet"
+render hs_charges_20p20m   cpk  "N=$N hard spheres, eta=$ETA, 20+ / 20- (l_B=${BJERRUM} sigma) - collision Verlet"
 if [ "$XRAY" = 1 ]; then
 render hs_charges_20p20m_xray xray "same run, neutrals ghosted to show the ions"
 fi

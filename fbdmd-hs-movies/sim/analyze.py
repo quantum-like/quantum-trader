@@ -152,6 +152,12 @@ def main(argv=None):
         diag = np.genfromtxt(dpath, delimiter=",", names=True)
         if diag.ndim == 0:
             diag = diag.reshape(1)
+    if meta.get("integrator"):
+        extra = ""
+        if str(meta.get("integrator_id", "")).startswith("cv"):
+            extra = (f"; {meta.get('n_verlet_substeps', '?')} Verlet sub-steps, {meta.get('n_cv_vmin_bias', '?')} vmin events, "
+                     f"{meta.get('n_drift_fix', '?')} drift fixes, max contact error {meta.get('max_contact_err', float('nan')):.1e}")
+        print(f"  integrator: {meta['integrator']}" + (f" dt={meta['dt']:g}" if meta.get("dt") else "") + extra + "  [from json]")
 
     # ---- hard-core check over all frames
     t1 = time.time()
