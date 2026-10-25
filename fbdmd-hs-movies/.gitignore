@@ -7,3 +7,7 @@ traj/*.bin
 build/
 *.o
 sim/hsdmd
+traj/_test/
+traj/*.npz
+frames/_test/
+notes/_test/
