@@ -263,7 +263,9 @@ def main(argv=None):
     meta["wall_seconds_convert"] = time.time() - t1
     meta["wall_seconds_total_wrapper"] = time.time() - t0
     meta_json = json.dumps(meta, indent=1, sort_keys=True)
-    np.savez_compressed(npz, pos=tr["pos"].astype(np.float32), types=tr["types"].astype(np.int8),
+    pos32 = tr["pos"].astype(np.float32)
+    pos32[pos32 >= np.float32(tr["L"])] = 0.0      # float32 rounding can lift a coordinate just below L onto L; keep [0, L)
+    np.savez_compressed(npz, pos=pos32, types=tr["types"].astype(np.int8),
                         charge=tr["charge"].astype(np.int8), times=tr["times"], L=np.float64(tr["L"]),
                         meta=np.array(meta_json))
     with open(js, "w") as f:

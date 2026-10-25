@@ -101,8 +101,8 @@ def components(nion, bonds):
     return list(comps.values())
 
 
-def pairing_frame(pos_ions, q, L):
-    """Per-frame ion statistics. Returns dict."""
+def pairing_frame(pos_ions, q, L, loose=None):
+    """Per-frame ion statistics. Returns dict. `loose` = optional second (larger) distance criterion in sigma."""
     d = pos_ions[:, None, :] - pos_ions[None, :, :]
     d -= L * np.round(d / L)
     r = np.sqrt(np.einsum("ijk,ijk->ij", d, d))
@@ -120,10 +120,14 @@ def pairing_frame(pos_ions, q, L):
                 nchain += 1
             else:
                 nbranched += 1
-    return dict(frac_paired=float(np.mean(nearest_opp < BOND)),
-                n_pm_pairs=int(bonds.sum() // 2),
-                sizes=sizes, largest=int(sizes.max()), nchain=nchain, nbranched=nbranched,
-                mean_nearest_opp=float(np.mean(nearest_opp)))
+    res = dict(frac_paired=float(np.mean(nearest_opp < BOND)),
+               n_pm_pairs=int(bonds.sum() // 2),
+               sizes=sizes, largest=int(sizes.max()), nchain=nchain, nbranched=nbranched,
+               mean_nearest_opp=float(np.mean(nearest_opp)))
+    if loose is not None:
+        res["frac_loose"] = float(np.mean(nearest_opp < loose))
+        res["n_opp_loose"] = float(np.mean((r_opp < loose).sum(axis=1)))
+    return res
 
 
 # ---------------------------------------------------------------------------
@@ -310,12 +314,17 @@ def main(argv=None):
         nchain = np.empty(F, dtype=int)
         nbranched = np.empty(F, dtype=int)
         nearest = np.empty(F)
+        loose = 0.5 * float(meta.get("bjerrum") or 5.0)   # l_B/2: the classical (looser) Bjerrum association criterion
+        fl = np.empty(F)
+        nol = np.empty(F)
         maxsize = len(ions)
         hist = np.zeros(maxsize + 1)          # mean number of clusters of size s per frame
         ion_frac = np.zeros(maxsize + 1)      # fraction of ions in clusters of size s
         for k in range(F):
-            st = pairing_frame(pos[k][ions].astype(np.float64), q, L)
+            st = pairing_frame(pos[k][ions].astype(np.float64), q, L, loose)
             fp[k] = st["frac_paired"]
+            fl[k] = st["frac_loose"]
+            nol[k] = st["n_opp_loose"]
             npm[k] = st["n_pm_pairs"]
             largest[k] = st["largest"]
             nchain[k] = st["nchain"]
@@ -330,6 +339,18 @@ def main(argv=None):
         print(f"  fraction of ions whose nearest opposite ion is within {BOND} sigma: mean {fp.mean():.3f} "
               f"(min {fp.min():.3f}, max {fp.max():.3f}); mean nearest-opposite distance {nearest.mean():.3f} sigma")
         print(f"  +/- contact pairs per frame: mean {npm.mean():.2f} (min {npm.min()}, max {npm.max()})")
+        # Looser criterion r < l_B/2. Reference = random placement with only the hard core excluded:
+        # P(no opposite ion in the shell sigma < r < l_B/2) = (1 - V_shell/L^3)^n_opp, n_opp = opposite ions per ion.
+        npl, nmi = int((q > 0).sum()), int((q < 0).sum())
+        n_opp_mean = 2.0 * npl * nmi / max(1, npl + nmi)
+        v_shell = max(0.0, 4.0 / 3.0 * np.pi * (loose ** 3 - 1.0))
+        ref_loose = 1.0 - (1.0 - v_shell / L ** 3) ** n_opp_mean
+        print(f"  looser Bjerrum criterion r(+-) < l_B/2 = {loose:g} sigma: fraction of ions with an opposite ion within range "
+              f"mean {fl.mean():.3f} (min {fl.min():.3f}, max {fl.max():.3f}); opposite ions within range per ion {nol.mean():.2f}; "
+              f"random-placement reference (hard core only) {ref_loose:.2f}")
+        out["loose_criterion_sigma"] = loose
+        out["frac_loose_mean"] = float(fl.mean())
+        out["frac_loose_reference"] = float(ref_loose)
         sizes_present = [s_ for s_ in range(1, maxsize + 1) if hist[s_] > 0]
         print("  cluster-size histogram (mean clusters per frame / fraction of ions):")
         for s_ in sizes_present:

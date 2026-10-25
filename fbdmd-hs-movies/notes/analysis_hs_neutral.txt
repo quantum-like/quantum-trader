@@ -1,6 +1,6 @@
 analyze: traj/hs_neutral  source=xyz [float64 (xyz, %.10f text)]  frames=721 N=1000 L=11.436949
   integrator: EDMD  [from json]
-  min pair distance over all frames: 1.000000088601 (frame 75, t=1.8750); tolerance 1-1.0e-09  -> OK, no overlap  [28.0s]
+  min pair distance over all frames: 1.000000088601 (frame 75, t=1.8750); tolerance 1-1.0e-09  -> OK, no overlap  [29.3s]
   simulator's own per-frame min_dist (double precision, cell list): min 1.000000088613
   contract (FORMAT.md): OK (types 1/2/3 non-decreasing, charges consistent, json fields/machine string, uniform frame times)
   temperature: mean 1.000000  std 0.000000  (kT target 1; KE mean 1498.5000, PE mean 0.0000)
@@ -11,4 +11,4 @@ analyze: traj/hs_neutral  source=xyz [float64 (xyz, %.10f text)]  frames=721 N=1
   linear trends over the run: dPE/dt = +0.0000 kT/tau (|dPE/dt|*t_run = 0.00 kT = 0.0% of |PE|), dT/dt = +3.68e-18 /tau (|dT/dt|*t_run = 0.00% of T)
   stationarity: OK (no significant PE/T trend)
   verdict: neutral hard spheres: no ions, free flight between collisions
-  overlap check: passed; contract check: passed; analysis wall time 28.7s
+  overlap check: passed; contract check: passed; analysis wall time 29.7s

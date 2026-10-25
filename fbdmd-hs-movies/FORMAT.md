@@ -36,8 +36,8 @@ NEG 5.5 6.6 7.7 3 3 -1
 
 ## Metadata: `traj/<name>.json`
 ```json
-{"name": "hs_charges_20p20m", "N": 1000, "eta": 0.35, "L": 11.444, "kT": 1.0, "nplus": 20, "nminus": 20,
- "bjerrum": 5.0, "coulomb": "ewald", "integrator": "EDMD + impulsive (collision) Verlet", "dt": 0.005,
+{"name": "hs_charges_20p20m", "N": 1000, "eta": 0.35, "L": 11.437, "kT": 1.0, "nplus": 20, "nminus": 20,
+ "bjerrum": 5.0, "coulomb": "ewald", "integrator": "collision Verlet (HLL 2000) + F2 physical-velocity collision rule, q1=1, q2=1.5", "integrator_id": "cv-phys", "dt": 0.005,
  "dt_frame": 0.025, "t_equil_neutral": 5.0, "t_equil_charged": 5.0, "t_run": 18.0, "n_frames": 721,
  "seed": 1, "n_collisions": 123456, "wall_seconds": 12.3, "Z_virial": 5.2, "Z_CS": 5.206,
  "energy_drift_rel": 1e-5, "machine": "..."}

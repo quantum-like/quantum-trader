@@ -72,8 +72,11 @@ def main():
     for mp4 in sorted(glob.glob(os.path.join(ROOT, "movies", "*.mp4"))):
         lines.append(f"* `{mp4}` — {probe(mp4)}")
     extra = os.path.join(ROOT, "notes", "render_timing.txt")
+    lines.append("\n## Wall times\n")
+    lines.append("Simulation: " + "; ".join(f"{n} {m.get('wall_seconds', float('nan')):.1f} s" for n, m in metas.items()) +
+                 f" (this machine: {os.cpu_count()} CPUs, {chip()}; analysis ≈ 30 s per run).")
     if os.path.exists(extra):
-        lines.append("\n## Render timing\n")
+        lines.append("Render + encode (from notes/render_timing.txt):\n")
         lines.append("```\n" + open(extra).read().strip() + "\n```")
     obs = os.path.join(ROOT, "notes", "observations.md")
     if os.path.exists(obs):

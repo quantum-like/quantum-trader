@@ -20,7 +20,7 @@ that produces the same movie.
 
 ```bash
 cd fbdmd-hs-movies
-bash run_all.sh                       # venv + build + 2 sims (~15 s) + analysis (~1 min) + 3 renders (~35 min on 4 cores)
+bash run_all.sh                       # venv + build + selftest (~7 s) + 2 sims (~15 s) + analysis (~1 min) + 3 renders (~50 min on 4 cores, ~17 min each)
 # faster preview:
 QUALITY=draft WIDTH=640 HEIGHT=360 T_RUN=6 bash run_all.sh
 # literal HLL collision Verlet instead of the default cv-phys variant (see Physics):
@@ -32,17 +32,18 @@ Outputs: `movies/*.mp4`, trajectories in `traj/` (ext-XYZ readable by OVITO + `.
 metadata), per-frame diagnostics `traj/*_diag.csv`, analysis in `notes/`, and a regenerated one-page `NOTES.md`.
 
 Requirements: python ≥ 3.10, a C++17 compiler (`g++`/`clang++`; Xcode CLT on macOS), `make`, `ffmpeg`
-(`brew install ffmpeg`). Python packages: see `requirements.txt` (numpy, pillow, optional ovito).
+(`brew install ffmpeg`), bash ≥ 3.2 (`run_all.sh` uses no bash-4-only features, so the stock macOS `/bin/bash` 3.2.57
+works). Python packages: see `requirements.txt` (numpy, pillow, optional ovito).
 On Linux without a GPU, OVITO additionally needs a software Vulkan driver (`apt install mesa-vulkan-drivers`);
 on macOS the pip wheel is self-contained. Each OVITO render prints one harmless
 `VkInstanceCreateInfo ... apiVersion` line on stderr.
 
-## Step by step (what run_all.sh does)
+## Step by step (the commands run_all.sh runs, for doing it by hand)
 
 ```bash
-python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt   # run_all.sh falls back to numpy+pillow if no ovito wheel exists
 make -C sim                                                     # builds sim/hsdmd (single C++17 file)
-sim/hsdmd --selftest                                            # 50 unit checks (collisions, Ewald, splitting, quartic solver, ...)
+sim/hsdmd --selftest                                            # 50 unit checks (collisions, Ewald, splitting, quartic solver, ...), ~7 s; SELFTEST=0 skips it in run_all.sh
 # neutral control: 5 τ equilibration (velocity rescaling), 18 τ NVE production, frame every 0.025 τ
 python sim/run_sim.py --name hs_neutral --N 1000 --eta 0.35 --seed 1 \
        --t-equil-neutral 5 --t-run 18 --dt-frame 0.025
@@ -53,7 +54,8 @@ python sim/run_sim.py --name hs_charges_20p20m --N 1000 --eta 0.35 --seed 1 \
 python sim/analyze.py traj/hs_neutral                         # overlap scan (all frames), Z vs Carnahan-Starling
 python sim/analyze.py traj/hs_charges_20p20m                  # + energy drift, stationarity, pairing / cluster stats
 python sim/order_test.py --t-equil-charged 15                 # optional: max|E(t)-E0|/N vs dt for the 4 integrators
-# render (OVITO/Tachyon; use render/render_numpy.py with the same flags if `import ovito` fails)
+# render (OVITO/Tachyon; use render/render_numpy.py with the same flags if `import ovito` fails;
+#  run_all.sh additionally passes --label "..." with the system parameters, otherwise a default caption is used)
 python render/render_ovito.py --traj traj/hs_neutral.npz        --name hs_neutral        --out movies/hs_neutral.mp4        --style cpk
 python render/render_ovito.py --traj traj/hs_charges_20p20m.npz --name hs_charges_20p20m --out movies/hs_charges_20p20m.mp4 --style cpk
 python render/render_ovito.py --traj traj/hs_charges_20p20m.npz --name hs_charges_20p20m_xray --out movies/hs_charges_20p20m_xray.mp4 --style xray
@@ -66,8 +68,8 @@ python make_notes.py
 * Hard spheres: exact event-driven MD (cell lists, binary event heap, lazy invalidation). Frames are
   evaluated at uniform times t_k = k·Δt_frame from the ballistic free flight, so the movie is smooth
   (no per-collision jitter) and nothing can tunnel — `analyze.py` scans every frame for r < σ.
-  Validation: collisional virial Z = 5.19–5.23 vs Carnahan–Starling 5.206, collision rate 14.2–14.3 per
-  particle per τ vs Enskog 14.24, exact time reversibility.
+  Validation: collisional virial Z = 5.233 (neutral) / 5.224 (charged) vs Carnahan–Starling 5.206, collision rate
+  14.32 / 14.31 per particle per τ vs Enskog 14.24, exact time reversibility (reviewer tests in `sim/README_sim.md`).
 * Charges: ±e on 20 + 20 randomly chosen spheres. Coulomb energy U = l_B kT Σ q_i q_j / r_ij with
   l_B/σ = 5 (i.e. T* = 1/5 = 0.2; the contact energy of a +/− pair is −5 kT, so Bjerrum pairs form but
   are broken up by collisions with the gray solvent spheres). Long range handled by 3D Ewald summation
@@ -99,13 +101,14 @@ CPK look: opaque spheres of diameter σ; neutrals light gray, + red, − blue; p
 slow 40° orbit; Tachyon ray tracing with ambient occlusion (16 samples) and slight specular; faint box
 edges; light studio background (`--bg dark` for the old Materials Studio navy look); small label with the
 system parameters and the current time in τ. 1280×720, 30 fps, 721 frames (24 s) per movie, H.264 yuv420p.
-On a 4-core box a frame takes ≈1.4 s (cpk) / ≈1.3 s (x-ray); `OVITO_THREAD_COUNT` is set to 4× the core count
+On a 4-core box a frame takes ≈1.4 s (cpk) / ≈1.25 s (x-ray), i.e. ≈17 / ≈15 min per 721-frame movie; `OVITO_THREAD_COUNT` is set to 4× the core count
 automatically because Tachyon otherwise leaves half the CPU idle.
 
 ## Layout
 
 ```
-run_all.sh          one-shot pipeline (env knobs: QUALITY, N, ETA, BJERRUM, SEED, INTEGRATOR, T_RUN, DT_FRAME, WIDTH, HEIGHT, RENDERER, XRAY, ORDER_TEST, FORCE)
+run_all.sh          one-shot pipeline (env knobs: QUALITY, N, ETA, BJERRUM, SEED, INTEGRATOR, T_EQ_N, T_EQ_C, T_RUN, DT, DT_FRAME,
+                    WIDTH, HEIGHT, FPS, ORBIT, RENDERER, XRAY, ORDER_TEST, SELFTEST, FORCE, PYTHON)
 sim/hsdmd.cpp       C++17 EDMD + collision Verlet + Ewald/DSF (single file, no deps)   sim/Makefile
 sim/run_sim.py      CLI wrapper: build, run, convert to traj/<name>.{xyz,npz,json,_diag.csv}
 sim/analyze.py      overlap scan, energy/temperature/stationarity, pairing + cluster statistics

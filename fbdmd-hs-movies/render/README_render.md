@@ -93,7 +93,6 @@ are `<root>/movies/<name>.mp4` and `<root>/frames/<name>`.
 * `trajio.py` — `.npz` / extended-XYZ readers and writers per FORMAT.md.
 * `make_test_traj.py` — synthetic 12-frame test trajectory (jittered simple-cubic lattice, L = 11.444,
   40 ions, ballistic drift with wrapping; min centre distance in frame 0 = 1.049 σ).
-* `_ovito_smoketest.py` — original headless smoke test (kept for reference).
 
 ## Look (Materials Studio CPK)
 
