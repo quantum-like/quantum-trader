@@ -1,0 +1,1186 @@
+// hsdmd.cpp -- event-driven hard-sphere molecular dynamics (EDMD) with an
+// optional restricted-primitive-model (RPM) charged subset integrated by
+// impulsive / collision Verlet (Houndonougbo, Laird, Leimkuhler, Mol. Phys.
+// 98, 309, 2000).
+//
+// Reduced units: sigma = 1, m = 1, kT = 1, tau = sigma*sqrt(m/kT).
+// Coulomb:  U = bjerrum * sum_{i<j} q_i q_j phi(r_ij)   (q = +-1),
+//           phi = Ewald (tin-foil) or Fennell-Gezelter damped shifted force.
+//
+// Output (see ../FORMAT.md): extended XYZ frames at uniform times (ballistic
+// free flight evaluated exactly at the frame time), a diagnostics CSV with one
+// row per frame, and a JSON summary.  Single file, C++17 standard library only.
+//
+// Build:  c++ -O3 -std=c++17 -Wall -Wextra -o hsdmd hsdmd.cpp
+// Usage:  ./hsdmd --help
+
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <complex>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <limits>
+#include <random>
+#include <string>
+#include <vector>
+
+namespace {
+
+constexpr double SIGMA = 1.0;
+constexpr double SIGMA2 = SIGMA * SIGMA;
+constexpr double PI = 3.14159265358979323846;
+constexpr double KT = 1.0;
+const char* HSDMD_VERSION = "1.0";
+
+struct Vec3 {
+  double x = 0, y = 0, z = 0;
+};
+inline Vec3 operator+(Vec3 a, Vec3 b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
+inline Vec3 operator-(Vec3 a, Vec3 b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
+inline Vec3 operator*(Vec3 a, double s) { return {a.x * s, a.y * s, a.z * s}; }
+inline Vec3& operator+=(Vec3& a, Vec3 b) { a.x += b.x; a.y += b.y; a.z += b.z; return a; }
+inline Vec3& operator-=(Vec3& a, Vec3 b) { a.x -= b.x; a.y -= b.y; a.z -= b.z; return a; }
+inline double dot(Vec3 a, Vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+inline double& comp(Vec3& a, int d) { return d == 0 ? a.x : (d == 1 ? a.y : a.z); }
+
+double wall_now() {
+  using namespace std::chrono;
+  static const auto t0 = steady_clock::now();
+  return duration<double>(steady_clock::now() - t0).count();
+}
+
+// ---------------------------------------------------------------------------
+// Coulomb interaction for the ion subset (Ewald or DSF)
+// ---------------------------------------------------------------------------
+struct Coulomb {
+  enum Mode { EWALD = 0, DSF = 1 };
+  Mode mode = EWALD;
+  double L = 1, V = 1, bjerrum = 1;
+  double alpha = 1, rc = 0.5;
+  int kmax = 6;
+  // Ewald reciprocal vectors (half space, factor 2 applied in the sums)
+  struct KVec { int nx, ny, nz; double kx, ky, kz, w; };
+  std::vector<KVec> kvecs;
+  // DSF shifts
+  double dsf_shiftU = 0, dsf_shiftF = 0, dsf_self = 0;
+
+  void setup(Mode m, double boxL, double lB) {
+    mode = m;
+    L = boxL;
+    V = L * L * L;
+    bjerrum = lB;
+    rc = 0.5 * L;
+    if (mode == EWALD) {
+      alpha = 5.6 / L;
+      kmax = 6;
+      kvecs.clear();
+      const double twopiL = 2 * PI / L;
+      for (int nx = 0; nx <= kmax; ++nx)
+        for (int ny = -kmax; ny <= kmax; ++ny)
+          for (int nz = -kmax; nz <= kmax; ++nz) {
+            if (nx == 0 && ny == 0 && nz == 0) continue;
+            if (nx == 0 && (ny < 0 || (ny == 0 && nz < 0))) continue;  // half space
+            KVec k;
+            k.nx = nx; k.ny = ny; k.nz = nz;
+            k.kx = twopiL * nx; k.ky = twopiL * ny; k.kz = twopiL * nz;
+            double k2 = k.kx * k.kx + k.ky * k.ky + k.kz * k.kz;
+            k.w = std::exp(-k2 / (4 * alpha * alpha)) / k2;
+            kvecs.push_back(k);
+          }
+    } else {
+      alpha = 0.2;
+      double erc = std::erfc(alpha * rc);
+      dsf_shiftU = erc / rc;
+      dsf_shiftF = erc / (rc * rc) + 2 * alpha / std::sqrt(PI) * std::exp(-alpha * alpha * rc * rc) / rc;
+      dsf_self = -(erc / (2 * rc) + alpha / std::sqrt(PI));
+    }
+  }
+
+  inline void minimg(Vec3& r) const {
+    r.x -= L * std::nearbyint(r.x / L);
+    r.y -= L * std::nearbyint(r.y / L);
+    r.z -= L * std::nearbyint(r.z / L);
+  }
+
+  // energy and forces (F resized to r.size()); positions may be unwrapped
+  double compute(const std::vector<Vec3>& r, const std::vector<int>& q, std::vector<Vec3>& F) const {
+    const int n = (int)r.size();
+    F.assign(n, Vec3{});
+    double U = 0;
+    if (mode == EWALD) {
+      const double a2 = alpha * alpha, twoa_sqrtpi = 2 * alpha / std::sqrt(PI);
+      // real space (minimum image, r < rc)
+      for (int i = 0; i < n; ++i)
+        for (int j = i + 1; j < n; ++j) {
+          Vec3 d = r[i] - r[j];
+          minimg(d);
+          double r2 = dot(d, d);
+          if (r2 >= rc * rc) continue;
+          double rr = std::sqrt(r2), inv = 1.0 / rr;
+          double qq = q[i] * q[j];
+          double erc = std::erfc(alpha * rr);
+          U += qq * erc * inv;
+          double fmag = qq * (erc * inv * inv + twoa_sqrtpi * std::exp(-a2 * r2) * inv) * inv;  // /r for unit vector
+          F[i] += d * fmag;
+          F[j] -= d * fmag;
+        }
+      // reciprocal space
+      using cplx = std::complex<double>;
+      const int nk = 2 * kmax + 1;
+      std::vector<cplx> ex((size_t)n * nk), ey((size_t)n * nk), ez((size_t)n * nk);
+      const double twopiL = 2 * PI / L;
+      for (int i = 0; i < n; ++i) {
+        cplx bx = std::polar(1.0, twopiL * r[i].x), by = std::polar(1.0, twopiL * r[i].y),
+             bz = std::polar(1.0, twopiL * r[i].z);
+        cplx px = 1, py = 1, pz = 1;
+        for (int m = 0; m <= kmax; ++m) {
+          ex[(size_t)i * nk + kmax + m] = px; ex[(size_t)i * nk + kmax - m] = std::conj(px);
+          ey[(size_t)i * nk + kmax + m] = py; ey[(size_t)i * nk + kmax - m] = std::conj(py);
+          ez[(size_t)i * nk + kmax + m] = pz; ez[(size_t)i * nk + kmax - m] = std::conj(pz);
+          px *= bx; py *= by; pz *= bz;
+        }
+      }
+      std::vector<cplx> ph(n);
+      double Urec = 0;
+      const double pref_f = 8 * PI / V;
+      for (const KVec& k : kvecs) {
+        cplx S = 0;
+        for (int i = 0; i < n; ++i) {
+          cplx p = ex[(size_t)i * nk + kmax + k.nx] * ey[(size_t)i * nk + kmax + k.ny] *
+                   ez[(size_t)i * nk + kmax + k.nz];
+          ph[i] = p;
+          S += (double)q[i] * p;
+        }
+        Urec += k.w * std::norm(S);
+        for (int i = 0; i < n; ++i) {
+          // Im[exp(-i k.r_i) S]
+          double im = (std::conj(ph[i]) * S).imag();
+          double c = -pref_f * k.w * q[i] * im;
+          F[i].x += c * k.kx; F[i].y += c * k.ky; F[i].z += c * k.kz;
+        }
+      }
+      U += (4 * PI / V) * Urec;
+      double sq2 = 0;
+      for (int i = 0; i < n; ++i) sq2 += (double)q[i] * q[i];
+      U += -alpha / std::sqrt(PI) * sq2;
+    } else {
+      const double a2 = alpha * alpha, twoa_sqrtpi = 2 * alpha / std::sqrt(PI);
+      for (int i = 0; i < n; ++i)
+        for (int j = i + 1; j < n; ++j) {
+          Vec3 d = r[i] - r[j];
+          minimg(d);
+          double r2 = dot(d, d);
+          if (r2 >= rc * rc) continue;
+          double rr = std::sqrt(r2), inv = 1.0 / rr;
+          double qq = q[i] * q[j];
+          double erc = std::erfc(alpha * rr);
+          U += qq * (erc * inv - dsf_shiftU + dsf_shiftF * (rr - rc));
+          double fmag = qq * (erc * inv * inv + twoa_sqrtpi * std::exp(-a2 * r2) * inv - dsf_shiftF) * inv;
+          F[i] += d * fmag;
+          F[j] -= d * fmag;
+        }
+      double sq2 = 0;
+      for (int i = 0; i < n; ++i) sq2 += (double)q[i] * q[i];
+      U += dsf_self * sq2;
+    }
+    for (auto& f : F) f = f * bjerrum;
+    return bjerrum * U;
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Event-driven hard-sphere simulation
+// ---------------------------------------------------------------------------
+struct Event {
+  double t;
+  int i, j;          // j >= 0: pair collision; j < 0: cell crossing of i, dir = -1 - j
+  uint32_t ci, cj;   // collision-counter snapshots for lazy invalidation
+};
+struct EventLater {
+  bool operator()(const Event& a, const Event& b) const { return a.t > b.t; }
+};
+
+struct Sim {
+  int N = 0;
+  double L = 1, eta = 0;
+  int ncell = 1;
+  double cellw = 1;
+  std::vector<Vec3> pos, vel;
+  std::vector<double> tlast;
+  std::vector<uint32_t> cnt;
+  std::vector<int> cx, cy, cz, nxt, prv, head;
+  std::vector<int> charge;     // 0, +1, -1
+  std::vector<int> ions;       // indices of charged spheres
+  std::vector<Vec3> acc;       // force (m=1) used for the current Verlet step; zero for neutrals
+  std::vector<Event> heap;     // binary min-heap (std::push_heap / pop_heap)
+  double tnow = 0;
+  // collision-Verlet bookkeeping: between kick_start and kick_end the stored velocity is the
+  // leapfrog drift velocity u; the physical velocity at time t_kick+tau is u + acc*(tau - h/2).
+  double t_kick = 0, h_step = 0;
+  bool in_step = false;
+  bool phys_collision = true;  // reflect physical velocities at collisions (false = naive drift reflection)
+  uint64_t n_phys_separating = 0, n_drift_fix = 0;
+  // statistics
+  uint64_t ncoll = 0, ncross = 0, nstale = 0, nevents = 0, nskipped_grazing = 0;
+  double virial = 0;           // sum over collisions of sigma*|dp|  (m = 1)
+  double max_contact_err = 0;  // max | |r| - sigma | at processed collisions
+  std::mt19937_64 rng;
+  size_t heap_limit = 1 << 20;
+
+  // ---------------- setup ----------------
+  void setup_box(int n, double L_) {
+    N = n;
+    L = L_;
+    ncell = (int)std::floor(L / SIGMA);
+    if (ncell < 3) {
+      std::fprintf(stderr, "error: box too small for cell list (L=%g -> ncell=%d < 3)\n", L, ncell);
+      std::exit(2);
+    }
+    cellw = L / ncell;
+    pos.assign(N, Vec3{});
+    vel.assign(N, Vec3{});
+    tlast.assign(N, 0.0);
+    cnt.assign(N, 0u);
+    cx.assign(N, 0); cy.assign(N, 0); cz.assign(N, 0);
+    nxt.assign(N, -1); prv.assign(N, -1);
+    head.assign((size_t)ncell * ncell * ncell, -1);
+    charge.assign(N, 0);
+    acc.assign(N, Vec3{});
+    ions.clear();
+    heap.clear();
+    heap_limit = std::max<size_t>(100000, (size_t)64 * N);
+    tnow = 0;
+  }
+
+  static int lattice_n(int N) { return (int)std::ceil(std::cbrt((double)N) - 1e-9); }
+
+  // simple-cubic lattice with small jitter, MB velocities at kT=1
+  void init_lattice(uint64_t seed) {
+    rng.seed(seed);
+    int n = lattice_n(N);
+    double a = L / n;
+    if (a <= SIGMA) {
+      std::fprintf(stderr, "error: lattice spacing %g <= sigma; cannot place %d spheres in L=%g\n", a, N, L);
+      std::exit(2);
+    }
+    std::vector<int> sites(n * n * n);
+    for (int s = 0; s < n * n * n; ++s) sites[s] = s;
+    std::shuffle(sites.begin(), sites.end(), rng);
+    double jit = 0.45 * std::min(a - SIGMA, 0.5);
+    std::uniform_real_distribution<double> uj(-jit, jit);
+    for (int i = 0; i < N; ++i) {
+      int s = sites[i];
+      int ix = s / (n * n), iy = (s / n) % n, iz = s % n;
+      pos[i] = {(ix + 0.5) * a + uj(rng), (iy + 0.5) * a + uj(rng), (iz + 0.5) * a + uj(rng)};
+      wrap(pos[i]);
+    }
+    std::normal_distribution<double> gauss(0.0, 1.0);
+    Vec3 P{};
+    for (int i = 0; i < N; ++i) {
+      vel[i] = {gauss(rng), gauss(rng), gauss(rng)};
+      P += vel[i];
+    }
+    for (int i = 0; i < N; ++i) vel[i] -= P * (1.0 / N);
+    rescale_velocities();
+    // overlap check (brute force)
+    double dmin2 = min_dist2_bruteforce();
+    if (dmin2 < SIGMA2) {
+      std::fprintf(stderr, "error: initial lattice has overlaps (dmin=%g)\n", std::sqrt(dmin2));
+      std::exit(2);
+    }
+    std::fill(tlast.begin(), tlast.end(), tnow);
+    assign_cells();
+    rebuild_events();
+  }
+
+  void wrap(Vec3& p) const {
+    p.x -= L * std::floor(p.x / L);
+    p.y -= L * std::floor(p.y / L);
+    p.z -= L * std::floor(p.z / L);
+  }
+  inline void minimg(Vec3& r) const {
+    if (r.x > 0.5 * L) r.x -= L; else if (r.x < -0.5 * L) r.x += L;
+    if (r.y > 0.5 * L) r.y -= L; else if (r.y < -0.5 * L) r.y += L;
+    if (r.z > 0.5 * L) r.z -= L; else if (r.z < -0.5 * L) r.z += L;
+  }
+  inline void minimg_full(Vec3& r) const {
+    r.x -= L * std::nearbyint(r.x / L);
+    r.y -= L * std::nearbyint(r.y / L);
+    r.z -= L * std::nearbyint(r.z / L);
+  }
+
+  double min_dist2_bruteforce() const {
+    double dmin2 = std::numeric_limits<double>::infinity();
+    for (int i = 0; i < N; ++i)
+      for (int j = i + 1; j < N; ++j) {
+        Vec3 d = pos_at(i, tnow) - pos_at(j, tnow);
+        minimg_full(d);
+        dmin2 = std::min(dmin2, dot(d, d));
+      }
+    return dmin2;
+  }
+
+  double kinetic() const {
+    double ke = 0;
+    for (int i = 0; i < N; ++i) ke += dot(vel[i], vel[i]);
+    return 0.5 * ke;
+  }
+  Vec3 momentum() const {
+    Vec3 P{};
+    for (int i = 0; i < N; ++i) P += vel[i];
+    return P;
+  }
+  double target_ke() const { return 1.5 * (N - 1) * KT; }
+  void rescale_velocities() {
+    double ke = kinetic();
+    double s = std::sqrt(target_ke() / ke);
+    for (int i = 0; i < N; ++i) vel[i] = vel[i] * s;
+  }
+
+  // ---------------- cells ----------------
+  inline int cell_index(int a, int b, int c) const { return (a * ncell + b) * ncell + c; }
+  inline int wrapc(int c) const { return c < 0 ? c + ncell : (c >= ncell ? c - ncell : c); }
+  void cell_insert(int i) {
+    int c = cell_index(cx[i], cy[i], cz[i]);
+    nxt[i] = head[c];
+    prv[i] = -1;
+    if (head[c] >= 0) prv[head[c]] = i;
+    head[c] = i;
+  }
+  void cell_remove(int i) {
+    int c = cell_index(cx[i], cy[i], cz[i]);
+    if (prv[i] >= 0) nxt[prv[i]] = nxt[i]; else head[c] = nxt[i];
+    if (nxt[i] >= 0) prv[nxt[i]] = prv[i];
+    nxt[i] = prv[i] = -1;
+  }
+  void assign_cells() {
+    std::fill(head.begin(), head.end(), -1);
+    for (int i = 0; i < N; ++i) {
+      Vec3 p = pos[i];
+      wrap(p);
+      pos[i] = p;
+      cx[i] = std::min(ncell - 1, (int)(p.x / cellw));
+      cy[i] = std::min(ncell - 1, (int)(p.y / cellw));
+      cz[i] = std::min(ncell - 1, (int)(p.z / cellw));
+      cell_insert(i);
+    }
+  }
+
+  // ---------------- kinematics ----------------
+  inline Vec3 pos_at(int i, double t) const { return pos[i] + vel[i] * (t - tlast[i]); }
+  inline void sync(int i, double t) { pos[i] = pos_at(i, t); tlast[i] = t; }
+  void sync_all(double t) { for (int i = 0; i < N; ++i) sync(i, t); }
+
+  // ---------------- events ----------------
+  inline void push_event(const Event& e) {
+    heap.push_back(e);
+    std::push_heap(heap.begin(), heap.end(), EventLater());
+  }
+
+  void schedule_crossing(int i) {
+    double best = std::numeric_limits<double>::infinity();
+    int bdir = -1;
+    const int cc[3] = {cx[i], cy[i], cz[i]};
+    for (int d = 0; d < 3; ++d) {
+      double v = comp(vel[i], d);
+      if (v == 0) continue;
+      double bnd = (v > 0) ? (cc[d] + 1) * cellw : cc[d] * cellw;
+      double tc = tlast[i] + (bnd - comp(pos[i], d)) / v;
+      if (tc < tnow) tc = tnow;
+      if (tc < best) { best = tc; bdir = 2 * d + (v > 0 ? 1 : 0); }
+    }
+    if (bdir >= 0) push_event(Event{best, i, -1 - bdir, cnt[i], 0u});
+  }
+
+  // predicted collision of (i,j) given current velocities; positions evaluated at tnow
+  inline bool predict_pair(int i, int j, double& tc) const {
+    Vec3 r = pos_at(i, tnow) - pos_at(j, tnow);
+    minimg(r);
+    Vec3 v = vel[i] - vel[j];
+    double b = dot(r, v);
+    if (b >= 0) return false;
+    double v2 = dot(v, v);
+    if (v2 <= 0) return false;
+    double r2 = dot(r, r);
+    if (r2 <= SIGMA2 * (1 + 1e-12)) { tc = tnow; return true; }  // roundoff overlap, approaching
+    double disc = b * b - v2 * (r2 - SIGMA2);
+    if (disc < 0) return false;
+    tc = tnow + (r2 - SIGMA2) / (-b + std::sqrt(disc));
+    return true;
+  }
+
+  void predict_collisions(int i) {
+    for (int dx = -1; dx <= 1; ++dx)
+      for (int dy = -1; dy <= 1; ++dy)
+        for (int dz = -1; dz <= 1; ++dz) {
+          int c = cell_index(wrapc(cx[i] + dx), wrapc(cy[i] + dy), wrapc(cz[i] + dz));
+          for (int j = head[c]; j >= 0; j = nxt[j]) {
+            if (j == i) continue;
+            double tc;
+            if (predict_pair(i, j, tc)) push_event(Event{tc, i, j, cnt[i], cnt[j]});
+          }
+        }
+  }
+
+  void rebuild_events() {
+    heap.clear();
+    for (int i = 0; i < N; ++i) schedule_crossing(i);
+    for (int i = 0; i < N; ++i)
+      for (int dx = -1; dx <= 1; ++dx)
+        for (int dy = -1; dy <= 1; ++dy)
+          for (int dz = -1; dz <= 1; ++dz) {
+            int c = cell_index(wrapc(cx[i] + dx), wrapc(cy[i] + dy), wrapc(cz[i] + dz));
+            for (int j = head[c]; j >= 0; j = nxt[j]) {
+              if (j <= i) continue;
+              double tc;
+              if (predict_pair(i, j, tc)) heap.push_back(Event{tc, i, j, cnt[i], cnt[j]});
+            }
+          }
+    std::make_heap(heap.begin(), heap.end(), EventLater());
+  }
+
+  inline bool stale(const Event& e) const {
+    if (e.ci != cnt[e.i]) return true;
+    return e.j >= 0 && e.cj != cnt[e.j];
+  }
+
+  void compact_heap() {
+    size_t k = 0;
+    for (size_t a = 0; a < heap.size(); ++a)
+      if (!stale(heap[a])) heap[k++] = heap[a];
+    heap.resize(k);
+    std::make_heap(heap.begin(), heap.end(), EventLater());
+    heap_limit = std::max<size_t>(100000, std::max((size_t)64 * N, 2 * heap.size()));
+  }
+
+  void process_collision(const Event& e) {
+    const int i = e.i, j = e.j;
+    sync(i, e.t);
+    sync(j, e.t);
+    Vec3 r = pos[i] - pos[j];
+    minimg(r);
+    double rn = std::sqrt(dot(r, r));
+    max_contact_err = std::max(max_contact_err, std::fabs(rn - SIGMA));
+    Vec3 n = r * (1.0 / rn);
+    const bool ion_step = in_step && phys_collision && (charge[i] != 0 || charge[j] != 0);
+    if (!ion_step) {
+      // plain elastic reflection of the stored velocities (always exact for neutral pairs)
+      Vec3 v = vel[i] - vel[j];
+      double vn = dot(v, n);
+      if (vn >= 0) { ++nskipped_grazing; return; }  // separating already (grazing roundoff): no impulse
+      Vec3 dv = n * vn;
+      vel[i] -= dv;
+      vel[j] += dv;
+      virial += SIGMA * (-vn);
+      ++ncoll;
+    } else {
+      // Collision Verlet: reflect the *physical* velocities v = u + a (tau1 - h/2), then return to
+      // drift velocities. Momentum of the pair is conserved exactly; the drift position at the end
+      // of the step is unchanged to O(dt^2) (pre/post displacements a*tau1*tau2/2 cancel).
+      const double sh = (e.t - t_kick) - 0.5 * h_step;
+      Vec3 vi = vel[i] + acc[i] * sh, vj = vel[j] + acc[j] * sh;
+      double vn = dot(vi - vj, n);
+      if (vn < 0) {
+        Vec3 dv = n * vn;
+        vi -= dv;
+        vj += dv;
+        virial += SIGMA * (-vn);
+        ++ncoll;
+        vel[i] = vi - acc[i] * sh;
+        vel[j] = vj - acc[j] * sh;
+      } else {
+        ++n_phys_separating;  // physically already separating: no impulse
+      }
+      // the EDMD moves the spheres with the drift velocities: make sure those separate (no overlap)
+      double wn = dot(vel[i] - vel[j], n);
+      const double eps = 1e-9;
+      if (wn < eps) {
+        double sft = 0.5 * (wn - eps);
+        vel[i] -= n * sft;
+        vel[j] += n * sft;
+        ++n_drift_fix;
+      }
+    }
+    ++cnt[i]; ++cnt[j];
+    schedule_crossing(i);
+    schedule_crossing(j);
+    predict_collisions(i);
+    predict_collisions(j);
+  }
+
+  void process_crossing(const Event& e) {
+    const int i = e.i;
+    const int dir = -1 - e.j, d = dir >> 1, sgn = (dir & 1) ? 1 : -1;
+    sync(i, e.t);
+    cell_remove(i);
+    int* cc = (d == 0) ? &cx[i] : (d == 1 ? &cy[i] : &cz[i]);
+    int c = *cc + sgn;
+    if (c >= ncell) { c = 0; comp(pos[i], d) -= L; }
+    else if (c < 0) { c = ncell - 1; comp(pos[i], d) += L; }
+    *cc = c;
+    cell_insert(i);
+    ++ncross;
+    schedule_crossing(i);
+    predict_collisions(i);
+  }
+
+  // process all events with t < t_target, then set tnow = t_target
+  void advance_to(double t_target) {
+    while (!heap.empty() && heap.front().t < t_target) {
+      Event e = heap.front();
+      std::pop_heap(heap.begin(), heap.end(), EventLater());
+      heap.pop_back();
+      if (stale(e)) { ++nstale; continue; }
+      if (e.t < tnow) e.t = tnow;  // guard (should not happen)
+      tnow = e.t;
+      ++nevents;
+      if (e.j >= 0) process_collision(e); else process_crossing(e);
+      if (heap.size() > heap_limit) compact_heap();
+    }
+    tnow = t_target;
+  }
+
+  // ---------------- charges / kicks ----------------
+  void assign_charges(int nplus, int nminus) {
+    std::vector<int> idx(N);
+    for (int i = 0; i < N; ++i) idx[i] = i;
+    std::shuffle(idx.begin(), idx.end(), rng);
+    ions.clear();
+    for (int k = 0; k < nplus; ++k) { charge[idx[k]] = +1; ions.push_back(idx[k]); }
+    for (int k = nplus; k < nplus + nminus; ++k) { charge[idx[k]] = -1; ions.push_back(idx[k]); }
+  }
+
+  void ion_positions(double t, std::vector<Vec3>& r) const {
+    r.resize(ions.size());
+    for (size_t k = 0; k < ions.size(); ++k) r[k] = pos_at(ions[k], t);
+  }
+  void ion_charges(std::vector<int>& q) const {
+    q.resize(ions.size());
+    for (size_t k = 0; k < ions.size(); ++k) q[k] = charge[ions[k]];
+  }
+
+  // v_ion += s*F ; positions synced to tnow; events re-predicted for the kicked ions only
+  void apply_kick(const std::vector<Vec3>& F, double s, bool store_acc) {
+    for (size_t k = 0; k < ions.size(); ++k) {
+      int i = ions[k];
+      sync(i, tnow);
+      vel[i] += F[k] * s;
+      if (store_acc) acc[i] = F[k];
+      ++cnt[i];
+    }
+    for (int i : ions) {
+      schedule_crossing(i);
+      predict_collisions(i);
+    }
+  }
+  // first half kick of a step of length h (F = forces at the current, synchronized positions)
+  void kick_start(const std::vector<Vec3>& F, double h) {
+    apply_kick(F, 0.5 * h, true);
+    t_kick = tnow;
+    h_step = h;
+    in_step = true;
+  }
+  // second half kick (F = forces at the end-of-step positions); velocities are physical afterwards
+  void kick_end(const std::vector<Vec3>& F, double h) {
+    apply_kick(F, 0.5 * h, false);
+    in_step = false;
+  }
+
+  // ---------------- diagnostics ----------------
+  double min_dist_celllist(double t) const {
+    double dmin2 = std::numeric_limits<double>::infinity();
+    for (int i = 0; i < N; ++i) {
+      Vec3 pi = pos_at(i, t);
+      for (int dx = -1; dx <= 1; ++dx)
+        for (int dy = -1; dy <= 1; ++dy)
+          for (int dz = -1; dz <= 1; ++dz) {
+            int c = cell_index(wrapc(cx[i] + dx), wrapc(cy[i] + dy), wrapc(cz[i] + dz));
+            for (int j = head[c]; j >= 0; j = nxt[j]) {
+              if (j <= i) continue;
+              Vec3 d = pi - pos_at(j, t);
+              minimg(d);
+              dmin2 = std::min(dmin2, dot(d, d));
+            }
+          }
+    }
+    return std::sqrt(dmin2);
+  }
+  int count_pm_pairs(double t, double rcut) const {
+    int n = 0;
+    for (size_t a = 0; a < ions.size(); ++a)
+      for (size_t b = a + 1; b < ions.size(); ++b) {
+        int i = ions[a], j = ions[b];
+        if (charge[i] * charge[j] >= 0) continue;
+        Vec3 d = pos_at(i, t) - pos_at(j, t);
+        minimg_full(d);
+        if (dot(d, d) < rcut * rcut) ++n;
+      }
+    return n;
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Options
+// ---------------------------------------------------------------------------
+struct Options {
+  std::string name = "run";
+  int N = 1000;
+  double eta = 0.35;
+  int nplus = 0, nminus = 0;
+  double bjerrum = 5.0;
+  std::string coulomb = "ewald";
+  std::string collision_rule = "phys";
+  double dt = 0.005;
+  double t_equil_neutral = 5, t_equil_charged = 5, t_run = 18, dt_frame = 0.025;
+  double thermostat_interval = 0.1;
+  uint64_t seed = 1;
+  std::string xyz, diag, summary;
+  bool selftest = false, quiet = false;
+};
+
+void usage() {
+  std::printf(
+      "hsdmd %s -- event-driven hard spheres (+ RPM charges via collision Verlet)\n"
+      "  --name S            run name (metadata only)\n"
+      "  --N I               number of spheres (1000)\n"
+      "  --eta F             packing fraction (0.35)\n"
+      "  --nplus I --nminus I   number of +e / -e spheres (0, 0)\n"
+      "  --bjerrum F         Bjerrum length l_B/sigma (5.0)\n"
+      "  --coulomb ewald|dsf (ewald)\n"
+      "  --collision-rule phys|naive   reflect physical velocities at ion collisions (phys, default)\n"
+      "                      or the leapfrog drift velocities (naive, O(dt) error per collision)\n"
+      "  --dt F              Verlet step for charged runs (0.005); rounded so dt_frame/dt is integer\n"
+      "  --t-equil-neutral F --t-equil-charged F --t-run F   (5, 5, 18)\n"
+      "  --dt-frame F        frame spacing (0.025)\n"
+      "  --seed I            RNG seed (1)\n"
+      "  --xyz PATH --diag PATH --summary PATH   output files\n"
+      "  --selftest          run unit checks and exit (0 = pass)\n"
+      "  --quiet             no per-tau progress on stderr\n",
+      HSDMD_VERSION);
+}
+
+Options parse(int argc, char** argv) {
+  Options o;
+  auto need = [&](int& k) -> const char* {
+    if (k + 1 >= argc) { std::fprintf(stderr, "missing value for %s\n", argv[k]); std::exit(2); }
+    return argv[++k];
+  };
+  for (int k = 1; k < argc; ++k) {
+    std::string a = argv[k];
+    if (a == "--help" || a == "-h") { usage(); std::exit(0); }
+    else if (a == "--selftest") o.selftest = true;
+    else if (a == "--quiet") o.quiet = true;
+    else if (a == "--name") o.name = need(k);
+    else if (a == "--N") o.N = std::atoi(need(k));
+    else if (a == "--eta") o.eta = std::atof(need(k));
+    else if (a == "--nplus") o.nplus = std::atoi(need(k));
+    else if (a == "--nminus") o.nminus = std::atoi(need(k));
+    else if (a == "--bjerrum") o.bjerrum = std::atof(need(k));
+    else if (a == "--coulomb") o.coulomb = need(k);
+    else if (a == "--collision-rule") o.collision_rule = need(k);
+    else if (a == "--dt") o.dt = std::atof(need(k));
+    else if (a == "--t-equil-neutral") o.t_equil_neutral = std::atof(need(k));
+    else if (a == "--t-equil-charged") o.t_equil_charged = std::atof(need(k));
+    else if (a == "--t-run") o.t_run = std::atof(need(k));
+    else if (a == "--dt-frame") o.dt_frame = std::atof(need(k));
+    else if (a == "--seed") o.seed = std::strtoull(need(k), nullptr, 10);
+    else if (a == "--xyz") o.xyz = need(k);
+    else if (a == "--diag") o.diag = need(k);
+    else if (a == "--summary") o.summary = need(k);
+    else { std::fprintf(stderr, "unknown option %s\n", a.c_str()); usage(); std::exit(2); }
+  }
+  if (o.coulomb != "ewald" && o.coulomb != "dsf") { std::fprintf(stderr, "--coulomb must be ewald or dsf\n"); std::exit(2); }
+  if (o.collision_rule != "phys" && o.collision_rule != "naive") { std::fprintf(stderr, "--collision-rule must be phys or naive\n"); std::exit(2); }
+  return o;
+}
+
+double carnahan_starling_Z(double eta) {
+  return (1 + eta + eta * eta - eta * eta * eta) / std::pow(1 - eta, 3);
+}
+double enskog_rate(double eta) {  // collisions per particle per tau, kT=m=sigma=1
+  double g = (1 - 0.5 * eta) / std::pow(1 - eta, 3);
+  return 24.0 * eta * g / std::sqrt(PI);
+}
+
+// ---------------------------------------------------------------------------
+// Self tests
+// ---------------------------------------------------------------------------
+int selftest() {
+  int fails = 0;
+  auto check = [&](bool ok, const char* what, double val) {
+    std::printf("  [%s] %-58s %.3e\n", ok ? "PASS" : "FAIL", what, val);
+    if (!ok) ++fails;
+  };
+  std::printf("hsdmd --selftest\n");
+
+  // 1) finite-difference force checks, Ewald and DSF, 40 ions in the N=1000/eta=0.35 box
+  {
+    const double L = std::cbrt(1000 * PI / (6 * 0.35));
+    std::mt19937_64 rng(12345);
+    std::uniform_real_distribution<double> u(0, L);
+    std::vector<Vec3> r;
+    std::vector<int> q;
+    while ((int)r.size() < 40) {
+      Vec3 p{u(rng), u(rng), u(rng)};
+      bool ok = true;
+      for (auto& o : r) {
+        Vec3 d = p - o;
+        d.x -= L * std::nearbyint(d.x / L); d.y -= L * std::nearbyint(d.y / L); d.z -= L * std::nearbyint(d.z / L);
+        if (dot(d, d) < 1.0) { ok = false; break; }
+      }
+      if (ok) { r.push_back(p); q.push_back((int)r.size() <= 20 ? +1 : -1); }
+    }
+    for (int mode = 0; mode < 2; ++mode) {
+      Coulomb cb;
+      cb.setup(mode == 0 ? Coulomb::EWALD : Coulomb::DSF, L, 5.0);
+      std::vector<Vec3> F, Fd;
+      double U0 = cb.compute(r, q, F);
+      double fmax = 0, errmax = 0;
+      for (auto& f : F) fmax = std::max(fmax, std::max(std::fabs(f.x), std::max(std::fabs(f.y), std::fabs(f.z))));
+      const double h = 1e-5;
+      for (size_t i = 0; i < r.size(); ++i)
+        for (int d = 0; d < 3; ++d) {
+          std::vector<Vec3> rp = r, rm = r;
+          comp(rp[i], d) += h;
+          comp(rm[i], d) -= h;
+          double Up = cb.compute(rp, q, Fd), Um = cb.compute(rm, q, Fd);
+          double fnum = -(Up - Um) / (2 * h);
+          errmax = std::max(errmax, std::fabs(fnum - comp(F[i], d)));
+        }
+      Vec3 Ftot{};
+      for (auto& f : F) Ftot += f;
+      char buf[128];
+      std::snprintf(buf, sizeof buf, "%s: max|F_num-F|/max|F| (U=%.6f)", mode == 0 ? "ewald" : "dsf", U0);
+      check(errmax / fmax < 1e-6, buf, errmax / fmax);
+      std::snprintf(buf, sizeof buf, "%s: |sum F| / max|F| (momentum conservation)", mode == 0 ? "ewald" : "dsf");
+      double ft = std::sqrt(dot(Ftot, Ftot)) / fmax;
+      check(ft < 1e-10, buf, ft);
+    }
+  }
+  // 2) Ewald Madelung constant: 2x2x2 NaCl supercell, L=4, nearest-neighbour distance 1
+  {
+    std::vector<Vec3> r;
+    std::vector<int> q;
+    for (int x = 0; x < 4; ++x)
+      for (int y = 0; y < 4; ++y)
+        for (int z = 0; z < 4; ++z) { r.push_back({(double)x, (double)y, (double)z}); q.push_back(((x + y + z) & 1) ? -1 : 1); }
+    Coulomb cb;
+    cb.setup(Coulomb::EWALD, 4.0, 1.0);
+    std::vector<Vec3> F;
+    double U = cb.compute(r, q, F);
+    double madelung = -2.0 * U / (double)r.size();  // per ion pair, d = 1
+    check(std::fabs(madelung - 1.747564594633) < 2e-3, "ewald: NaCl Madelung constant vs 1.7475646", madelung);
+  }
+  // 3) two-sphere head-on collision (plus one across the periodic boundary)
+  for (int variant = 0; variant < 2; ++variant) {
+    Sim s;
+    s.setup_box(2, 6.0);
+    s.rng.seed(1);
+    if (variant == 0) { s.pos[0] = {2.0, 3.0, 3.0}; s.pos[1] = {4.0, 3.0, 3.0}; s.vel[0] = {1, 0, 0}; s.vel[1] = {-1, 0, 0}; }
+    else              { s.pos[0] = {0.5, 3.0, 3.0}; s.pos[1] = {4.5, 3.0, 3.0}; s.vel[0] = {-1, 0, 0}; s.vel[1] = {1, 0, 0}; }
+    s.assign_cells();
+    s.rebuild_events();
+    double dmin = 1e9;
+    double tcoll = -1;
+    for (int k = 1; k <= 200; ++k) {
+      double t = 0.005 * k;
+      uint64_t before = s.ncoll;
+      s.advance_to(t);
+      if (s.ncoll > before && tcoll < 0) tcoll = t;
+      Vec3 d = s.pos_at(0, t) - s.pos_at(1, t);
+      s.minimg_full(d);
+      dmin = std::min(dmin, std::sqrt(dot(d, d)));
+    }
+    Vec3 d = s.pos_at(0, 1.0) - s.pos_at(1, 1.0);
+    s.minimg_full(d);
+    const char* nm = variant == 0 ? "head-on" : "head-on across periodic face";
+    char buf[128];
+    std::snprintf(buf, sizeof buf, "%s: exactly one collision", nm);
+    check(s.ncoll == 1, buf, (double)s.ncoll);
+    std::snprintf(buf, sizeof buf, "%s: velocities swapped (|v0+1|+|v1-1|)", nm);
+    double vs = variant == 0 ? std::fabs(s.vel[0].x + 1) + std::fabs(s.vel[1].x - 1) : std::fabs(s.vel[0].x - 1) + std::fabs(s.vel[1].x + 1);
+    check(vs < 1e-12, buf, vs);
+    std::snprintf(buf, sizeof buf, "%s: separation back to 2 at t=1", nm);
+    check(std::fabs(std::sqrt(dot(d, d)) - 2.0) < 1e-12, buf, std::sqrt(dot(d, d)));
+    std::snprintf(buf, sizeof buf, "%s: contact distance error at collision", nm);
+    check(s.max_contact_err < 1e-12, buf, s.max_contact_err);
+    std::snprintf(buf, sizeof buf, "%s: min sampled distance >= 1 (1 - dmin)", nm);
+    check(dmin >= 1.0 - 1e-12, buf, 1.0 - dmin);
+  }
+  // 4) random two-body collisions: energy, momentum, contact distance, separating afterwards
+  {
+    std::mt19937_64 rng(7);
+    std::normal_distribution<double> g(0, 1);
+    std::uniform_real_distribution<double> u(0, 1);
+    double worst_contact = 0, worst_E = 0, worst_P = 0, worst_sep = 0;
+    int ncollided = 0;
+    for (int trial = 0; trial < 200; ++trial) {
+      Sim s;
+      s.setup_box(2, 8.0);
+      // relative geometry: j at origin-ish, i approaching with impact parameter b<1
+      Vec3 n{g(rng), g(rng), g(rng)};
+      n = n * (1.0 / std::sqrt(dot(n, n)));
+      Vec3 perp{g(rng), g(rng), g(rng)};
+      perp -= n * dot(perp, n);
+      perp = perp * (1.0 / std::sqrt(dot(perp, perp)));
+      double b = 0.95 * u(rng);
+      double vmag = 0.5 + 2 * u(rng);
+      Vec3 c{4 + 3 * (u(rng) - 0.5), 4 + 3 * (u(rng) - 0.5), 4 + 3 * (u(rng) - 0.5)};
+      s.pos[1] = c;
+      s.pos[0] = c + n * 2.0 + perp * b;
+      Vec3 vcm{g(rng) * 0.3, g(rng) * 0.3, g(rng) * 0.3};
+      s.vel[0] = vcm - n * vmag;
+      s.vel[1] = vcm + n * (vmag * u(rng));
+      s.assign_cells();
+      s.rebuild_events();
+      double E0 = s.kinetic();
+      Vec3 P0 = s.momentum();
+      s.advance_to(3.0 / vmag);
+      if (s.ncoll == 1) {
+        ++ncollided;
+        worst_contact = std::max(worst_contact, s.max_contact_err);
+        worst_E = std::max(worst_E, std::fabs(s.kinetic() - E0) / E0);
+        Vec3 dP = s.momentum() - P0;
+        worst_P = std::max(worst_P, std::sqrt(dot(dP, dP)));
+        Vec3 d = s.pos_at(0, s.tnow) - s.pos_at(1, s.tnow);
+        s.minimg_full(d);
+        worst_sep = std::max(worst_sep, 1.0 - std::sqrt(dot(d, d)));
+      }
+    }
+    check(ncollided >= 150, "random 2-body: number of trials that collided (>=150/200)", ncollided);
+    check(worst_contact < 1e-10, "random 2-body: max contact distance error", worst_contact);
+    check(worst_E < 1e-12, "random 2-body: max relative KE change", worst_E);
+    check(worst_P < 1e-12, "random 2-body: max |dP|", worst_P);
+    check(worst_sep < 1e-12, "random 2-body: max overlap after collision (1 - r)", worst_sep);
+  }
+  // 5) many-body: N=125 at eta=0.35 for 1 tau, brute-force overlap check every 0.05 tau
+  {
+    Sim s;
+    double L = std::cbrt(125 * PI / (6 * 0.35));
+    s.setup_box(125, L);
+    s.init_lattice(3);
+    double E0 = s.kinetic();
+    double worst = 0;
+    for (int k = 1; k <= 20; ++k) {
+      s.advance_to(0.05 * k);
+      worst = std::max(worst, 1.0 - std::sqrt(s.min_dist2_bruteforce()));
+    }
+    check(worst <= 1e-12, "N=125 EDMD 1 tau: max brute-force overlap (1 - dmin)", worst);
+    check(std::fabs(s.kinetic() - E0) / E0 < 1e-12, "N=125 EDMD 1 tau: relative KE change", std::fabs(s.kinetic() - E0) / E0);
+    Vec3 P = s.momentum();
+    check(std::sqrt(dot(P, P)) < 1e-10, "N=125 EDMD 1 tau: |total momentum|", std::sqrt(dot(P, P)));
+    check(s.ncoll > 125 * 10 * 0.5 / 2, "N=125 EDMD 1 tau: collisions happened (>~300)", (double)s.ncoll);
+  }
+  // 6) bound +/- pair bouncing under Coulomb attraction (collision Verlet): energy error must be
+  //    second order with the physical-velocity rule and much smaller than the naive rule
+  {
+    auto run_pair = [&](bool phys, double dt) {
+      Sim s;
+      s.setup_box(2, 6.0);
+      s.phys_collision = phys;
+      s.rng.seed(1);
+      s.pos[0] = {2.0, 3.0, 3.0}; s.pos[1] = {3.7, 3.0, 3.0};
+      s.vel[0] = {0.3, 0.2, 0.0}; s.vel[1] = {-0.3, -0.2, 0.0};
+      s.charge[0] = +1; s.charge[1] = -1; s.ions = {0, 1};
+      s.assign_cells();
+      s.rebuild_events();
+      Coulomb cb;
+      cb.setup(Coulomb::EWALD, 6.0, 5.0);
+      std::vector<Vec3> r, F;
+      std::vector<int> q;
+      s.ion_charges(q);
+      s.ion_positions(s.tnow, r);
+      double PE = cb.compute(r, q, F);
+      double E0 = s.kinetic() + PE, emax = 0;
+      long nsteps = (long)std::llround(20.0 / dt);
+      for (long k = 1; k <= nsteps; ++k) {
+        double h = k * dt - s.tnow;
+        s.kick_start(F, h);
+        s.advance_to(k * dt);
+        s.ion_positions(s.tnow, r);
+        PE = cb.compute(r, q, F);
+        s.kick_end(F, h);
+        emax = std::max(emax, std::fabs(s.kinetic() + PE - E0));
+        if (std::getenv("HSDMD_DEBUG_PAIR")) {
+          static uint64_t lastc = 0; static uint64_t lastfix = 0;
+          if (s.ncoll != lastc || s.n_drift_fix != lastfix || k % 400 == 0) {
+            Vec3 d = s.pos_at(0, s.tnow) - s.pos_at(1, s.tnow); s.minimg_full(d);
+            std::fprintf(stderr, "    t=%.4f coll=%llu fix=%llu sep=%llu r=%.6f KE=%.6f PE=%.6f dE=%+.3e\n", s.tnow,
+                         (unsigned long long)s.ncoll, (unsigned long long)s.n_drift_fix, (unsigned long long)s.n_phys_separating,
+                         std::sqrt(dot(d, d)), s.kinetic(), PE, s.kinetic() + PE - E0);
+            lastc = s.ncoll; lastfix = s.n_drift_fix;
+          }
+        }
+      }
+      return std::make_pair(emax / std::fabs(E0), (double)s.ncoll);
+    };
+    auto p1 = run_pair(true, 0.005), p2 = run_pair(true, 0.0025), n1 = run_pair(false, 0.005);
+    std::printf("  bound pair 20 tau: collisions %.0f; max|dE|/|E0|: phys dt=0.005 %.3e, phys dt=0.0025 %.3e, naive dt=0.005 %.3e\n",
+                p1.second, p1.first, p2.first, n1.first);
+    check(p1.second > 20, "bound pair: many collisions occurred", p1.second);
+    check(p1.first < 2e-4, "bound pair: phys rule max relative energy error (dt=0.005)", p1.first);
+    check(p2.first < 0.4 * p1.first, "bound pair: phys rule error shrinks >=2.5x when dt halves", p2.first / p1.first);
+    check(n1.first > 3 * p1.first, "bound pair: naive rule error is >3x the phys rule error", n1.first / p1.first);
+  }
+  std::printf("selftest: %d failure(s)\n", fails);
+  return fails ? 1 : 0;
+}
+
+// ---------------------------------------------------------------------------
+// Production driver
+// ---------------------------------------------------------------------------
+struct Diag {
+  std::vector<double> t, KE, PE, E, T;
+};
+
+int run(const Options& o) {
+  const double t_start = wall_now();
+  const double L = std::cbrt(o.N * PI / (6 * o.eta));
+  const int nion = o.nplus + o.nminus;
+  if (nion > o.N) { std::fprintf(stderr, "error: nplus+nminus > N\n"); return 2; }
+  Sim s;
+  s.setup_box(o.N, L);
+  s.phys_collision = (o.collision_rule == "phys");
+  s.init_lattice(o.seed);
+  std::fprintf(stderr, "hsdmd %s: N=%d eta=%.4f L=%.6f ncell=%d ions=%d (+%d/-%d) coulomb=%s collision-rule=%s seed=%llu\n",
+               HSDMD_VERSION, o.N, o.eta, L, s.ncell, nion, o.nplus, o.nminus, o.coulomb.c_str(),
+               o.collision_rule.c_str(), (unsigned long long)o.seed);
+
+  FILE* fxyz = nullptr;
+  FILE* fdiag = nullptr;
+  if (!o.xyz.empty()) { fxyz = std::fopen(o.xyz.c_str(), "w"); if (!fxyz) { std::perror(o.xyz.c_str()); return 2; } }
+  if (!o.diag.empty()) { fdiag = std::fopen(o.diag.c_str(), "w"); if (!fdiag) { std::perror(o.diag.c_str()); return 2; } }
+  if (fdiag) std::fprintf(fdiag, "time,KE,PE,Etot,T_inst,n_collisions,min_dist,n_pairs_pm_1p2\n");
+
+  double next_progress = 1.0;
+  auto progress = [&](const char* stage, double PE) {
+    if (o.quiet) return;
+    if (s.tnow + 1e-9 >= next_progress) {
+      std::fprintf(stderr, "  [%s] t=%7.3f coll=%llu cross=%llu heap=%zu KE=%.4f PE=%.4f wall=%.1fs\n", stage, s.tnow,
+                   (unsigned long long)s.ncoll, (unsigned long long)s.ncross, s.heap.size(), s.kinetic(), PE,
+                   wall_now() - t_start);
+      next_progress = std::floor(s.tnow + 1e-9) + 1.0;
+    }
+  };
+
+  // ---------------- stage A: neutral equilibration (thermostat every 0.1 tau)
+  {
+    double tend = s.tnow + o.t_equil_neutral;
+    int nblocks = (int)std::llround(o.t_equil_neutral / o.thermostat_interval);
+    double t0 = s.tnow;
+    for (int b = 1; b <= nblocks; ++b) {
+      s.advance_to(t0 + b * o.thermostat_interval);
+      s.sync_all(s.tnow);
+      s.rescale_velocities();
+      s.rebuild_events();
+      progress("equil-neutral", 0.0);
+    }
+    s.advance_to(tend);
+  }
+  const double wall_A = wall_now() - t_start;
+  const uint64_t coll_A = s.ncoll;
+
+  // ---------------- stage B: charges + charged equilibration
+  Coulomb cb;
+  std::vector<Vec3> rion, Fion;
+  std::vector<int> qion;
+  double PE = 0;
+  double dt_eff = o.dt;
+  int nsub = 1;
+  if (nion > 0) {
+    s.assign_charges(o.nplus, o.nminus);
+    cb.setup(o.coulomb == "ewald" ? Coulomb::EWALD : Coulomb::DSF, L, o.bjerrum);
+    s.ion_charges(qion);
+    nsub = std::max(1, (int)std::llround(o.dt_frame / o.dt));
+    dt_eff = o.dt_frame / nsub;
+    std::fprintf(stderr, "  charged: dt=%.6g (dt_frame/dt=%d), alpha=%.4f rc=%.4f kvecs=%zu\n", dt_eff, nsub,
+                 cb.alpha, cb.rc, cb.kvecs.size());
+  }
+  // one collision-Verlet step (kick-drift-kick) ending exactly at t_target;
+  // Fion holds the forces at the current (synchronized) positions on entry and on exit
+  auto verlet_step_to = [&](double t_target) {
+    const double h = t_target - s.tnow;
+    s.kick_start(Fion, h);
+    s.advance_to(t_target);
+    s.ion_positions(s.tnow, rion);
+    PE = cb.compute(rion, qion, Fion);
+    s.kick_end(Fion, h);
+  };
+  if (nion > 0) {
+    s.sync_all(s.tnow);
+    s.ion_positions(s.tnow, rion);
+    PE = cb.compute(rion, qion, Fion);
+    int steps_per_block = std::max(1, (int)std::llround(o.thermostat_interval / dt_eff));
+    long nsteps = (long)std::llround(o.t_equil_charged / dt_eff);
+    const double tB0 = s.tnow;
+    for (long k = 1; k <= nsteps; ++k) {
+      verlet_step_to(tB0 + k * dt_eff);
+      if (k % steps_per_block == 0) {
+        s.sync_all(s.tnow);
+        s.rescale_velocities();
+        s.rebuild_events();
+      }
+      progress("equil-charged", PE);
+    }
+  }
+  const double wall_B = wall_now() - t_start - wall_A;
+
+  // ---------------- stage C: production (NVE)
+  const double t_prod0 = s.tnow;
+  const uint64_t coll_prod0 = s.ncoll;
+  s.virial = 0;
+  const int nframes = (int)std::floor(o.t_run / o.dt_frame + 1e-9) + 1;
+  Diag dg;
+  double min_dist_prod = std::numeric_limits<double>::infinity();
+  std::vector<char> buf;
+  buf.reserve((size_t)o.N * 80 + 256);
+
+  auto write_frame = [&](int k) {
+    const double t = s.tnow;
+    const double tframe = k * o.dt_frame;
+    double KE = s.kinetic();
+    double PEf = 0;
+    if (nion > 0) PEf = PE;  // positions synced at the step end
+    double E = KE + PEf;
+    double T = 2 * KE / (3.0 * (o.N - 1));
+    double md = s.min_dist_celllist(t);
+    min_dist_prod = std::min(min_dist_prod, md);
+    int npm = nion > 0 ? s.count_pm_pairs(t, 1.2 * SIGMA) : 0;
+    dg.t.push_back(tframe); dg.KE.push_back(KE); dg.PE.push_back(PEf); dg.E.push_back(E); dg.T.push_back(T);
+    if (fdiag)
+      std::fprintf(fdiag, "%.6f,%.12g,%.12g,%.12g,%.10g,%llu,%.12f,%d\n", tframe, KE, PEf, E, T,
+                   (unsigned long long)(s.ncoll - coll_prod0), md, npm);
+    if (fxyz) {
+      buf.clear();
+      char line[160];
+      int n = std::snprintf(line, sizeof line, "%d\n", o.N);
+      buf.insert(buf.end(), line, line + n);
+      n = std::snprintf(line, sizeof line,
+                        "Lattice=\"%.10f 0 0 0 %.10f 0 0 0 %.10f\" Properties=species:S:1:pos:R:3:id:I:1:type:I:1:charge:R:1 "
+                        "Time=%.6f Frame=%d pbc=\"T T T\"\n",
+                        L, L, L, tframe, k);
+      buf.insert(buf.end(), line, line + n);
+      for (int i = 0; i < o.N; ++i) {
+        Vec3 p = s.pos_at(i, t);
+        s.wrap(p);
+        if (p.x >= L) p.x = 0;
+        if (p.y >= L) p.y = 0;
+        if (p.z >= L) p.z = 0;
+        int q = s.charge[i];
+        const char* sp = q == 0 ? "HS" : (q > 0 ? "POS" : "NEG");
+        int ty = q == 0 ? 1 : (q > 0 ? 2 : 3);
+        n = std::snprintf(line, sizeof line, "%s %.10f %.10f %.10f %d %d %d\n", sp, p.x, p.y, p.z, i + 1, ty, q);
+        buf.insert(buf.end(), line, line + n);
+      }
+      std::fwrite(buf.data(), 1, buf.size(), fxyz);
+    }
+  };
+
+  if (nion > 0) {
+    // F is consistent with the current (synced) positions from the end of stage B
+    s.sync_all(s.tnow);
+    s.ion_positions(s.tnow, rion);
+    PE = cb.compute(rion, qion, Fion);
+    write_frame(0);
+    for (int k = 1; k < nframes; ++k) {
+      for (int sub = 0; sub < nsub; ++sub)  // integer step grid: no accumulation of roundoff
+        verlet_step_to(t_prod0 + ((double)(k - 1) * nsub + sub + 1) * dt_eff);
+      write_frame(k);
+      progress("production", PE);
+    }
+  } else {
+    write_frame(0);
+    for (int k = 1; k < nframes; ++k) {
+      s.advance_to(t_prod0 + k * o.dt_frame);
+      write_frame(k);
+      progress("production", 0.0);
+    }
+  }
+  const double t_prod = s.tnow - t_prod0;
+  const double wall_C = wall_now() - t_start - wall_A - wall_B;
+  const double wall_total = wall_now() - t_start;
+  if (fxyz) std::fclose(fxyz);
+  if (fdiag) std::fclose(fdiag);
+
+  // ---------------- summary
+  double Tmean = 0;
+  for (double T : dg.T) Tmean += T;
+  Tmean /= (double)dg.T.size();
+  const uint64_t ncoll_prod = s.ncoll - coll_prod0;
+  const double Z = 1.0 + s.virial / (3.0 * o.N * Tmean * t_prod);
+  const double Zcs = carnahan_starling_Z(o.eta);
+  const double rate = 2.0 * (double)ncoll_prod / ((double)o.N * t_prod);
+  const double E0 = dg.E.front(), Eend = dg.E.back();
+  double Emax_dev = 0, Emean = 0;
+  for (double E : dg.E) { Emax_dev = std::max(Emax_dev, std::fabs(E - E0)); Emean += E; }
+  Emean /= (double)dg.E.size();
+  double Erms = 0;
+  for (double E : dg.E) Erms += (E - Emean) * (E - Emean);
+  Erms = std::sqrt(Erms / (double)dg.E.size());
+  // linear fit slope of E(t)
+  double st = 0, sE = 0, stt = 0, stE = 0;
+  for (size_t k = 0; k < dg.t.size(); ++k) { st += dg.t[k]; sE += dg.E[k]; stt += dg.t[k] * dg.t[k]; stE += dg.t[k] * dg.E[k]; }
+  double nn = (double)dg.t.size();
+  double slope = (nn * stE - st * sE) / std::max(1e-300, nn * stt - st * st);
+  Vec3 P = s.momentum();
+  double Pabs = std::sqrt(dot(P, P));
+  double KEmean = 0;
+  for (double k : dg.KE) KEmean += k;
+  KEmean /= (double)dg.KE.size();
+  double PEmean = 0;
+  for (double p : dg.PE) PEmean += p;
+  PEmean /= (double)dg.PE.size();
+
+  std::fprintf(stderr,
+               "done: coll(prod)=%llu rate=%.3f/particle/tau (Enskog %.3f) Z=%.4f (CS %.4f, %.2f%%) "
+               "E0=%.6f Eend=%.6f drift_rel=%.3e max_rel=%.3e |P|=%.2e min_dist=%.12f contact_err=%.2e wall=%.2fs\n",
+               (unsigned long long)ncoll_prod, rate, enskog_rate(o.eta), Z, Zcs, 100 * (Z / Zcs - 1), E0, Eend,
+               (Eend - E0) / std::fabs(E0), Emax_dev / std::fabs(E0), Pabs, min_dist_prod, s.max_contact_err, wall_total);
+
+  if (!o.summary.empty()) {
+    FILE* f = std::fopen(o.summary.c_str(), "w");
+    if (!f) { std::perror(o.summary.c_str()); return 2; }
+    std::fprintf(f, "{\n");
+    std::fprintf(f, "  \"name\": \"%s\",\n", o.name.c_str());
+    std::fprintf(f, "  \"N\": %d,\n  \"eta\": %.10g,\n  \"L\": %.12g,\n  \"kT\": 1.0,\n", o.N, o.eta, L);
+    std::fprintf(f, "  \"nplus\": %d,\n  \"nminus\": %d,\n  \"bjerrum\": %.10g,\n", o.nplus, o.nminus, o.bjerrum);
+    std::fprintf(f, "  \"coulomb\": \"%s\",\n", nion > 0 ? o.coulomb.c_str() : "none");
+    std::fprintf(f, "  \"integrator\": \"%s\",\n", nion > 0 ? "EDMD + impulsive (collision) Verlet" : "EDMD");
+    std::fprintf(f, "  \"collision_rule\": \"%s\",\n  \"n_phys_separating\": %llu,\n  \"n_drift_fix\": %llu,\n",
+                 nion > 0 ? o.collision_rule.c_str() : "exact", (unsigned long long)s.n_phys_separating, (unsigned long long)s.n_drift_fix);
+    std::fprintf(f, "  \"dt\": %.12g,\n  \"dt_requested\": %.12g,\n  \"steps_per_frame\": %d,\n", nion > 0 ? dt_eff : 0.0, o.dt, nion > 0 ? nsub : 0);
+    std::fprintf(f, "  \"dt_frame\": %.12g,\n  \"t_equil_neutral\": %.10g,\n  \"t_equil_charged\": %.10g,\n  \"t_run\": %.10g,\n",
+                 o.dt_frame, o.t_equil_neutral, nion > 0 ? o.t_equil_charged : 0.0, o.t_run);
+    std::fprintf(f, "  \"n_frames\": %d,\n  \"seed\": %llu,\n", nframes, (unsigned long long)o.seed);
+    std::fprintf(f, "  \"ncell\": %d,\n  \"n_collisions\": %llu,\n  \"n_collisions_total\": %llu,\n  \"n_collisions_equil_neutral\": %llu,\n",
+                 s.ncell, (unsigned long long)ncoll_prod, (unsigned long long)s.ncoll, (unsigned long long)coll_A);
+    std::fprintf(f, "  \"n_cell_crossings_total\": %llu,\n  \"n_events_processed\": %llu,\n  \"n_stale_events\": %llu,\n  \"n_grazing_skipped\": %llu,\n",
+                 (unsigned long long)s.ncross, (unsigned long long)s.nevents, (unsigned long long)s.nstale, (unsigned long long)s.nskipped_grazing);
+    std::fprintf(f, "  \"collision_rate_per_particle_per_tau\": %.6g,\n  \"enskog_rate_per_particle_per_tau\": %.6g,\n", rate, enskog_rate(o.eta));
+    std::fprintf(f, "  \"Z_virial\": %.8g,\n  \"Z_CS\": %.8g,\n  \"Z_rel_dev\": %.6g,\n", Z, Zcs, Z / Zcs - 1);
+    std::fprintf(f, "  \"T_mean\": %.10g,\n  \"KE_mean\": %.10g,\n  \"PE_mean\": %.10g,\n", Tmean, KEmean, PEmean);
+    std::fprintf(f, "  \"E0\": %.12g,\n  \"E_end\": %.12g,\n  \"energy_drift_rel\": %.6g,\n  \"energy_max_dev_rel\": %.6g,\n  \"energy_rms_rel\": %.6g,\n  \"energy_slope_per_tau_rel\": %.6g,\n",
+                 E0, Eend, (Eend - E0) / std::fabs(E0), Emax_dev / std::fabs(E0), Erms / std::fabs(E0), slope / std::fabs(E0));
+    std::fprintf(f, "  \"momentum_abs_final\": %.6g,\n  \"min_dist_production\": %.15g,\n  \"max_contact_err\": %.6g,\n", Pabs, min_dist_prod, s.max_contact_err);
+    std::fprintf(f, "  \"wall_seconds\": %.3f,\n  \"wall_seconds_equil_neutral\": %.3f,\n  \"wall_seconds_equil_charged\": %.3f,\n  \"wall_seconds_production\": %.3f,\n",
+                 wall_total, wall_A, wall_B, wall_C);
+    if (nion > 0)
+      std::fprintf(f, "  \"ewald_alpha\": %.10g,\n  \"coulomb_rc\": %.10g,\n  \"ewald_kmax\": %d,\n  \"n_kvectors_halfspace\": %zu,\n",
+                   cb.alpha, cb.rc, cb.mode == Coulomb::EWALD ? cb.kmax : 0, cb.kvecs.size());
+    std::fprintf(f, "  \"hsdmd_version\": \"%s\"\n", HSDMD_VERSION);
+    std::fprintf(f, "}\n");
+    std::fclose(f);
+  }
+  return 0;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  Options o = parse(argc, argv);
+  if (o.selftest) return selftest();
+  return run(o);
+}
