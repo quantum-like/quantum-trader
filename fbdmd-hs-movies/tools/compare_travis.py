@@ -34,10 +34,10 @@ def gr_from_npz(npz, pair, rmax, nbins=120, stride=1):
         if same:
             r = r[np.triu_indices(len(ia), 1)]
         hist += np.histogram(r.ravel(), bins=edges)[0]; nfr += 1
-    rho_b = len(ib) / L ** 3
+    # TRAVIS convention: the reference particle itself is excluded from the observed density -> (N-1)/V for like pairs
+    rho_b = (len(ib) - (1 if same else 0)) / L ** 3
     shell = 4 / 3 * np.pi * (edges[1:] ** 3 - edges[:-1] ** 3)
-    npairs = len(ia) * (len(ib) - 1) / 2 if same else len(ia) * len(ib)
-    norm = nfr * (len(ia) if not same else len(ia)) * rho_b * shell * (0.5 if same else 1.0)
+    norm = nfr * len(ia) * rho_b * shell * (0.5 if same else 1.0)   # like pairs were counted once (triu)
     g = hist / norm
     return 0.5 * (edges[1:] + edges[:-1]), g
 

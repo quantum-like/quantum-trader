@@ -8,7 +8,7 @@ pm/Angstrom and must be divided by scale (resp. 100*scale for pm) to get sigma.
 
 Writes, for traj/<name>.npz:
   traj/<name>_elem.xyz     plain multi-frame XYZ, element labels, comment line = 'Lattice="..." Time=...'  (TRAVIS, VMD)
-  traj/<name>.lammpstrj    LAMMPS dump with the periodic box in every frame (VMD reads the box; TRAVIS too)
+  traj/<name>.lammpstrj    LAMMPS dump with the periodic box in every frame (VMD reads the box natively)
   traj/<name>_frame0.pdb   first frame with CRYST1 record (VMD topology / box; TRAVIS can read it as well)
 Options: --stride N (every Nth frame), --scale A (Angstrom per sigma), --unwrap (continuous coordinates for MSD in TRAVIS).
 """
