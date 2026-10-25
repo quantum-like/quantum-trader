@@ -104,6 +104,21 @@ system parameters and the current time in τ. 1280×720, 30 fps, 721 frames (24 
 On a 4-core box a frame takes ≈1.4 s (cpk) / ≈1.25 s (x-ray), i.e. ≈17 / ≈15 min per 721-frame movie; `OVITO_THREAD_COUNT` is set to 4× the core count
 automatically because Tachyon otherwise leaves half the CPU idle.
 
+## Using VMD and TRAVIS
+
+The trajectories can be exported for VMD and TRAVIS with element labels (Ar = neutral, Na = +e, Cl = −e; 1 σ = 4 Å so
+neither program detects spurious bonds):
+
+```bash
+python tools/export_vmd_travis.py traj/hs_charges_20p20m.npz        # -> traj/hs_charges_20p20m_elem.xyz, .lammpstrj, _frame0.pdb
+vmd -e vmd/view_cpk.tcl -args traj/hs_charges_20p20m.lammpstrj [xray]         # interactive CPK look
+bash vmd/render_vmd.sh traj/hs_charges_20p20m.npz hs_charges_20p20m_vmd cpk   # movie with VMD's own Tachyon
+bash travis/run_travis.sh traj/hs_charges_20p20m                              # TRAVIS: rdf / aggr / cluster / msd, see travis/README_travis.md
+python tools/compare_travis.py travis/out_hs_charges_20p20m/rdf_*.csv --pair Na-Cl   # overlay a TRAVIS g(r) on this work's
+```
+Neither program was available in the cloud session that produced the movies, so these scripts were syntax-checked but
+not executed; `travis/README_travis.md` lists the prompts to answer and the units (pm, 400 pm = σ, 25 fs = 0.025 τ).
+
 ## Layout
 
 ```
@@ -118,6 +133,8 @@ render/render_ovito.py   primary renderer (OVITO Tachyon) -> frames/<name>/*.png
 render/render_numpy.py   dependency-free fallback renderer, same CLI
 render/make_test_traj.py synthetic trajectory for renderer tests;  render/README_render.md  timings and settings
 make_notes.py       assembles NOTES.md from traj/*.json, ffprobe and machine info
+tools/export_vmd_travis.py   VMD/TRAVIS exports (element-labelled xyz, LAMMPS dump, PDB);  tools/compare_travis.py  overlay TRAVIS g(r)
+vmd/render_cpk.tcl, vmd/view_cpk.tcl, vmd/render_vmd.sh   same CPK movie with VMD + Tachyon;  travis/README_travis.md, travis/run_travis.sh
 FORMAT.md           trajectory/file-format contract shared by sim and render
 notes/collision_verlet_spec.md   the integrator spec derived from the paper (+ §4a: why literal CV is first order here)
 movies/ traj/ frames/ notes/   outputs (frames, .xyz and .npz are gitignored; movies, json and csv are kept)

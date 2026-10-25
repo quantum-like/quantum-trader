@@ -13,3 +13,6 @@ frames/_test/
 notes/_test/
 sim/_hsdmd*
 traj/*_order.csv
+traj/*_elem.xyz
+traj/*.lammpstrj
+traj/*_frame0.pdb
