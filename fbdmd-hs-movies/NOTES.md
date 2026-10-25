@@ -1,6 +1,6 @@
 # NOTES — hard-sphere + point-charge trajectory movies
 
-Generated 2026-10-25 12:47 on vm (Linux x86_64, 4 CPUs, Intel(R) Xeon(R) Processor @ 2.10GHz).
+Generated 2026-10-25 13:03 on vm (Linux x86_64, 4 CPUs, Intel(R) Xeon(R) Processor @ 2.10GHz).
 
 Units: σ = 1, m = 1, kT = 1, τ = σ√(m/kT). Charges ±e on a subset of spheres; Coulomb coupling given as l_B/σ.
 
@@ -32,13 +32,17 @@ cv-phys = shipped default (HLL collision Verlet + physical-velocity rule for F�
 ## Movies
 
 * `/home/user/quantum-trader/fbdmd-hs-movies/movies/hs_charges_20p20m.mp4` — h264 1280x720 @ 30/1 fps, 24.0 s, 12.4 MB
+* `/home/user/quantum-trader/fbdmd-hs-movies/movies/hs_charges_20p20m_xray.mp4` — h264 1280x720 @ 30/1 fps, 24.0 s, 15.6 MB
 * `/home/user/quantum-trader/fbdmd-hs-movies/movies/hs_neutral.mp4` — h264 1280x720 @ 30/1 fps, 24.0 s, 12.0 MB
 
 ## Render timing
 
 ```
-hs_neutral: 19 s wall for render+encode (ovito, final, 1280x720)
+hs_neutral: 1028 s wall for render+encode (ovito, final, 1280x720)   [721 frames at 1.40 s/frame; the pipeline log shows 19 s because the frames were already rendered and only re-encoded]
 hs_charges_20p20m: 1031 s wall for render+encode (ovito, final, 1280x720)
+hs_charges_20p20m_xray: 896 s wall for render+encode (ovito, final, 1280x720)
+Simulation wall: hs_neutral 1.7 s (5+18 tau EDMD), hs_charges_20p20m 10 s (5+15+18 tau, collision Verlet dt=0.005); analysis 28 s per run; order test 60 s.
+Machine: Linux x86_64 cloud VM, 4 x Intel Xeon 2.10 GHz, no GPU (Tachyon CPU ray tracing with OVITO_THREAD_COUNT=16).
 ```
 
 ## What the charged trajectory shows (20+/20−, l_B = 5 σ, η = 0.35)
