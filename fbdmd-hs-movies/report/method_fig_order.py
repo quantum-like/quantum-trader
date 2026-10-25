@@ -42,6 +42,25 @@ EQ, UN, DSF = read(F_EQ), read(F_UN), (read(F_DSF) if os.path.exists(F_DSF) else
 fig, (axa, axb) = plt.subplots(1, 2, figsize=(FULL_W, 3.15), sharey=True,
                                gridspec_kw=dict(left=0.09, right=0.99, top=0.94, bottom=0.155, wspace=0.08))
 numbers = {'equilibrated_start': {}, 'unequilibrated_start': {}, 'dsf_unequilibrated_start': {}}
+RAW = {'equilibrated_start': {}, 'unequilibrated_start': {}, 'dsf_unequilibrated_start': {}}   # unrounded slopes for the caption
+FLOOR = 1e-6
+
+
+def sci(x, n=0):
+    """6e-07 -> '6 × 10⁻⁷' (captions)."""
+    m, e = f"{x:.{n}e}".split("e")
+    sup = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
+    return f"{m} × 10{str(int(e)).translate(sup)}"
+
+
+def fnum(x, fmt="%.2f"):
+    return (fmt % x).replace("-", "−")
+
+
+def local_slope(rows, h1=0.005, h0=0.0025):
+    d = {d_['dt']: d_['maxdE'] for d_ in rows}
+    return float(np.log(d[h1] / d[h0]) / np.log(h1 / h0))
+
 
 
 def refs(ax):
@@ -62,8 +81,11 @@ def panel(ax, data, key, dsf=None):
         dts = [d['dt'] for d in rows]; ys = [d['maxdE'] for d in rows]
         ax.plot(dts, ys, marker=MARK[integ], ms=4.5, color=C_INTEG[integ], lw=1.3,
                 label='%s  %.2f' % (NICE[integ], s), zorder=3)
+        RAW[key][integ] = s
         numbers[key][integ] = dict(slope_fit=round(s, 3), slope_csv=rows[0]['slope_csv'],
                                    slope_end_drift_csv=rows[0]['slope_end_csv'],
+                                   local_slope_0p005_to_0p0025=round(local_slope(rows), 3),
+                                   ratio_to_ewald_floor_at_0p0025=round(rows[0]['maxdE'] / FLOOR, 1),
                                    max_abs_dE_per_N_kT={str(d['dt']): d['maxdE'] for d in rows},
                                    end_drift_per_N_kT={str(d['dt']): d['end'] for d in rows})
     if dsf is not None:
@@ -72,6 +94,7 @@ def panel(ax, data, key, dsf=None):
             s = fit(rows)
             ax.plot([d['dt'] for d in rows], [d['maxdE'] for d in rows], marker=MARK[integ], ms=4.5,
                     mfc='white', color=C_INTEG[integ], lw=1.1, ls='--', label='%s DSF  %.2f' % (integ, s), zorder=3)
+            RAW['dsf_unequilibrated_start'][integ] = s
             numbers['dsf_unequilibrated_start'][integ] = dict(
                 slope_fit=round(s, 3), slope_csv=rows[0]['slope_csv'],
                 max_abs_dE_per_N_kT={str(d['dt']): d['maxdE'] for d in rows})
@@ -98,9 +121,9 @@ axa.legend(loc='upper left', ncol=2, fontsize=8, handlelength=1.8, columnspacing
 axb.legend(loc='upper left', ncol=2, fontsize=8, handlelength=1.8, columnspacing=0.9, borderaxespad=0.2,
            title='unequilibrated start; Ewald solid, DSF dashed:', title_fontsize=8, alignment='left')
 # Ewald real-space truncation floor at the smallest step
-floor = 1e-6
+floor = FLOOR
 axb.plot([0.0021, 0.0033], [floor, floor], color='#444444', ls=':', lw=1.1, zorder=2)
-axb.text(0.0021, 1.45e-7, 'Ewald truncation floor ≈ 1e−6 kT/N', fontsize=8, color='#444444', ha='left', va='center')
+axb.text(0.0021, 1.45e-7, 'Ewald truncation ≈ $10^{-6}$ kT/N (limits cv-phys only)', fontsize=8, color='#444444', ha='left', va='center')
 axb.annotate('', xy=(0.0027, floor * 0.9), xytext=(0.0027, 2.0e-7),
              arrowprops=dict(arrowstyle='-|>', color='#777777', lw=0.6, mutation_scale=7))
 panel_label(axa, '(a)'); panel_label(axb, '(b)')
@@ -119,21 +142,29 @@ numbers['ratios'] = {
 numbers['test_setup'] = dict(N=1000, eta=0.35, nplus=20, nminus=20, l_B_sigma=5.0, t_run_tau=2.0, dt_frame_tau=0.02,
                              dts_tau=[0.02, 0.01, 0.005, 0.0025], production_dt_tau=0.005,
                              production_energy_drift_rel_18tau=2.3165e-05, production_energy_max_dev_rel=2.36033e-05,
-                             ewald_floor_kT_per_N=1e-6, erfc_alpha_rc=7.5e-5, alpha_L=5.6, rc_sigma=5.718474607)
+                             ewald_floor_kT_per_N=1e-6, ewald_floor_note='approximate; cv-phys reaches 6e-7 in (a), so the floor is 0.5-1e-6 kT/N and limits cv-phys only',
+                             erfc_alpha_rc=7.5e-5, alpha_L=5.6, rc_sigma=5.718474607,
+                             slope_rounding='slope_fit = round(fit, 3) is a numbers entry only; captions are formatted from the unrounded fit')
 piece = {
     'file': 'fig_order', 'width': 'full',
     'caption': ('Energy-error order test on the production system (N = 1000, η = 0.35, 20+/20−, l_B = 5 σ): '
                 'maximum |E(t) − E(0)|/N over 2 τ of NVE dynamics versus the step h for the four integrators, with '
                 'the fitted log–log slopes in the legends and dashed reference lines ∝ h and ∝ h². (a) Equilibrated '
                 'start (15 τ with charges on): the shipped cv-phys is second order (slope %.2f) whereas the literal HLL '
-                'collision Verlet is only first order (slope %.2f) and 35× less accurate at the production step h = 0.005 τ; '
+                'collision Verlet is only sub-first-order (slope %.2f) and %.0f× less accurate at the production step h = 0.005 τ; '
                 'kdk-phys gives %.2f and the naive splitting %.2f. (b) Same test from the un-equilibrated start with Ewald '
-                '(solid; slopes %.2f / %.2f / %.2f / %.2f) and with the smooth DSF Coulomb model (dashed, cv-phys %.2f, cv %.2f); '
-                'the Ewald real-space truncation erfc(αr_c) ≈ 7.5×10⁻⁵ sets a floor of ≈ 10⁻⁶ kT/N at h = 0.0025 τ '
-                'that flattens every Ewald curve there.') % (
-                    eq['cv-phys']['slope_fit'], eq['cv']['slope_fit'], eq['kdk-phys']['slope_fit'], eq['naive']['slope_fit'],
-                    un['cv-phys']['slope_fit'], un['cv']['slope_fit'], un['kdk-phys']['slope_fit'], un['naive']['slope_fit'],
-                    numbers['dsf_unequilibrated_start']['cv-phys']['slope_fit'], numbers['dsf_unequilibrated_start']['cv']['slope_fit']),
+                '(solid; slopes %.2f / %.2f / %.2f / %.2f) and with the smooth DSF Coulomb model (dashed, cv-phys %.2f, cv %.2f). '
+                'The Ewald real-space truncation erfc(αr_c) ≈ 7.5×10⁻⁵ gives an energy floor of ≈ 0.5–1 × 10⁻⁶ kT/N that limits '
+                'the cv-phys curve at h = 0.0025 τ (local slope %.1f between 0.005 and 0.0025 τ; %s kT/N in (a)); cv and naive '
+                'are flat there because of their own first-order collision error (%.0f× and %.0f× above the floor, local slopes '
+                '%s and %s), and kdk-phys is not yet affected (local slope %.1f).') % (
+                    RAW['equilibrated_start']['cv-phys'], RAW['equilibrated_start']['cv'], numbers['ratios']['cv_over_cvphys_at_dt0.005_equilibrated'],
+                    RAW['equilibrated_start']['kdk-phys'], RAW['equilibrated_start']['naive'],
+                    RAW['unequilibrated_start']['cv-phys'], RAW['unequilibrated_start']['cv'], RAW['unequilibrated_start']['kdk-phys'], RAW['unequilibrated_start']['naive'],
+                    RAW['dsf_unequilibrated_start']['cv-phys'], RAW['dsf_unequilibrated_start']['cv'],
+                    un['cv-phys']['local_slope_0p005_to_0p0025'], sci(eq['cv-phys']['max_abs_dE_per_N_kT']['0.0025']),
+                    un['cv']['ratio_to_ewald_floor_at_0p0025'], un['naive']['ratio_to_ewald_floor_at_0p0025'],
+                    fnum(un['cv']['local_slope_0p005_to_0p0025']), fnum(un['naive']['local_slope_0p005_to_0p0025']), un['kdk-phys']['local_slope_0p005_to_0p0025']),
     'numbers': numbers,
 }
 json.dump(piece, open(os.path.join(DATADIR, '_method_fig_order.json'), 'w'), indent=1)

@@ -1,7 +1,7 @@
 {
  "file": "fig_render_cost",
  "width": "half",
- "caption": "Rendering cost per 1280\u00d7720 frame on the 4-core Xeon box (no GPU), measured on the 1000-sphere test trajectory including overlay and PNG writing: OVITO/Tachyon cpk at final quality (16 ambient-occlusion samples, 16 Tachyon threads) takes 1.43 s per frame, i.e. \u2248 17 min for a 721-frame movie, the x-ray preset 1.27 s (\u2248 15 min), the AO-free draft preset 0.26 s (\u2248 3 min) and the numpy fallback renderer with 4 worker processes 0.24 s wall (\u2248 3 min). Vertical ticks mark the three production runs (1028 s, 1031 s and 896 s wall for render plus encode).",
+ "caption": "Rendering cost per 1280\u00d7720 frame on the 4-core Xeon box (no GPU), measured on the 1000-sphere test trajectory including overlay and PNG writing: OVITO/Tachyon cpk at final quality (16 ambient-occlusion samples, 16 Tachyon threads) takes 1.43 s per frame, i.e. \u2248 17 min for a 721-frame movie, the x-ray preset 1.27 s (\u2248 15 min), the AO-free draft preset 0.26 s (\u2248 3 min) and the numpy fallback renderer with 4 worker processes 0.24 s wall (\u2248 3 min). The annotated vertical ticks mark the three production movies: 1028 s and 1031 s wall for render plus encode of the two cpk movies (1.43 s per frame, two coinciding ticks) and 896 s for the x-ray movie (1.24 s per frame).",
  "numbers": {
   "seconds_per_frame_incl_overlay_png": {
    "OVITO cpk, final (AO 16 samples)": 1.43,

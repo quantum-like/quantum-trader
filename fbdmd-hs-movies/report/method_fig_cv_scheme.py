@@ -62,15 +62,16 @@ for a in (axa, axb):
     a.set_xlim(0.8, 3.0)
     a.set_xlabel('r (σ)')
 axa.plot(r, phic(r), color=C_PHIC, ls='--', lw=1.2, label=r'$\varphi_\mathrm{c} = -l_\mathrm{B}/r$')
-axa.plot(r, phi2(r), color=C_PHI2, lw=1.7, label=r'$\varphi_2$ (long range)')
+axa.plot(r, phi2(r), color=C_PHI2, lw=1.7, label=r'$\varphi_2$')
 axa.plot(r, phi1(r), color=C_PHI1, lw=1.7, label=r'$\varphi_1 = \varphi_\mathrm{c} - \varphi_2$')
 axa.set_ylim(-7.5, 0.8)
 axa.set_ylabel('pair potential (kT)')
-axa.text(0.9, -7.15, 'hard\ncore', ha='center', va='bottom', fontsize=8, color='#555555')
+axa.text(0.9, 0.55, 'hard core', rotation=90, ha='center', va='top', fontsize=8, color='#555555')   # top of the band, clear of phi_1
 axa.text(q1, 0.9, r'$q_1$', ha='center', va='bottom', fontsize=8)
 axa.text(q2, 0.9, r'$q_2$', ha='center', va='bottom', fontsize=8)
-axa.annotate(r'$P(q_1) = %.2f\ kT$' % Pq1, xy=(0.95, Pq1), xytext=(1.32, -4.75), fontsize=8, color=C_PHI2,
+axa.annotate(r'$P(q_1) = %.2f$' % Pq1, xy=(0.95, Pq1), xytext=(1.42, -4.5), fontsize=8, color=C_PHI2,
              ha='left', va='center', arrowprops=dict(arrowstyle='-', color=C_PHI2, lw=0.7, shrinkB=2))
+# short labels keep the legend ~1 in wide, i.e. inside r = 1.35-3 sigma, phi = -7.3..-5.6 kT: below phi_c (-3.7 kT at 1.35 sigma)
 axa.legend(loc='lower right', fontsize=8, handlelength=1.6, borderaxespad=0.2)
 panel_label(axa, '(a)')
 
@@ -80,7 +81,7 @@ axb.plot(r, F2(r), color=C_PHI2, lw=1.7, label=r'$F_2$')
 axb.plot(r, F1(r), color=C_PHI1, lw=1.7, label=r'$F_1$')
 axb.set_ylim(-8.3, 1.0)
 axb.set_ylabel(r'pair force $-\mathrm{d}\varphi/\mathrm{d}r$ (kT/σ)')
-axb.text(0.9, -7.95, 'hard\ncore', ha='center', va='bottom', fontsize=8, color='#555555')
+axb.text(0.9, -0.45, 'hard core', rotation=90, ha='center', va='top', fontsize=8, color='#555555')   # below the F_2 = 0 line, above F_1
 axb.text(q1, 1.1, r'$q_1$', ha='center', va='bottom', fontsize=8)
 axb.text(q2, 1.1, r'$q_2$', ha='center', va='bottom', fontsize=8)
 axb.annotate('$F_2 = 0$ and $F_2\' = 0$\nat contact', xy=(1.0, 0.0), xytext=(1.6, -3.2), fontsize=8, color=C_PHI2,

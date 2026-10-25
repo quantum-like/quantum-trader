@@ -2,7 +2,7 @@
 
 Materials-Studio-style trajectory movies of 1000 hard spheres, neutral and with 20+/20− point charges: methods, validation, an integrator study and what the pictures show.
 
-_2026-10-25 · repo quantum-trader · branch claude/fbdmd-hs-movies · d2de2c8 · machine Intel(R) Xeon(R) Processor @ 2.10GHz (Linux 6.18.44-fc-v153, x86_64, 4 cpus, python 3.13.17)_
+_2026-10-25 · repo quantum-trader · branch claude/fbdmd-hs-movies · 975bd1a · machine Intel(R) Xeon(R) Processor @ 2.10GHz (Linux 6.18.44-fc-v153, x86_64, 4 cpus, python 3.13.17)_
 
 > Built from `report/report.html`; the HTML/PDF versions carry the typeset equations and tables. Figures are in `report/figures/`.
 
@@ -26,6 +26,7 @@ body{ background:var(--paper); color:var(--ink); font-family:var(--sans); font-s
 nav.toc{ position:sticky; top:env(safe-area-inset-top,0px); align-self:start; max-height:100vh; overflow:auto; padding:28px 12px 28px 0; border-right:1px solid var(--rule); font-size:13.5px }
 nav.toc ol{ list-style:none; margin:0; padding:0 } nav.toc li{ margin:4px 0 } nav.toc a{ color:var(--ink-2); text-decoration:none } nav.toc a:hover,nav.toc a:focus{ color:var(--accent) }
 nav.toc .lvl2{ padding-left:14px; font-size:12.5px }
+@media (max-width:900px){ nav.toc{ position:static; max-height:none; overflow:visible; border-right:0; border-bottom:1px solid var(--rule); padding:12px 0 16px; columns:2; column-gap:24px } nav.toc ol{ break-inside:avoid-column } }
 main{ min-width:0; max-width:76ch; }
 header.title{ padding:40px 0 20px; border-bottom:2px solid var(--accent) }
 h1{ font-family:var(--serif); font-weight:600; font-size:clamp(28px,4vw,40px); line-height:1.15; margin:0 0 10px; text-wrap:balance }
@@ -40,7 +41,7 @@ pre{ font-family:var(--mono); font-size:12.5px; line-height:1.45; background:var
 pre code{ background:none; padding:0 }
 .summary{ background:var(--paper-2); border-left:4px solid var(--accent); padding:14px 18px; margin:22px 0; border-radius:0 4px 4px 0 }
 .summary ul{ margin:6px 0 0; padding-left:18px } .summary li{ margin:5px 0 }
-.kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:18px 0 }
+.kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr)); gap:10px; margin:18px 0 }
 .kpi{ border:1px solid var(--rule); border-radius:4px; padding:10px 12px; background:var(--paper) }
 .kpi .v{ font-family:var(--mono); font-size:20px; font-variant-numeric:tabular-nums; color:var(--accent) } .kpi .l{ font-size:12px; color:var(--ink-2); letter-spacing:.02em; text-transform:uppercase }
 figure{ margin:24px 0; } figure.half{ max-width:420px } figure img{ max-width:100%; height:auto; display:block; border:1px solid var(--rule); border-radius:3px; background:#fff }
@@ -92,15 +93,15 @@ Hard-Sphere Electrolyte Movies
 
 Materials-Studio-style trajectory movies of 1000 hard spheres, neutral and with 20+/20− point charges: methods, validation, an integrator study and what the pictures show.
 
-2026-10-25repo quantum-trader · branch claude/fbdmd-hs-movies · d2de2c8project fbdmd-hs-moviesmachine: Intel(R) Xeon(R) Processor @ 2.10GHz (Linux 6.18.44-fc-v153, x86_64, 4 cpus, python 3.13.17)
+2026-10-25repo quantum-trader · branch claude/fbdmd-hs-movies · 975bd1aproject fbdmd-hs-moviesmachine: Intel(R) Xeon(R) Processor @ 2.10GHz (Linux 6.18.44-fc-v153, x86_64, 4 cpus, python 3.13.17)
 
 ## Summary
 
 - Three 24 s movies (1280×720, 30 fps, 721 frames) were produced from exact event-driven hard-sphere dynamics: a neutral control of N = 1000 spheres at η = 0.35 and the same box with 20 + and 20 − monovalent charges (l_B = 5 σ), rendered as opaque CPK spheres with OVITO's Tachyon ray tracer, plus an x-ray variant that ghosts the neutrals.
 
-- The hard-sphere engine reproduces the Carnahan–Starling equation of state to 0.5 % (Z = 5.233 vs 5.206) and the Enskog collision rate to 0.6 %; no pair of the 721 000 rendered sphere positions comes closer than 1.0000001 σ.
+- The hard-sphere engine reproduces the Carnahan–Starling equation of state to 0.5 % (Z = 5.233 vs 5.206) and the Enskog collision rate to 0.5–0.6 %; no pair of the 721 000 rendered sphere positions comes closer than 1.0000001 σ.
 
-- The Coulomb part is integrated with the collision Verlet scheme of Houndonougbo, Laird and Leimkuhler (Mol. Phys. 98, 309, 2000). Implemented literally, the scheme is only first order on this system (slope 0.73) because ions collide with force-free neutrals while the long-range force is non-zero. A one-line modification that reflects the physical velocity at collisions (cv-phys) restores second order (slope 2.02) and conserves energy to 2.4e-05 over 18 τ.
+- The Coulomb part is integrated with the collision Verlet scheme of Houndonougbo, Laird and Leimkuhler (Mol. Phys. 98, 309, 2000). Implemented literally, the scheme is only (sub-)first order on this system (slope 0.73) because ions collide with force-free neutrals while the long-range force is non-zero. A one-line modification that reflects the physical velocity at collisions (cv-phys) restores second order (slope 2.02) and conserves energy to 2.4e-05 over 18 τ.
 
 - The charged trajectory is a partially associated electrolyte: 38 ± 3 % of the ions sit in a +/− contact pair at any instant, pairs live 0.5 τ on average (0.7 s of movie) and exchange partners, 10 % of the ions form short linear chains, and nothing crystallises. Screening by the other ions reduces the contact potential of mean force from the bare −5 kT to about −1.9 kT.
 
@@ -142,7 +143,9 @@ Table 1. System and run parameters (reduced units: σ = m = kT = 1, τ = σ√(m
 
 Figure 1 shows the pipeline. A single C++17 program (sim/hsdmd.cpp, no dependencies, builds with g++ and clang++) generates the trajectory and writes an extended-XYZ file that OVITO reads directly, plus per-frame diagnostics (kinetic, potential and total energy, temperature, collision count, minimum pair distance, number of +/− contacts). A Python wrapper converts the trajectory to a compressed .npz cache and a JSON metadata file. sim/analyze.py re-reads the float64 trajectory and checks every frame for overlaps, verifies the file contract, and computes energy, stationarity, pairing and cluster statistics. Rendering goes through render/render_ovito.py (OVITO 3.17 Python module, Tachyon ray tracer) or, when OVITO is unavailable, through a dependency-free numpy/Pillow rasteriser with the same command line; both write PNG frames that ffmpeg encodes to H.264. run_all.sh strings the stages together and exposes the physical and rendering parameters as environment variables.
 
-[fig_pipeline.png not generated]Figure 1. The pipeline: one C++ simulator writes OVITO-readable trajectories, a Python analysis checks them, and either the OVITO/Tachyon renderer or the numpy fallback turns them into H.264 movies.
+![Figure 1. Pipeline of the project: run_all.sh orchestrates the C++17 simulator (event-driven hard-sphere MD with collision Verlet and Ewald/DSF Coulomb), which writes the trajectory as extended XYZ plus an npz cache, JSON metadata and a per-frame diagnostics CSV; sim/analyze.py scans every frame for overlaps and computes energy drift and pairing statistics, while render_ovito.py (Tachyon ray tracer, numpy fallback) produces 721 PNG frames per movie that ffmpeg encodes to H.264 mp4.](figures/fig_pipeline.png)
+
+*Figure 1. Pipeline of the project: run_all.sh orchestrates the C++17 simulator (event-driven hard-sphere MD with collision Verlet and Ewald/DSF Coulomb), which writes the trajectory as extended XYZ plus an npz cache, JSON metadata and a per-frame diagnostics CSV; sim/analyze.py scans every frame for overlaps and computes energy drift and pairing statistics, while render_ovito.py (Tachyon ray tracer, numpy fallback) produces 721 PNG frames per movie that ffmpeg encodes to H.264 mp4.*
 
 ### 3.2 Event-driven hard-sphere dynamics
 
@@ -158,7 +161,19 @@ The Coulomb energy U = l_B kT Σ q_i q_j / r_ij of the 40 ions in the periodic b
 
 Mixed hard-core/continuous systems cannot be stepped by plain Verlet. The naive splitting (HLL eq. 9: half-kick with the continuous force, exact hard-sphere flow over the step, half-kick) has a local energy error of order h at every step that contains a collision whenever the continuous force is non-zero at contact (HLL eq. 18), which is the case for Coulomb. Houndonougbo, Laird and Leimkuhler therefore split the pair potential into a short-range part φ₁ that is non-zero only below a distance q₂, and a long-range part φ₂ that is replaced below q₂ by a Hermite cubic P(r) with zero slope and curvature at q₁ (Figure 2a, b):
 
-\[ P(r) = \varphi_c(q_2) + \varphi_c'(q_2)\,\frac{(r-q_1)^3-(q_2-q_1)^3}{3\,(q_2-q_1)^2},\qquad \varphi_2 = \begin{cases} P(q_1) & r[fig_cv_scheme.png not generated]Figure 2. Collision Verlet of Houndonougbo, Laird and Leimkuhler (2000) for a +/− Coulomb pair with l_B = 5 σ: (a) the pair potential split into a short-range part φ₁ and a Hermite-flattened long-range part φ₂ (q₁ = σ, q₂ = 1.5 σ); (b) the corresponding forces, F₂ vanishing with zero slope at contact; (c) one step of length h: outer half-kicks with F₂, Verlet sub-steps with F₁ between hard collisions, collision times from the quartic of the quadratic paths.
+\[ P(r) = \varphi_c(q_2) + \varphi_c'(q_2)\,\frac{(r-q_1)^3-(q_2-q_1)^3}{3\,(q_2-q_1)^2},\qquad \varphi_2 = \begin{cases} P(q_1) & r<q_1\\ P(r) & q_1\le r<q_2 \\ \varphi_c(r) & r\ge q_2\end{cases},\qquad \varphi_1=\varphi_c-\varphi_2 . \]
+
+The Hamiltonian is split into H₁ = T + V_hs + V₁ and H₂ = V₂. One step of length h applies a half-kick with F₂, propagates H₁ exactly for a time h, and applies the second half-kick with F₂ (HLL Table 1). Inside the H₁ propagation every particle takes one velocity-Verlet sub-step with F₁ between consecutive hard collisions anywhere in the system, so the accelerated ions move on parabolic paths and their collision times are the smallest positive root of the quartic
+
+\[ \left|\Delta q + \Delta v\,\tau + \tfrac12\,\Delta a\,\tau^2\right|^2 = \sigma^2 , \]
+
+solved on monotone pieces by bracketing and Newton refinement (Figure 2c). F₂ is computed once per step as the full Ewald force minus the pairwise F₁; F₁ acts only between ions closer than q₂ = 1.5 σ, so in practice only a handful of ions are accelerated at any time. The implementation (--integrator cv) was checked line by line against Table 1 and against an independent re-implementation of the algorithm driven with the same particles, which agreed to 10⁻¹³ in positions and velocities over hundreds of steps.
+
+The order test of Section 4.2 showed that the literal scheme is nevertheless first order on this system. HLL's argument needs the long-range force to vanish for the colliding pair; an ion that collides with a neutral sphere, or a +/− pair in the field of a third ion, feels a non-zero F₂ at the instant of contact, and the eq.-18 error term reappears with F₂ in place of φ_c′. The shipped default cv-phys keeps the HLL splitting and sub-steps but reflects the physical velocity v + F₂(τ₁ − h/2) at each collision and returns to the drift frame afterwards, which removes the leading error term; a drift-frame separation guard and a zero-time-event watchdog make it robust at grazing contacts. Two further variants are kept for comparison: kdk-phys (kick–drift–kick with the same collision rule) and naive (HLL eq. 9).
+
+![Figure 2. Collision Verlet (Houndonougbo, Laird & Leimkuhler 2000) as implemented. (a) The +/− Coulomb pair potential φc = −l_B/r (l_B = 5 σ) is split into a long-range part φ₂ that follows the Hermite cubic P(r) on [q₁, q₂] = [1, 1.5] σ and is flat at P(q₁) = −3.70 kT inside q₁, and a short-range part φ₁ = φc − φ₂ that vanishes beyond q₂; the hard core r < σ is shaded. (b) The corresponding pair forces: F₂ and its slope vanish at contact, F₁ carries the full contact force −5 kT/σ and goes to zero continuously at q₂. (c) One step h: outer half-kicks with F₂, exact hard-sphere propagation in between in which every hard collision (anywhere in the system) cuts the step into velocity-Verlet sub-steps with F₁; accelerated ions follow parabolic paths and their collision times are the smallest positive root of the quartic |Δq + Δvτ + ½Δaτ²|² = σ². The shipped cv-phys variant reflects the physical velocity v + F₂(τᵢ − h/2) at each collision instead of the drift velocity.](figures/fig_cv_scheme.png)
+
+*Figure 2. Collision Verlet (Houndonougbo, Laird & Leimkuhler 2000) as implemented. (a) The +/− Coulomb pair potential φc = −l_B/r (l_B = 5 σ) is split into a long-range part φ₂ that follows the Hermite cubic P(r) on [q₁, q₂] = [1, 1.5] σ and is flat at P(q₁) = −3.70 kT inside q₁, and a short-range part φ₁ = φc − φ₂ that vanishes beyond q₂; the hard core r < σ is shaded. (b) The corresponding pair forces: F₂ and its slope vanish at contact, F₁ carries the full contact force −5 kT/σ and goes to zero continuously at q₂. (c) One step h: outer half-kicks with F₂, exact hard-sphere propagation in between in which every hard collision (anywhere in the system) cuts the step into velocity-Verlet sub-steps with F₁; accelerated ions follow parabolic paths and their collision times are the smallest positive root of the quartic |Δq + Δvτ + ½Δaτ²|² = σ². The shipped cv-phys variant reflects the physical velocity v + F₂(τᵢ − h/2) at each collision instead of the drift velocity.*
 
 ### 3.5 Equilibration and production protocol
 
@@ -183,40 +198,31 @@ Table 2. Hard-sphere and integrator validation of the production runs (independe
 | check | neutral control | charged run | reference |
 |---|---|---|---|
 | collisional virial Z = PV/NkT | 5.233 | 5.224 | Carnahan–Starling 5.206 |
-| collision rate per sphere per τ | 14.32 | 14.31 | Enskog 14.24 |
+| collision rate per sphere per τ | 14.32 (+0.6 %) | 14.31 (+0.5 %) | Enskog 14.24 |
 | kinetic energy in production | constant to 4×10⁻¹⁴ | T = 0.9990 ± 0.0027 | kT = 1 (NVE scatter ±0.003) |
 | total energy drift (E_end − E₀)/|E₀| | 0 (no potential) | 2.3e-05 (max 2.4e-05) | — |
 | min. pair distance over all 721 frames | 1.000000089 σ | 1.000000381 σ | ≥ 1 σ (no overlap, no tunnelling) |
-| free-flight interpolation check | 0.491 of spheres exactly ballistic over 2 frames | 0.492 (neutrals) | exp(−2ΓΔt_frame) = 0.492 |
+| free-flight interpolation check | 0.491 of spheres exactly ballistic over 2 frames | 0.492 (neutrals) | exp(−2Γ_E Δt_frame) = 0.492 |
 | time reversibility (reviewer test) | x(−t) returns to 1.7×10⁻¹¹ | — | exact for EDMD |
 | Ewald vs independent implementation | — | ΔU = 3×10⁻¹⁴, ΔF = 2×10⁻¹⁴ | same α, k_max |
 
 ### 4.2 Integrator study
 
-Figure 3 and Table 3 give the energy-error order test on the production system itself: after the standard equilibration, 2 τ of NVE production were run at h = 0.02, 0.01, 0.005 and 0.0025 τ for each integrator and the maximum |E(t) − E₀|/N recorded. The naive splitting is first order, as HLL found. The literal collision Verlet is also first order here (slope 0.73) and worse than the plain kick–drift–kick with the physical-velocity rule at every step size. Several diagnostics isolate the cause: a two-body +/− pair in a large box, where every collision is an ion–ion contact with F₂ = 0, gives slope 1.9 for the literal scheme; raising q₂ to 3 σ or 5.5 σ shrinks the error by at most 3× without changing the slope; an all-ion system (no neutrals) is still first order; and with the smooth DSF potential the literal scheme reaches only slope 1.2 while cv-phys reaches 1.9. The residual is therefore the eq.-18 error with F₂ at ion–neutral collisions and at +/− contacts in third-body fields, which HLL's one-component argument does not cover. cv-phys reaches slope 2.02 with Ewald and is the most accurate choice at every h; at h = 0.0025 all integrators run into a floor of about 10⁻⁶ kT per particle that comes from the Ewald real-space truncation at r_c = L/2 (erfc(2.8) ≈ 7.5×10⁻⁵), not from the integrator.
+Figure 3 and Table 3 give the energy-error order test on the production system itself: after the standard equilibration, 2 τ of NVE production were run at h = 0.02, 0.01, 0.005 and 0.0025 τ for each integrator and the maximum |E(t) − E₀|/N recorded. The naive splitting is first order, as HLL found. The literal collision Verlet is roughly first order here (slope 0.73, 35× less accurate than cv-phys at h = 0.005 τ) and worse than the plain kick–drift–kick with the physical-velocity rule at every step size. Several diagnostics isolate the cause: a two-body +/− pair in a large box, where every collision is an ion–ion contact with F₂ = 0, gives slope 1.9 for the literal scheme; raising q₂ to 3 σ or 5.5 σ shrinks the error by at most 3× without changing the slope; an all-ion system (no neutrals) is still first order; and with the smooth DSF potential the literal scheme reaches only slope 1.2 while cv-phys reaches 1.9. The residual is therefore the eq.-18 error with F₂ at ion–neutral collisions and at +/− contacts in third-body fields, which HLL's one-component argument does not cover. cv-phys reaches slope 2.02 with Ewald and is the most accurate choice at every h; at h = 0.0025 the two accurate schemes reach a floor of about 10⁻⁶ kT per particle that comes from the Ewald real-space truncation at r_c = L/2 (erfc(2.8) ≈ 7.5×10⁻⁵) rather than from the integrator, whereas the literal scheme and the naive splitting are flat there because of their own first-order collision error.
 
-[fig_order.png not generated]Figure 3. Energy-error order test on the production system (N = 1000, 20+/20−, l_B = 5 σ, Ewald): maximum |E(t) − E(0)|/N over 2 τ versus the step h for the four integrators.
+![Figure 3. Energy-error order test on the production system (N = 1000, η = 0.35, 20+/20−, l_B = 5 σ): maximum |E(t) − E(0)|/N over 2 τ of NVE dynamics versus the step h for the four integrators, with the fitted log–log slopes in the legends and dashed reference lines ∝ h and ∝ h². (a) Equilibrated start (15 τ with charges on): the shipped cv-phys is second order (slope 2.02) whereas the literal HLL collision Verlet is only sub-first-order (slope 0.73) and 35× less accurate at the production step h = 0.005 τ; kdk-phys gives 1.82 and the naive splitting 1.09. (b) Same test from the un-equilibrated start with Ewald (solid; slopes 1.40 / 0.78 / 1.69 / 0.89) and with the smooth DSF Coulomb model (dashed, cv-phys 1.92, cv 1.21). The Ewald real-space truncation erfc(αr_c) ≈ 7.5×10⁻⁵ gives an energy floor of ≈ 0.5–1 × 10⁻⁶ kT/N that limits the cv-phys curve at h = 0.0025 τ (local slope 1.0 between 0.005 and 0.0025 τ; 6 × 10⁻⁷ kT/N in (a)); cv and naive are flat there because of their own first-order collision error (65× and 229× above the floor, local slopes 0.11 and −0.06), and kdk-phys is not yet affected (local slope 2.9).](figures/fig_order.png)
 
-Table 3. Order test (equilibrated start, production system, 2 τ): maximum |E(t)−E₀|/N in kT and end drift, from notes/order_test.csv.
+*Figure 3. Energy-error order test on the production system (N = 1000, η = 0.35, 20+/20−, l_B = 5 σ): maximum |E(t) − E(0)|/N over 2 τ of NVE dynamics versus the step h for the four integrators, with the fitted log–log slopes in the legends and dashed reference lines ∝ h and ∝ h². (a) Equilibrated start (15 τ with charges on): the shipped cv-phys is second order (slope 2.02) whereas the literal HLL collision Verlet is only sub-first-order (slope 0.73) and 35× less accurate at the production step h = 0.005 τ; kdk-phys gives 1.82 and the naive splitting 1.09. (b) Same test from the un-equilibrated start with Ewald (solid; slopes 1.40 / 0.78 / 1.69 / 0.89) and with the smooth DSF Coulomb model (dashed, cv-phys 1.92, cv 1.21). The Ewald real-space truncation erfc(αr_c) ≈ 7.5×10⁻⁵ gives an energy floor of ≈ 0.5–1 × 10⁻⁶ kT/N that limits the cv-phys curve at h = 0.0025 τ (local slope 1.0 between 0.005 and 0.0025 τ; 6 × 10⁻⁷ kT/N in (a)); cv and naive are flat there because of their own first-order collision error (65× and 229× above the floor, local slopes 0.11 and −0.06), and kdk-phys is not yet affected (local slope 2.9).*
 
-| integrator | dt_requested | dt | max_abs_dE_per_N | end_drift_per_N | rms_dE_per_N | E0 | n_frames | n_collisions | n_substeps | n_vmin | min_dist | wall | slope_max | slope_end |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| cv-phys | 0.02 | 0.02 | 4.7487660000115285e-05 | 4.536157999996249e-05 | 1.6476155820122917e-05 | 1431.9153339 | 101 | 14369 | 122799 | 0 | 1.00000004576299 | 0.42 | 2.019179506681018 | 2.947010237151465 |
-| cv-phys | 0.01 | 0.01 | 6.826150000051712e-06 | 6.826150000051712e-06 | 2.153748862004935e-06 | 1432.2016769 | 101 | 14296 | 123105 | 0 | 1.0000000773859 | 0.589 | 2.019179506681018 | 2.947010237151465 |
-| cv-phys | 0.005 | 0.005 | 2.8646400000980067e-06 | 1.987580000104572e-06 | 7.335348848368015e-07 | 1425.33330502 | 101 | 14409 | 125545 | 0 | 1.00000032176622 | 0.576 | 2.019179506681018 | 2.947010237151465 |
-| cv-phys | 0.0025 | 0.0025 | 5.972699998437747e-07 | -7.553999989795557e-08 | 2.0162181178449844e-07 | 1420.38255526 | 101 | 14217 | 127675 | 0 | 1.00000135206653 | 0.712 | 2.019179506681018 | 2.947010237151465 |
-| cv | 0.02 | 0.02 | 0.00038110813000002963 | -0.00014594955000006847 | 0.00013289701288432047 | 1422.57083848 | 101 | 14355 | 122280 | 0 | 1.00000030602624 | 0.457 | 0.7256887571470043 | 0.24483503940579693 |
-| cv | 0.01 | 0.01 | 0.00011513722000017879 | 7.22070500000882e-05 | 4.50096731333908e-05 | 1430.6076448 | 101 | 14217 | 122672 | 0 | 1.00000005645187 | 0.537 | 0.7256887571470043 | 0.24483503940579693 |
-| cv | 0.005 | 0.005 | 0.00010012957999992977 | 9.88334199998917e-05 | 4.81538406092132e-05 | 1431.36480718 | 101 | 14407 | 125066 | 0 | 1.00000114601583 | 0.541 | 0.7256887571470043 | 0.24483503940579693 |
-| cv | 0.0025 | 0.0025 | 7.465961000002608e-05 | -7.465961000002608e-05 | 1.8114816139518563e-05 | 1431.72361662 | 101 | 14395 | 128230 | 0 | 1.00000011253058 | 0.732 | 0.7256887571470043 | 0.24483503940579693 |
-| kdk-phys | 0.02 | 0.02 | 6.736925999985033e-05 | 4.719597999996949e-05 | 2.1720574870548956e-05 | 1429.33511702 | 101 | 14503 | 0 | 0 | 1.00000134719134 | 0.138 | 1.8154195568369302 | 2.153038485944024 |
-| kdk-phys | 0.01 | 0.01 | 3.430844000013167e-05 | 3.430844000013167e-05 | 8.760547000067724e-06 | 1423.1711902 | 101 | 14192 | 0 | 0 | 1.00000004531783 | 0.174 | 1.8154195568369302 | 2.153038485944024 |
-| kdk-phys | 0.005 | 0.005 | 5.97923999998784e-06 | 4.856810000092082e-06 | 1.6453614404666839e-06 | 1432.35576703 | 101 | 14307 | 0 | 0 | 1.00000033817586 | 0.257 | 1.8154195568369302 | 2.153038485944024 |
-| kdk-phys | 0.0025 | 0.0025 | 1.818559999946956e-06 | 6.258799999159237e-07 | 5.036459168177851e-07 | 1427.04330092 | 101 | 14234 | 0 | 0 | 1.00000061775805 | 0.433 | 1.8154195568369302 | 2.153038485944024 |
-| naive | 0.02 | 0.02 | 0.002375706619999846 | 0.002375706619999846 | 0.0008058755810163686 | 1429.03561067 | 101 | 14371 | 0 | 0 | 1.0000005028843 | 0.139 | 1.0927124283046872 | 1.2457499578686129 |
-| naive | 0.01 | 0.01 | 0.0009157108399999742 | -0.0007956638299999668 | 0.0002503968753743579 | 1428.21320292 | 101 | 14271 | 0 | 0 | 1.00000039642433 | 0.203 | 1.0927124283046872 | 1.2457499578686129 |
-| naive | 0.005 | 0.005 | 0.0003891175200001271 | 0.00026754369000013865 | 0.00014304594346130058 | 1429.62653936 | 101 | 14237 | 0 | 0 | 1.00000043837018 | 0.321 | 1.0927124283046872 | 1.2457499578686129 |
-| naive | 0.0025 | 0.0025 | 0.00025305870000011057 | -0.00019210739999994076 | 5.9901400226460644e-05 | 1427.06188167 | 101 | 14308 | 0 | 0 | 1.00000011151326 | 0.423 | 1.0927124283046872 | 1.2457499578686129 |
+Table 3. Order test (equilibrated start, production system, 2 τ): maximum |E(t)−E₀|/N in kT (end drift (E_end−E₀)/N in parentheses), from notes/order_test.csv.
+
+| h (τ) | cv-phys | cv | kdk-phys | naive |
+|---|---|---|---|---|
+| 0.02 | 4.75e-05 (4.54e-05) | 3.81e-04 (-1.46e-04) | 6.74e-05 (4.72e-05) | 2.38e-03 (2.38e-03) |
+| 0.01 | 6.83e-06 (6.83e-06) | 1.15e-04 (7.22e-05) | 3.43e-05 (3.43e-05) | 9.16e-04 (-7.96e-04) |
+| 0.005 | 2.86e-06 (1.99e-06) | 1.00e-04 (9.88e-05) | 5.98e-06 (4.86e-06) | 3.89e-04 (2.68e-04) |
+| 0.0025 | 5.97e-07 (-7.55e-08) | 7.47e-05 (-7.47e-05) | 1.82e-06 (6.26e-07) | 2.53e-04 (-1.92e-04) |
+| log–log slope | 2.02 | 0.73 | 1.82 | 1.09 |
 
 Table 4 compares the four integrators on the full 18 τ production. The thermodynamic state (pair count, potential energy) agrees between all of them within statistical scatter (seven seeds each, Welch t ≤ 1.4), so the choice affects the energy budget, not the physics seen in the movie; cv-phys costs the same as the literal scheme (about 2× the plain kick–drift–kick) and was used for the shipped movie.
 
@@ -225,25 +231,33 @@ Table 4. The four charged-run integrators on the full 5 + 15 + 18 τ production 
 | integrator | what it is | ΔE/|E₀| over 18 τ | max |δE|/|E₀| | sim wall |
 |---|---|---|---|---|
 | cv-phys (default) | HLL splitting + Verlet sub-steps; collisions reflect v + F₂(τ₁ − h/2) | +2.3e-5 | 2.4e-5 | ≈10 s |
-| cv | HLL collision Verlet exactly as published | −1.3e-4 | 1.6e-4 | ≈10 s |
+| cv | HLL collision Verlet exactly as published | −1.3e-4 | 1.6e-4 | ≈11 s |
 | kdk-phys | kick–drift–kick (HLL eq. 9) with the physical-velocity collision rule | +5.2e-5 | 5.2e-5 | ≈5 s |
-| naive | kick–drift–kick exactly as HLL eq. 9 (Suh et al.) | ≈1e-3 (first order) | — | ≈5 s |
+| naive | kick–drift–kick exactly as HLL eq. 9 (Suh et al.) | +1.0e-3 | 1.3e-3 | ≈5 s |
 
 ### 4.3 Energy, temperature and stationarity
 
 Figure 4 shows the energy budget of the production runs. The total energy of the charged cv-phys run rises by 2.3e-05 relative (0.034 kT in 1425 kT) over 18 τ, almost linearly, while the kinetic and potential energies exchange about ±4 kT as pairs form and break; the temperature is 0.9990 ± 0.003, the NVE scatter expected from potential-energy fluctuations. The first and second halves of the run agree in temperature, potential energy and pair count within one standard deviation of the block averages, so the movie starts from an equilibrated state. The cumulative collision count grows linearly at the Enskog rate in both runs; ions collide 13.3 times per τ, neutrals 13.6, so the charges do not heat up or slow down relative to the solvent.
 
-[fig_energy.png not generated]Figure 4. Energy conservation and thermodynamic state of the 18 τ NVE production runs.
+![Figure 4. Energy conservation and collision statistics of the production runs (N = 1000, η = 0.35, 18 τ NVE). (a) Total-energy deviation E(t) − E(0) for the four integrators of the charged system (20+/20−, l_B = 5 σ, Δt = 0.005 τ): the naive splitting drifts by +1.48 kT, literal collision Verlet (cv) by −0.19 kT, kdk-phys by +0.075 kT and the shipped cv-phys by +0.033 kT (2.3 × 10⁻⁵ of |E₀|; inset without naive). (b) cv-phys: kinetic and potential energy fluctuate in antiphase with a standard deviation of 4.0 kT each while their sum changes by 0.034 kT at most. (c) Instantaneous temperature of the cv-phys run, ⟨T⟩ = 0.9990 ± 0.0027 kT. (d) Cumulative hard-sphere collisions in the neutral and charged runs against the Enskog rate N Γ_E/2 with Γ_E = 14.24 per particle per τ; the neutral run exceeds Enskog by 0.6 % and the charged run by 0.5 % (inset).](figures/fig_energy.png)
+
+*Figure 4. Energy conservation and collision statistics of the production runs (N = 1000, η = 0.35, 18 τ NVE). (a) Total-energy deviation E(t) − E(0) for the four integrators of the charged system (20+/20−, l_B = 5 σ, Δt = 0.005 τ): the naive splitting drifts by +1.48 kT, literal collision Verlet (cv) by −0.19 kT, kdk-phys by +0.075 kT and the shipped cv-phys by +0.033 kT (2.3 × 10⁻⁵ of |E₀|; inset without naive). (b) cv-phys: kinetic and potential energy fluctuate in antiphase with a standard deviation of 4.0 kT each while their sum changes by 0.034 kT at most. (c) Instantaneous temperature of the cv-phys run, ⟨T⟩ = 0.9990 ± 0.0027 kT. (d) Cumulative hard-sphere collisions in the neutral and charged runs against the Enskog rate N Γ_E/2 with Γ_E = 14.24 per particle per τ; the neutral run exceeds Enskog by 0.6 % and the charged run by 0.5 % (inset).*
 
 ### 4.4 Structure
 
-Figure 5a is the neutral–neutral radial distribution function of the control run. Its extrapolated contact value matches the Carnahan–Starling g(σ⁺) = (1 − η/2)/(1 − η)³ = 3.00 at η = 0.35 and the first minimum and second peak sit where a hard-sphere liquid at this density has them. Figure 5b shows the ion–ion correlations of the charged run: a strong +/− contact peak, like-charge pairs depleted at contact, and ion–neutral correlations indistinguishable from the neutral g(r). Figure 5c converts the +/− correlation into a potential of mean force relative to the hard-sphere background, w₊₋(r) = −kT ln[g₊₋/g_HS]. At contact w₊₋ ≈ −1.9 kT, far above the bare Coulomb −5 kT and close to a Debye–Hückel estimate −l_B/(1 + κσ) = −2.2 kT with κσ = 1.3: the other 38 ions screen the contact attraction substantially even at this low ion fraction. This is why the ideal Bjerrum mass-action estimate (about 61 % paired at the 1.2 σ criterion) overshoots the measured 38 %.
+Figure 5a is the neutral–neutral radial distribution function of the control run. Its contact value extrapolated from 1.0–1.1 σ is g(σ⁺) = 3.01, against the Carnahan–Starling (1 − η/2)/(1 − η)³ = 3.00 at η = 0.35 and 3.02 implied by the collisional virial, and the first minimum and second peak sit where a hard-sphere liquid at this density has them. Figure 5b shows the ion–ion correlations of the charged run: a strong +/− contact peak (g₊₋ = 16.8 in the contact bin, about 20 extrapolated to σ⁺), like-charge pairs depleted at contact (g ≈ 0.5) and back to the bulk value by 2 σ, the + − + chain distance, and ion–neutral correlations that follow the neutral fluid beyond the first shell with a 6 % deficit in the contact bin, the sites taken by counter-ion partners. Figure 5c converts the +/− correlation into a potential of mean force relative to the hard-sphere background, w₊₋(r) = −kT ln[g₊₋/g_HS]. In the contact bin w₊₋ = −1.81 ± 0.02 kT, about −1.9 kT extrapolated to σ⁺, far above the bare Coulomb −5 kT and close to a Debye–Hückel estimate −l_B/(1 + κσ) = −2.2 kT with κσ = 1.3: the other 38 ions screen the contact attraction substantially even at this low ion fraction. This is why the ideal Bjerrum mass-action estimate (about 61 % paired at the 1.2 σ criterion) overshoots the measured 38 %.
 
-[fig_structure.png not generated]Figure 5. Structure: hard-sphere radial distribution function versus Carnahan–Starling, ion–ion correlation functions and the +/− potential of mean force.
+![Figure 5. Static structure. (a) Neutral–neutral pair distribution of the hard-sphere run (η = 0.35, 0.01 σ bins, 721 frames, minimum image): the contact value extrapolated from 1.0–1.1 σ is g(σ⁺) = 3.01, against the Carnahan–Starling value 3.00 and 3.02 implied by the collisional virial Z = 5.233. (b) Ion correlations in the charged run (0.05 σ bins, all 721 frames; error bars are Poisson): g₊₋ reaches 16.8 ± 0.4 in the contact bin (≈20 extrapolated to σ⁺); same-sign pairs are depleted at contact (g ≈ 0.5), recover the bulk value by ≈2 σ (the + − + chain distance; 0.98 ± 0.04 over 1.95–2.25 σ) and show a weak second depletion (g ≈ 0.84) at 2.3–2.75 σ; ion–neutral correlations follow the neutral fluid beyond the first shell, while in the contact bin g_ion–neutral = 2.57 against 2.75 for neutral pairs, a 6.5 % deficit corresponding to the contact sites occupied by counter-ion partners (0.15 per ion in that bin). (c) Potential of mean force w₊₋ = −ln[g₊₋/g_HS] compared with the bare Coulomb pair energy −l_B/r and the linearised Debye–Hückel screened potential (κσ = 1.30): the effective attraction at contact is −1.81 ± 0.02 kT, far weaker than the bare −5 kT, because the other 38 ions screen the pair; the DH curve is shown only as a scale since l_B/σ = 5 is outside its range of validity.](figures/fig_structure.png)
+
+*Figure 5. Static structure. (a) Neutral–neutral pair distribution of the hard-sphere run (η = 0.35, 0.01 σ bins, 721 frames, minimum image): the contact value extrapolated from 1.0–1.1 σ is g(σ⁺) = 3.01, against the Carnahan–Starling value 3.00 and 3.02 implied by the collisional virial Z = 5.233. (b) Ion correlations in the charged run (0.05 σ bins, all 721 frames; error bars are Poisson): g₊₋ reaches 16.8 ± 0.4 in the contact bin (≈20 extrapolated to σ⁺); same-sign pairs are depleted at contact (g ≈ 0.5), recover the bulk value by ≈2 σ (the + − + chain distance; 0.98 ± 0.04 over 1.95–2.25 σ) and show a weak second depletion (g ≈ 0.84) at 2.3–2.75 σ; ion–neutral correlations follow the neutral fluid beyond the first shell, while in the contact bin g_ion–neutral = 2.57 against 2.75 for neutral pairs, a 6.5 % deficit corresponding to the contact sites occupied by counter-ion partners (0.15 per ion in that bin). (c) Potential of mean force w₊₋ = −ln[g₊₋/g_HS] compared with the bare Coulomb pair energy −l_B/r and the linearised Debye–Hückel screened potential (κσ = 1.30): the effective attraction at contact is −1.81 ± 0.02 kT, far weaker than the bare −5 kT, because the other 38 ions screen the pair; the DH curve is shown only as a scale since l_B/σ = 5 is outside its range of validity.*
 
 ### 4.5 Pairing and chains
 
-Figure 6 and Table 5 quantify what the charged movie shows. With a +/− bond defined as r [fig_pairing.png not generated]Figure 6. Ion pairing in the charged run: contact pairs versus time, pairing fractions, cluster sizes and contact-episode lifetimes.
+Figure 6 and Table 5 quantify what the charged movie shows. With a +/− bond defined as r < 1.2 σ, 37.7 % of the ions are paired at any instant (±3 % statistical uncertainty of the run mean, ±11 % frame-to-frame spread; 8.3 pairs per frame, fluctuating between 2 and 15), 62 % are free, 10 % sit in clusters of three or more, and the clusters are almost always linear chains (+ − + or − + −); branched clusters occur in 1 % of the frames and the largest cluster seen has six ions. A contact episode lasts 0.52 τ on average (median 0.35 τ, 90th percentile 1.18 τ, longest 2.48 τ; the survival curve in Figure 6d is close to exponential), i.e. about 0.7 s of movie, and each cation meets 2.4 different anions over the run, so the pairs are transient and exchange partners rather than forming a permanent salt. The looser classical criterion r < l_B/2 = 2.5 σ counts 86 % of the ions as associated, but random 20 + 20 subsets of the neutral run already give 58.5 % by hard-sphere packing alone at this ion density (8 % for the 1.2 σ criterion), so the contact criterion is the informative one.
+
+![Figure 6. Bjerrum pairing in the charged production run (20+/20−, l_B = 5 σ, cv-phys, 721 frames). (a) Number of +/− contact pairs (r < 1.2 σ) per frame, mean 8.3 (range 2–15). (b) Fraction of ions in a contact pair (38 ± 11 %) and fraction with an opposite ion within l_B/2 = 2.5 σ (86 %); dashed and dotted lines are the random-ion baselines obtained from 100 random 20+20 subsets of the neutral run, 0.585 ± 0.006 (2.5 σ) and 0.080 ± 0.002 (1.2 σ; standard errors of the subset mean); the hard-core-only estimate 1 − (1 − V_shell/V)^20 = 0.567 for 2.5 σ is a consistent cross-check. (c) Fraction of ions in connected +/− clusters of size 1–6: 10 % sit in clusters of three or more, almost all linear chains. (d) Survival function of contact-episode lifetimes: median 0.35 τ, mean 0.52 τ, 90th percentile 1.18 τ, longest 2.48 τ (3.3 s of movie); the dotted curve is an exponential with the same mean.](figures/fig_pairing.png)
+
+*Figure 6. Bjerrum pairing in the charged production run (20+/20−, l_B = 5 σ, cv-phys, 721 frames). (a) Number of +/− contact pairs (r < 1.2 σ) per frame, mean 8.3 (range 2–15). (b) Fraction of ions in a contact pair (38 ± 11 %) and fraction with an opposite ion within l_B/2 = 2.5 σ (86 %); dashed and dotted lines are the random-ion baselines obtained from 100 random 20+20 subsets of the neutral run, 0.585 ± 0.006 (2.5 σ) and 0.080 ± 0.002 (1.2 σ; standard errors of the subset mean); the hard-core-only estimate 1 − (1 − V_shell/V)^20 = 0.567 for 2.5 σ is a consistent cross-check. (c) Fraction of ions in connected +/− clusters of size 1–6: 10 % sit in clusters of three or more, almost all linear chains. (d) Survival function of contact-episode lifetimes: median 0.35 τ, mean 0.52 τ, 90th percentile 1.18 τ, longest 2.48 τ (3.3 s of movie); the dotted curve is an exponential with the same mean.*
 
 Table 5. Ion pairing and clustering in the charged production run (721 frames; +/− bond = r < 1.2 σ). Statistical uncertainty of the pairing fraction from one 18 τ run ≈ ±3 percentage points.
 
@@ -251,26 +265,33 @@ Table 5. Ion pairing and clustering in the charged production run (721 frames; +
 |---|---|
 | ions in a +/− contact pair (mean / min / max) | 37.7 % / 10 % / 65 % |
 | +/− contact pairs per frame (mean / min / max) | 8.3 / 2 / 15 |
-| ions with an opposite ion within l_B/2 = 2.5 σ | 85.8 % (random placement in the neutral run: 58 ± 7 %) |
+| ions with an opposite ion within l_B/2 = 2.5 σ | 85.8 % (random 20+20 subsets of the neutral run: 58.5 %; 1.2 σ criterion: 8.0 %) |
 | cluster sizes 1 / 2 / 3 / 4 / 5 / 6 (fraction of ions) | 62.3 / 27.5 / 8.1 / 1.7 / 0.3 / 0.2 % |
 | clusters of ≥ 3 per frame: chains / branched | 1.27 / 0.011 |
 | largest cluster (mean / max) | 3.0 / 6 ions |
-| contact-episode lifetime (mean / median / 90 % / max) | 0.52 / 0.35 / 1.2 / 2.5 τ  (0.7 / 0.5 / 1.6 / 3.3 s of movie) |
+| contact-episode lifetime (mean / median / 90 % / max) | 0.52 / 0.35 / 1.18 / 2.48 τ  (0.69 / 0.47 / 1.57 / 3.3 s of movie) |
 | distinct − partners per + ion over 18 τ | 2.4 (1–6) |
-| potential of mean force at contact, w₊₋(σ) | ≈ −1.9 kT (bare Coulomb −5 kT; Debye–Hückel −2.2 kT, κσ = 1.3) |
+| potential of mean force at contact, w₊₋ | −1.81 ± 0.02 kT in the 1.00–1.05 σ bin, ≈ −1.9 kT at σ⁺ (bare Coulomb −5 kT; Debye–Hückel −2.2 kT, κσ = 1.3) |
 
 ### 4.6 Dynamics
 
-Figure 7 shows the single-particle dynamics behind the motion in the movies. The mean-squared displacement of the neutrals is ballistic below the collision time (0.07 τ) and diffusive beyond about 1 τ, with the same diffusion coefficient in both runs; the ions follow the same curve within the statistics of 40 particles (short-lag ratio 1.04, long-time rms displacement 3.5 σ versus 3.7 σ for neutrals over 18 τ). A sphere moves 0.038 σ per frame on average and never more than 0.14 σ, which is why the 30 fps movie reads as continuous motion. Panel (c) is the free-flight interpolation check described in Section 3.2.
+Figure 7 shows the single-particle dynamics behind the motion in the movies. The mean-squared displacement of the neutrals is ballistic below the collision time (0.07 τ) and diffusive beyond about 1 τ, with the same diffusion coefficient in both runs, D = 0.123–0.125 σ²/τ from the 1–4 τ slope (1.17 × the Enskog value); the ions follow the same curve within the statistics of 40 particles (D = 0.124 σ²/τ, short-lag ratio 1.04, long-time rms displacement 3.5 σ versus 3.7 σ for neutrals over 18 τ). A sphere moves 0.038 σ per frame on average and never more than 0.14 σ, which is why the 30 fps movie reads as continuous motion. Panel (c) is the free-flight interpolation check described in Section 3.2.
 
-[fig_dynamics.png not generated]Figure 7. Dynamics: mean-squared displacements, per-frame displacements and the free-flight interpolation check.
+![Figure 7. Single-particle dynamics (trajectories unwrapped through the periodic box). (a) Mean-squared displacement versus lag time for neutral spheres in the neutral run, neutral spheres in the charged run and the 40 ions, with t² (ballistic) and t (diffusive) guides and the Enskog prediction; the slopes over 1–4 τ give D = 0.123, 0.125 and 0.124 σ²/τ (1.17 × Enskog), i.e. ions and neutrals diffuse alike. (b) Distribution of the displacement per frame (Δt_frame = 0.025 τ): mean 0.038 σ for neutrals, 0.039 σ for ions, maximum 0.14 σ; the dashed curve is the Maxwell speed distribution times Δt_frame. (c) Free-flight check: fraction of neutral spheres whose displacement vector is identical over two consecutive frame intervals, 0.491 on average against exp(−2ΓΔt_frame) = 0.489 for the measured collision rate Γ = 14.32 τ⁻¹.](figures/fig_dynamics.png)
+
+*Figure 7. Single-particle dynamics (trajectories unwrapped through the periodic box). (a) Mean-squared displacement versus lag time for neutral spheres in the neutral run, neutral spheres in the charged run and the 40 ions, with t² (ballistic) and t (diffusive) guides and the Enskog prediction; the slopes over 1–4 τ give D = 0.123, 0.125 and 0.124 σ²/τ (1.17 × Enskog), i.e. ions and neutrals diffuse alike. (b) Distribution of the displacement per frame (Δt_frame = 0.025 τ): mean 0.038 σ for neutrals, 0.039 σ for ions, maximum 0.14 σ; the dashed curve is the Maxwell speed distribution times Δt_frame. (c) Free-flight check: fraction of neutral spheres whose displacement vector is identical over two consecutive frame intervals, 0.491 on average against exp(−2ΓΔt_frame) = 0.489 for the measured collision rate Γ = 14.32 τ⁻¹.*
 
 ### 4.7 The movies
 
 Figure 8 shows frames from the three movies at the start, middle and end of the 40° orbit; Figure 9 zooms into the x-ray movie on a +/− contact pair and a short chain. In the opaque CPK movie only the ions on the three camera-facing faces are visible (typically 5–13 of the 40), which is faithful to a Materials Studio view of a dense liquid but hides most of the pairing; the x-ray movie exists for that reason. What to look for: in the neutral movie, every sphere rattles in the cage of its neighbours and the surface layer slowly exchanges with the interior; in the charged movies, red and blue spheres that come within a diameter stick for a few seconds, rattle against each other, are knocked apart by gray spheres and find new partners, and occasionally three or four ions line up alternately for a second or two. Charges never move faster than neutrals and no sphere ever passes through another.
 
-[fig_stills.png not generated]Figure 8. Frames from the three movies at t = 0, 9 and 18 τ: neutral control (top), charged CPK (middle), charged with ghosted neutrals (bottom).
-[fig_pair_closeup.png not generated]Figure 9. Close-ups from the x-ray movie: a +/− contact pair and a short chain.
+![Figure 8. Stills taken from the three movies (frames 0, 360 and 720 of 721, i.e. t = 0, 9 and 18 τ of the NVE production run; the camera orbits from azimuth 25° to 65° over the movie): (a) the neutral control (1000 hard spheres, η = 0.35), (b) the charged run in the opaque CPK style (20 red + and 20 blue − ions, l_B = 5 σ), of which only the ions near the three camera-facing faces are visible, and (c) the same charged frames in the x-ray style with the neutrals 85 % transparent, which shows all 40 ions and their contact pairs inside the box.](figures/fig_stills.png)
+
+*Figure 8. Stills taken from the three movies (frames 0, 360 and 720 of 721, i.e. t = 0, 9 and 18 τ of the NVE production run; the camera orbits from azimuth 25° to 65° over the movie): (a) the neutral control (1000 hard spheres, η = 0.35), (b) the charged run in the opaque CPK style (20 red + and 20 blue − ions, l_B = 5 σ), of which only the ions near the three camera-facing faces are visible, and (c) the same charged frames in the x-ray style with the neutrals 85 % transparent, which shows all 40 ions and their contact pairs inside the box.*
+
+![Figure 9. Close-ups of the charged production run in the x-ray style of the movie (neutrals 85 % transparent, ions opaque; red +, blue −), re-rendered at 3× the movie resolution for the three frames chosen from a cluster scan with the r < 1.2 σ contact criterion: (a) an isolated +/− contact pair at the front face of the box at t = 16.27 τ (nearest other ion 2.5 σ away, no other ion inside the circle in projection, no neutral in front of it), (b) a linear four-ion chain (+ − + −) at t = 9.75 τ and (c) a linear five-ion chain (− + − + −) at t = 9.22 τ, 42 σ from the camera. Dotted circles enclose the cluster; the bar gives 1 σ at the depth of the cluster. Such chains are transient: clusters of four or more ions exist in 142 of the 721 frames and the largest cluster seen has six ions.](figures/fig_pair_closeup.png)
+
+*Figure 9. Close-ups of the charged production run in the x-ray style of the movie (neutrals 85 % transparent, ions opaque; red +, blue −), re-rendered at 3× the movie resolution for the three frames chosen from a cluster scan with the r < 1.2 σ contact criterion: (a) an isolated +/− contact pair at the front face of the box at t = 16.27 τ (nearest other ion 2.5 σ away, no other ion inside the circle in projection, no neutral in front of it), (b) a linear four-ion chain (+ − + −) at t = 9.75 τ and (c) a linear five-ion chain (− + − + −) at t = 9.22 τ, 42 σ from the camera. Dotted circles enclose the cluster; the bar gives 1 σ at the depth of the cluster. Such chains are transient: clusters of four or more ions exist in 142 of the 721 frames and the largest cluster seen has six ions.*
 
 Table 6. Movie specifications.
 
@@ -280,7 +301,9 @@ Table 6. Movie specifications.
 | movies/hs_charges_20p20m.mp4 | same + 20+/20−, l_B = 5 σ, collision Verlet; opaque CPK | same, 12.4 MB |
 | movies/hs_charges_20p20m_xray.mp4 | same run, neutrals rendered 85 % transparent | same, 15.6 MB |
 
-[fig_render_cost.png not generated]Figure 10. Render cost per 1280×720 frame on the 4-core machine for the available renderer settings.
+![Figure 10. Rendering cost per 1280×720 frame on the 4-core Xeon box (no GPU), measured on the 1000-sphere test trajectory including overlay and PNG writing: OVITO/Tachyon cpk at final quality (16 ambient-occlusion samples, 16 Tachyon threads) takes 1.43 s per frame, i.e. ≈ 17 min for a 721-frame movie, the x-ray preset 1.27 s (≈ 15 min), the AO-free draft preset 0.26 s (≈ 3 min) and the numpy fallback renderer with 4 worker processes 0.24 s wall (≈ 3 min). The annotated vertical ticks mark the three production movies: 1028 s and 1031 s wall for render plus encode of the two cpk movies (1.43 s per frame, two coinciding ticks) and 896 s for the x-ray movie (1.24 s per frame).](figures/fig_render_cost.png)
+
+*Figure 10. Rendering cost per 1280×720 frame on the 4-core Xeon box (no GPU), measured on the 1000-sphere test trajectory including overlay and PNG writing: OVITO/Tachyon cpk at final quality (16 ambient-occlusion samples, 16 Tachyon threads) takes 1.43 s per frame, i.e. ≈ 17 min for a 721-frame movie, the x-ray preset 1.27 s (≈ 15 min), the AO-free draft preset 0.26 s (≈ 3 min) and the numpy fallback renderer with 4 worker processes 0.24 s wall (≈ 3 min). The annotated vertical ticks mark the three production movies: 1028 s and 1031 s wall for render plus encode of the two cpk movies (1.43 s per frame, two coinciding ticks) and 896 s for the x-ray movie (1.24 s per frame).*
 
 ## 5. Discussion
 
@@ -339,10 +362,15 @@ fbdmd-hs-movies/
   notes/collision_verlet_spec.md  notes/analysis_*.txt  notes/order_test.{txt,csv}  notes/render_timing.txt  notes/observations.md
   traj/hs_neutral.{json,_diag.csv}  traj/hs_charges_20p20m.{json,_diag.csv}     (xyz/npz regenerated by run_all.sh)
   movies/hs_neutral.mp4  movies/hs_charges_20p20m.mp4  movies/hs_charges_20p20m_xray.mp4
+  tools/export_vmd_travis.py  tools/compare_travis.py  vmd/render_cpk.tcl  vmd/view_cpk.tcl  vmd/render_vmd.sh  travis/README_travis.md  travis/run_travis.sh
   report/report.html  report/REPORT.md  report/report.pdf  report/figures/  report/data/
 ```
 
-### D. References
+### D. VMD and TRAVIS
+
+The trajectories are also exported for the tools installed on the target Mac. tools/export_vmd_travis.py writes an element-labelled multi-frame XYZ, a LAMMPS dump with the periodic box in every frame and a PDB with a CRYST1 record, mapping the reduced units to 1 σ = 4 Å (Ar = neutral sphere, Na = +e, Cl = −e) so that neither program detects spurious bonds. vmd/render_cpk.tcl reproduces the CPK look (VDW spheres of radius σ/2, the same gray/red/blue, ambient occlusion and shadows, 40° orbit, faint box) with VMD's bundled Tachyon and vmd/render_vmd.sh encodes the result; vmd/view_cpk.tcl opens the same scene interactively. travis/README_travis.md gives the TRAVIS session (cubic cell 4574.78 pm, 25 fs per frame so that 1 ps = 1 τ) for radial distribution functions, the aggregation/dimer-lifetime analysis with the 480 pm = 1.2 σ contact criterion, hierarchical cluster analysis and the mean-squared displacement from the unwrapped export, and tools/compare_travis.py overlays a TRAVIS g(r) on the one computed here. Neither VMD nor TRAVIS could be run in the cloud session (their downloads are blocked there); the scripts were syntax-checked and reviewed but should be confirmed on the Mac.
+
+### E. References
 
 - Y. A. Houndonougbo, B. B. Laird, B. J. Leimkuhler, A molecular dynamics algorithm for mixed hard-core/continuous potentials, Mol. Phys. 98, 309–316 (2000).
 
@@ -358,4 +386,8 @@ fbdmd-hs-movies/
 
 - J. E. Stone, An efficient library for parallel ray tracing and animation (Tachyon), M.Sc. thesis, University of Missouri-Rolla (1998).
 
-Generated by report/build_report.py on 2026-10-25 from the committed run metadata, analyses and figure manifests (commit d2de2c8).
+- W. Humphrey, A. Dalke, K. Schulten, VMD: Visual Molecular Dynamics, J. Mol. Graphics 14, 33–38 (1996).
+
+- M. Brehm, B. Kirchner, TRAVIS: a free analyzer and visualizer for Monte Carlo and molecular dynamics trajectories, J. Chem. Inf. Model. 51, 2007–2023 (2011); M. Brehm, M. Thomas, S. Gehrke, B. Kirchner, TRAVIS: a free analyzer for trajectories from molecular simulation, J. Chem. Phys. 152, 164105 (2020).
+
+Generated by report/build_report.py on 2026-10-25 from the committed run metadata, analyses and figure manifests (commit 975bd1a).

@@ -16,6 +16,16 @@ NOTES = [
     'The integrator palette of figstyle (C_INTEG) is kept as required; because the gray "naive" entry and the '
     'orange/green pair are weak under colour-vision deficiency, every integrator additionally has its own marker '
     'shape and the slopes are printed in the legend.',
+    'fig_pair_closeup: the three frames (651, 390, 369) were re-rendered with render/render_ovito.py at 3840 x 2160 '
+    '(3x the movie, x-ray style, final quality, no overlay) into traj/_test/report/closeup_frames/ (scratch), so the '
+    '900 x 792 px crops are shown at ~390 dpi; the camera pose is that of the movie frame. Panel (c) uses the linear '
+    '5-ion chain of frame 369 (42 sigma deep, 29 neutrals in front) instead of frame 512 (48 sigma, 128 neutrals in '
+    'front); all six-ion clusters are branched and 48 sigma deep. Particle ids in its numbers are given both as 0-based '
+    'npz indices (member_particle_indices) and 1-based extended-XYZ ids (member_xyz_ids).',
+    'fig_order caption: the ~1e-6 kT/N Ewald truncation floor limits only cv-phys at h = 0.0025 tau (local slope 1.0); '
+    'cv and naive are flat there because of their own first-order collision error (65x and 229x above the floor); '
+    'slopes in the captions are formatted from the unrounded log-log fits (slope_fit in numbers is rounded to 3 decimals).',
+    'Every in-figure text of the method figures is >= 8 pt.',
 ]
 
 figs = []

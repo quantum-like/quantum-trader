@@ -41,13 +41,16 @@
   "g(r) normalised per pair type with the exact shell volume and minimum-image distances; g_HS in the PMF is the neutral run rebinned to 0.05 sigma. The PMF is a finite-N (40 ions) canonical quantity: g_pm averages 0.987 at r > 4.5 sigma.",
   "D is the slope of MSD(t) over 1-4 tau divided by 6; MSD/(6t) averaged over the same window is 10 % lower because MSD has a negative intercept after the ballistic regime.",
   "Free-flight criterion evaluated on npz float32 data: roundoff cluster ends at 2.9e-6 sigma, the 1e-5 threshold lies in a clean gap (float64 xyz on frames 0-11 gives the identical fraction 0.4969).",
-  "Floats are quoted to 3 significant digits; integer counts are exact."
+  "Floats are quoted to 3 significant digits; integer counts are exact.",
+  "Colour semantics: +/- pair and ion quantities are drawn in a dedicated magenta (#A3268F) that is not part of the integrator palette; same-sign ion pairs are dark gray dotted; neutral spheres are C_NEUTRAL gray in both runs (solid = neutral run, dashed = charged run). The integrator colours appear only in fig_energy.",
+  "fig_pairing (b): both random baselines are the neutral-run-subset values (same definition); the hard-core-only estimate 0.567 for 2.5 sigma is kept in the numbers as a cross-check.",
+  "All in-figure text is >= 8 pt (inset tick labels 7.5 pt), figstyle defaults, no rcParams override."
  ],
  "figures": [
   {
    "file": "fig_energy",
    "width": "full",
-   "caption": "Energy conservation and collision statistics of the production runs (N = 1000, η = 0.35, 18 τ NVE). (a) Total-energy deviation E(t) − E(0) for the four integrators of the charged system (20+/20−, l_B = 5 σ, Δt = 0.005 τ): the naive splitting drifts by +1.48 kT, literal collision Verlet (cv) by −0.19 kT, kdk-phys by +0.075 kT and the shipped cv-phys by +0.033 kT (2.3 × 10⁻⁵ of |E₀|; inset without naive). (b) cv-phys: kinetic and potential energy fluctuate by ±4 kT in antiphase while their sum changes by 0.034 kT at most. (c) Instantaneous temperature of the cv-phys run, ⟨T⟩ = 0.9990 ± 0.0027 kT. (d) Cumulative hard-sphere collisions in the neutral and charged runs against the Enskog rate N Γ_E/2 with Γ_E = 14.24 per particle per τ; both runs exceed Enskog by 0.6 % (inset).",
+   "caption": "Energy conservation and collision statistics of the production runs (N = 1000, η = 0.35, 18 τ NVE). (a) Total-energy deviation E(t) − E(0) for the four integrators of the charged system (20+/20−, l_B = 5 σ, Δt = 0.005 τ): the naive splitting drifts by +1.48 kT, literal collision Verlet (cv) by −0.19 kT, kdk-phys by +0.075 kT and the shipped cv-phys by +0.033 kT (2.3 × 10⁻⁵ of |E₀|; inset without naive). (b) cv-phys: kinetic and potential energy fluctuate in antiphase with a standard deviation of 4.0 kT each while their sum changes by 0.034 kT at most. (c) Instantaneous temperature of the cv-phys run, ⟨T⟩ = 0.9990 ± 0.0027 kT. (d) Cumulative hard-sphere collisions in the neutral and charged runs against the Enskog rate N Γ_E/2 with Γ_E = 14.24 per particle per τ; the neutral run exceeds Enskog by 0.6 % and the charged run by 0.5 % (inset).",
    "numbers": {
     "naive": {
      "run": "traj/_test/report/charged_naive",
@@ -498,7 +501,7 @@
   {
    "file": "fig_pairing",
    "width": "full",
-   "caption": "Bjerrum pairing in the charged production run (20+/20−, l_B = 5 σ, cv-phys, 721 frames). (a) Number of +/− contact pairs (r < 1.2 σ) per frame, mean 8.3 (range 2–15). (b) Fraction of ions in a contact pair (38 ± 11 %) and fraction with an opposite ion within l_B/2 = 2.5 σ (86 %); dashed and dotted lines are the random-placement baselines 0.57 (2.5 σ) and 0.08 (1.2 σ, random 20+20 subsets of the neutral run). (c) Fraction of ions in connected +/− clusters of size 1–6: 10 % sit in clusters of three or more, almost all linear chains. (d) Survival function of contact-episode lifetimes: median 0.35 τ, mean 0.52 τ, 90th percentile 1.18 τ, longest 2.48 τ (3.3 s of movie); the dotted curve is an exponential with the same mean.",
+   "caption": "Bjerrum pairing in the charged production run (20+/20−, l_B = 5 σ, cv-phys, 721 frames). (a) Number of +/− contact pairs (r < 1.2 σ) per frame, mean 8.3 (range 2–15). (b) Fraction of ions in a contact pair (38 ± 11 %) and fraction with an opposite ion within l_B/2 = 2.5 σ (86 %); dashed and dotted lines are the random-ion baselines obtained from 100 random 20+20 subsets of the neutral run, 0.585 ± 0.006 (2.5 σ) and 0.080 ± 0.002 (1.2 σ; standard errors of the subset mean); the hard-core-only estimate 1 − (1 − V_shell/V)^20 = 0.567 for 2.5 σ is a consistent cross-check. (c) Fraction of ions in connected +/− clusters of size 1–6: 10 % sit in clusters of three or more, almost all linear chains. (d) Survival function of contact-episode lifetimes: median 0.35 τ, mean 0.52 τ, 90th percentile 1.18 τ, longest 2.48 τ (3.3 s of movie); the dotted curve is an exponential with the same mean.",
    "numbers": {
     "pairs_per_frame_mean": {
      "value": 8.29,
@@ -578,16 +581,25 @@
     },
     "baseline_random_2p5_neutral_subsets_std": {
      "value": 0.0565,
-     "unit": "1"
+     "unit": "1 (std over the 100 subsets)"
+    },
+    "baseline_random_2p5_neutral_subsets_sem": {
+     "value": 0.00565,
+     "unit": "1 (standard error of the subset mean, std/sqrt(100))"
     },
     "baseline_random_1p2_neutral_subsets": {
      "value": 0.0802,
-     "unit": "1"
+     "unit": "1 (100 random 20+20 subsets of the neutral run)"
     },
     "baseline_random_1p2_neutral_subsets_std": {
      "value": 0.0219,
-     "unit": "1"
+     "unit": "1 (std over the 100 subsets)"
     },
+    "baseline_random_1p2_neutral_subsets_sem": {
+     "value": 0.00219,
+     "unit": "1 (standard error of the subset mean)"
+    },
+    "baselines_plotted": "both dashed/dotted lines in (b) are the neutral-run-subset values (same definition for 2.5 σ and 1.2 σ)",
     "baseline_random_1p2_ideal": {
      "value": 0.04,
      "unit": "1 (ideal gas, no g(r) enhancement)"
@@ -729,7 +741,7 @@
   {
    "file": "fig_structure",
    "width": "full",
-   "caption": "Static structure. (a) Neutral–neutral pair distribution of the hard-sphere run (η = 0.35, 0.01 σ bins, 721 frames, minimum image): the contact value extrapolated from 1.0–1.1 σ is g(σ⁺) = 3.01, against the Carnahan–Starling value 3.00 and 3.02 implied by the collisional virial Z = 5.233. (b) Ion correlations in the charged run (0.05 σ bins, all 721 frames; error bars are Poisson): g₊₋ reaches 16.8 ± 0.4 in the contact bin (≈20 extrapolated to σ⁺), same-sign pairs are depleted at contact (g ≈ 0.5) and pile up at ≈2.2 σ, while ion–neutral correlations are indistinguishable from the neutral fluid. (c) Potential of mean force w₊₋ = −ln[g₊₋/g_HS] compared with the bare Coulomb pair energy −l_B/r and the linearised Debye–Hückel screened potential (κσ = 1.30): the effective attraction at contact is −1.81 ± 0.02 kT, far weaker than the bare −5 kT, because the other 38 ions screen the pair; the DH curve is shown only as a scale since l_B/σ = 5 is outside its range of validity.",
+   "caption": "Static structure. (a) Neutral–neutral pair distribution of the hard-sphere run (η = 0.35, 0.01 σ bins, 721 frames, minimum image): the contact value extrapolated from 1.0–1.1 σ is g(σ⁺) = 3.01, against the Carnahan–Starling value 3.00 and 3.02 implied by the collisional virial Z = 5.233. (b) Ion correlations in the charged run (0.05 σ bins, all 721 frames; error bars are Poisson): g₊₋ reaches 16.8 ± 0.4 in the contact bin (≈20 extrapolated to σ⁺); same-sign pairs are depleted at contact (g ≈ 0.5), recover the bulk value by ≈2 σ (the + − + chain distance; 0.98 ± 0.04 over 1.95–2.25 σ) and show a weak second depletion (g ≈ 0.84) at 2.3–2.75 σ; ion–neutral correlations follow the neutral fluid beyond the first shell, while in the contact bin g_ion–neutral = 2.57 against 2.75 for neutral pairs, a 6.5 % deficit corresponding to the contact sites occupied by counter-ion partners (0.15 per ion in that bin). (c) Potential of mean force w₊₋ = −ln[g₊₋/g_HS] compared with the bare Coulomb pair energy −l_B/r and the linearised Debye–Hückel screened potential (κσ = 1.30): the effective attraction at contact is −1.81 ± 0.02 kT, far weaker than the bare −5 kT, because the other 38 ions screen the pair; the DH curve is shown only as a scale since l_B/σ = 5 is outside its range of validity.",
    "numbers": {
     "eta": {
      "value": 0.35,
@@ -841,15 +853,59 @@
      "value": 61,
      "unit": "pair samples"
     },
-    "g_samesign_peak": {
+    "g_samesign_first_bin_at_bulk": {
+     "r": {
+      "value": 1.98,
+      "unit": "σ"
+     },
+     "g": {
+      "value": 1.0,
+      "unit": "1 (first bin with g ≥ 0.98)"
+     }
+    },
+    "g_samesign_plateau_1p95_2p25": {
+     "value": 0.981,
+     "unit": "1 (mean over 1.95–2.25 σ; ± 0.04 Poisson per bin)"
+    },
+    "g_samesign_dip_2p3_2p75_mean": {
+     "value": 0.843,
+     "unit": "1 (mean over 2.3–2.75 σ)"
+    },
+    "g_samesign_dip_2p3_2p75_min": {
+     "r": {
+      "value": 2.38,
+      "unit": "σ"
+     },
+     "g": {
+      "value": 0.77,
+      "unit": "1"
+     }
+    },
+    "g_samesign_max_1p5_3p0": {
      "r": {
       "value": 2.23,
       "unit": "σ"
      },
      "g": {
       "value": 1.02,
-      "unit": "1"
+      "unit": "1 (no excess over the bulk value within the Poisson error; NOT a peak)"
      }
+    },
+    "g_ion_neutral_contact_deficit": {
+     "value": 6.54,
+     "unit": "% below g_nn of the charged run in the 1.00–1.05 σ bin"
+    },
+    "counter_ions_per_ion_in_contact_bin": {
+     "value": 0.149,
+     "unit": "ions (g₊₋ ρ_opp V_bin, 1.00–1.05 σ)"
+    },
+    "neutrals_per_ion_in_contact_bin": {
+     "value": 1.09,
+     "unit": "spheres (g_ion-neutral ρ_n V_bin)"
+    },
+    "neutrals_per_neutral_in_contact_bin": {
+     "value": 1.17,
+     "unit": "spheres (g_nn ρ_n V_bin, charged run)"
     },
     "g_ion_neutral_contact_bin": {
      "value": 2.57,

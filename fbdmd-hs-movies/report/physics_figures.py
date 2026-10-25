@@ -17,15 +17,14 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.lines import Line2D
 
-apply_style()
-plt.rcParams.update({"axes.labelsize": 8.5, "legend.fontsize": 7.5, "xtick.labelsize": 7.5, "ytick.labelsize": 7.5})
+apply_style()   # figstyle: 9 pt labels, 8 pt ticks/legend; no override -> 8 pt is the floor everywhere
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATADIR = os.path.join(ROOT, "report", "data")
 CACHE_DIR = os.environ.get("PHYS_CACHE",
                            "/tmp/claude-0/-home-user-quantum-trader/51ecfd3f-2c9f-5b9b-ba8a-5c6a2ddea84a/scratchpad/phys_cache")
-C_ION = C_INTEG["kdk-phys"]   # purple = red + blue: used for "ions" / "+/-" where no +/- distinction is drawn
-C_SAME = C_INTEG["cv"]        # orange for same-sign ion pairs
+C_ION = "#A3268F"    # magenta (= red + blue): "ions" / "+/-" quantities; deliberately NOT one of the integrator colours
+C_SAME = "#333333"   # same-sign (++ / --) ion pairs: dark gray, dotted
 C_DARK = "#222222"
 C_TXT = "#333333"
 TAU_TO_S = 1.0 / (0.025 * 30.0)   # 1 tau = 1.333 s of movie at 30 fps
@@ -69,6 +68,12 @@ def sci(x, n=1):
     return f"{m} × 10{str(int(e)).translate(sup)}"
 
 
+def sci_mt(x, n=1):
+    """2.3e-05 -> r'$2.3 \\times 10^{-5}$' (mathtext, for text inside the figures)."""
+    m, e = f"{x:.{n}e}".split("e")
+    return rf"${m} \times 10^{{{int(e)}}}$"
+
+
 def mn(txt):
     """ASCII hyphen-minus before digits -> proper minus sign (captions only)."""
     import re
@@ -77,8 +82,8 @@ def mn(txt):
 
 def secax_movie(ax):
     s = ax.secondary_xaxis("top", functions=(lambda t: t * TAU_TO_S, lambda s: s / TAU_TO_S))
-    s.set_xlabel("movie time (s)", fontsize=7.5, labelpad=2)
-    s.tick_params(labelsize=7)
+    s.set_xlabel("movie time (s)", fontsize=8, labelpad=2)
+    s.tick_params(labelsize=8)
     s.spines["top"].set_visible(True)
     return s
 
@@ -103,48 +108,50 @@ def fig_energy():
     ls = {"naive": "-", "cv": "--", "kdk-phys": "-.", "cv-phys": "-"}
     lw = {"naive": 1.1, "cv": 1.2, "kdk-phys": 1.2, "cv-phys": 1.5}
     for k in order:
-        ax_a.plot(t, DE[k], ls[k], color=C_INTEG[k], lw=lw[k], label=f"{k}  ({E[k]['drift_kT']:+.3f} kT)")
+        ax_a.plot(t, DE[k], ls[k], color=C_INTEG[k], lw=lw[k], label=f"{k}  {E[k]['drift_kT']:+.3f}")
     ax_a.axhline(0, color=C_DARK, lw=0.6)
     ax_a.set_xlabel("t (τ)")
     ax_a.set_ylabel("E(t) − E(0)  (kT)")
     ax_a.set_xlim(0, 18)
-    ax_a.set_ylim(-0.45, 1.95)
-    ax_a.legend(loc="upper left", handlelength=2.4, labelspacing=0.25, borderaxespad=0.2, title="integrator (drift over 18 τ)",
-                title_fontsize=7.5)
-    # inset: the three good integrators
-    ins = ax_a.inset_axes([0.56, 0.07, 0.42, 0.38])
+    ax_a.set_ylim(-0.5, 3.5)          # head room: the inset sits in the empty upper-right quadrant above the naive curve (max 1.81 kT)
+    ax_a.legend(loc="upper left", handlelength=1.8, labelspacing=0.25, borderaxespad=0.2, title="drift over 18 τ (kT)",
+                title_fontsize=8, alignment="left")
+    # inset: the three good integrators (upper right; its floor incl. tick labels is at ~1.9 kT, above the naive maximum)
+    ins = ax_a.inset_axes([0.61, 0.66, 0.38, 0.32])
     for k in ["cv", "kdk-phys", "cv-phys"]:
         ins.plot(t, DE[k], ls[k], color=C_INTEG[k], lw=lw[k] * 0.8)
     ins.axhline(0, color=C_DARK, lw=0.5)
     ins.set_xlim(0, 18)
     ins.set_ylim(-0.26, 0.11)
     ins.set_yticks([-0.2, -0.1, 0, 0.1])
-    ins.tick_params(labelsize=6.5, pad=1.5, length=2)
+    ins.tick_params(labelsize=7.5, pad=1.5, length=2)
     ins.set_xticks([0, 9, 18])
     ins.grid(True, lw=0.4)
-    ins.set_title("without naive", fontsize=7, pad=2)
+    ins.set_title("without naive", fontsize=8, pad=2)
     panel_label(ax_a, "(a)")
 
     # (b) cv-phys: KE / PE fluctuations (top) and E - E0 (bottom)
     KE, PE = EN["KE_cvphys_kT"], EN["PE_cvphys_kT"]
-    ax_b1.plot(t, KE - KE.mean(), color=C_ACCENT, lw=0.9, label=f"KE − ⟨KE⟩  (σ = {KE.std():.1f} kT)")
-    ax_b1.plot(t, PE - PE.mean(), color=C_NEUTRAL, lw=0.9, label=f"PE − ⟨PE⟩  (σ = {PE.std():.1f} kT)")
+    ax_b1.plot(t, KE - KE.mean(), color=C_ACCENT, lw=0.9, label="KE − ⟨KE⟩")
+    ax_b1.plot(t, PE - PE.mean(), color=C_NEUTRAL, lw=0.9, label="PE − ⟨PE⟩")
     ax_b1.set_ylabel("δKE, δPE (kT)")
-    ax_b1.set_ylim(-14, 22)
+    ax_b1.set_ylim(-17, 24)
     ax_b1.set_yticks([-10, 0, 10])
-    ax_b1.legend(loc="upper center", ncol=2, columnspacing=1.0, handlelength=1.5, borderaxespad=0.1, fontsize=7)
+    ax_b1.legend(loc="upper center", ncol=2, columnspacing=1.2, handlelength=1.5, borderaxespad=0.1)
+    ax_b1.text(0.02, 0.05, f"std {KE.std():.1f} kT each", transform=ax_b1.transAxes, fontsize=8, va="bottom", color=C_TXT)
     ax_b1.tick_params(labelbottom=False)
     dE = DE["cv-phys"]
     ax_b2.plot(t, dE, color=C_INTEG["cv-phys"], lw=1.2, label="cv-phys  E(t) − E(0)")
     ax_b2.axhline(0, color=C_DARK, lw=0.6)
-    ax_b2.set_ylim(-0.012, 0.045)
+    ax_b2.set_ylim(-0.017, 0.052)
     ax_b2.set_yticks([0, 0.02, 0.04])
     ax_b2.set_ylabel("E − E(0) (kT)")
     ax_b2.set_xlabel("t (τ)")
     ax_b2.set_xlim(0, 18)
-    ax_b2.text(0.03, 0.9, f"drift {E['cv-phys']['drift_kT']:+.3f} kT = {E['cv-phys']['drift_rel']:.1e} |E₀|;  "
-               f"max |δE| {E['cv-phys']['max_dev_kT']:.3f} kT", transform=ax_b2.transAxes, fontsize=7, va="top", color=C_TXT)
-    ax_b2.legend(loc="lower right", fontsize=7, borderaxespad=0.1)
+    ax_b2.text(0.03, 0.93, f"drift {E['cv-phys']['drift_kT']:+.3f} kT = {sci_mt(E['cv-phys']['drift_rel'])} |E₀|\n"
+               f"max |δE| {E['cv-phys']['max_dev_kT']:.3f} kT", transform=ax_b2.transAxes, fontsize=8, va="top", color=C_TXT,
+               linespacing=1.15)
+    ax_b2.legend(loc="lower right", borderaxespad=0.1)
     panel_label(ax_b1, "(b)")
 
     # (c) T(t) cv-phys
@@ -158,9 +165,9 @@ def fig_energy():
     ax_c.set_ylabel("T = 2 KE / 3(N−1)  (kT)")
     ax_c.set_xlim(0, 18)
     ax_c.set_ylim(0.988, 1.011)
-    ax_c.text(0.98, 0.95, f"⟨T⟩ = {Tm:.4f} ± {Ts:.4f} (mean ± std, band)", transform=ax_c.transAxes, ha="right", va="top",
-              fontsize=7.5, color=C_TXT)
-    ax_c.legend(loc="lower left", fontsize=7)
+    ax_c.text(0.98, 0.96, f"⟨T⟩ = {Tm:.4f} ± {Ts:.4f} kT (band: ± std)", transform=ax_c.transAxes, ha="right", va="top",
+              fontsize=8, color=C_TXT)
+    ax_c.legend(loc="lower left")
     panel_label(ax_c, "(c)")
 
     # (d) cumulative collisions
@@ -168,15 +175,16 @@ def fig_energy():
     N = 1000
     ensk = 0.5 * N * GE * t
     nn, nc = EN["ncoll_neutral"], EN["ncoll_charged"]
-    ax_d.plot(t, nn / 1e3, color=C_NEUTRAL, lw=1.8, label=f"neutral run  ({E['neutral']['collision_rate_per_particle_per_tau']:.2f} /particle/τ)")
-    ax_d.plot(t, nc / 1e3, color=C_INTEG["cv-phys"], lw=1.0, label=f"charged run  ({E['cv-phys']['collision_rate_per_particle_per_tau']:.2f} /particle/τ)")
-    ax_d.plot(t, ensk / 1e3, "--", color=C_DARK, lw=0.9, label=f"Enskog  N·Γ_E/2, Γ_E = {GE:.2f} /particle/τ")
+    ax_d.plot(t, nn / 1e3, color=C_NEUTRAL, lw=1.8, label=f"neutral run  Γ = {E['neutral']['collision_rate_per_particle_per_tau']:.2f}/τ")
+    ax_d.plot(t, nc / 1e3, color=C_INTEG["cv-phys"], lw=1.0, label=f"charged run  Γ = {E['cv-phys']['collision_rate_per_particle_per_tau']:.2f}/τ")
+    ax_d.plot(t, ensk / 1e3, "--", color=C_DARK, lw=0.9, label=f"Enskog  Γ_E = {GE:.2f}/τ")
     ax_d.set_xlabel("t (τ)")
     ax_d.set_ylabel("collisions (10³)")
     ax_d.set_xlim(0, 18)
     ax_d.set_ylim(0, 135)
-    ax_d.legend(loc="upper left", fontsize=7, borderaxespad=0.2, handlelength=2.2)
-    ins = ax_d.inset_axes([0.58, 0.1, 0.4, 0.36])
+    # the data run along the diagonal: legend in the empty lower-right triangle, inset in the empty upper-left one
+    ax_d.legend(loc="lower right", borderaxespad=0.3, handlelength=2.0, labelspacing=0.3)
+    ins = ax_d.inset_axes([0.15, 0.60, 0.35, 0.34])
     m = t > 1.0
     ins.plot(t[m], 100 * (nn[m] - ensk[m]) / ensk[m], color=C_NEUTRAL, lw=1.4)
     ins.plot(t[m], 100 * (nc[m] - ensk[m]) / ensk[m], color=C_INTEG["cv-phys"], lw=0.9)
@@ -184,8 +192,8 @@ def fig_energy():
     ins.set_xlim(0, 18)
     ins.set_ylim(-1, 2.5)
     ins.set_xticks([0, 9, 18])
-    ins.tick_params(labelsize=6.5, pad=1.5, length=2)
-    ins.set_title("excess over Enskog (%)", fontsize=7, pad=2)
+    ins.tick_params(labelsize=7.5, pad=1.5, length=2)
+    ins.set_title("excess over Enskog (%)", fontsize=8, pad=2)
     ins.grid(True, lw=0.4)
     panel_label(ax_d, "(d)")
 
@@ -232,10 +240,10 @@ def fig_energy():
                  f"the naive splitting drifts by {E['naive']['drift_kT']:+.2f} kT, literal collision Verlet (cv) by {E['cv']['drift_kT']:+.2f} kT, "
                  f"kdk-phys by {E['kdk-phys']['drift_kT']:+.3f} kT and the shipped cv-phys by {E['cv-phys']['drift_kT']:+.3f} kT "
                  f"({sci(E['cv-phys']['drift_rel'])} of |E₀|; inset without naive). "
-                 f"(b) cv-phys: kinetic and potential energy fluctuate by ±{KE.std():.0f} kT in antiphase while their sum changes by {E['cv-phys']['max_dev_kT']:.3f} kT at most. "
+                 f"(b) cv-phys: kinetic and potential energy fluctuate in antiphase with a standard deviation of {KE.std():.1f} kT each while their sum changes by {E['cv-phys']['max_dev_kT']:.3f} kT at most. "
                  f"(c) Instantaneous temperature of the cv-phys run, ⟨T⟩ = {Tm:.4f} ± {Ts:.4f} kT. "
                  f"(d) Cumulative hard-sphere collisions in the neutral and charged runs against the Enskog rate N Γ_E/2 with Γ_E = {GE:.2f} per particle per τ; "
-                 f"both runs exceed Enskog by {100 * (nn[-1] - ensk[-1]) / ensk[-1]:.1f} % (inset)."),
+                 f"the neutral run exceeds Enskog by {100 * (nn[-1] - ensk[-1]) / ensk[-1]:.1f} % and the charged run by {100 * (nc[-1] - ensk[-1]) / ensk[-1]:.1f} % (inset)."),
         numbers=nums))
     return png
 
@@ -259,38 +267,41 @@ def fig_pairing():
     ax_a.set_yticks([0, 5, 10, 15, 20])
     ax_a.set_xlabel("t (τ)")
     ax_a.set_ylabel("number of +/− pairs")
-    ax_a.legend(loc="upper left", fontsize=7, borderaxespad=0.2, labelspacing=0.25,
-                title=f"range {npairs.min()}–{npairs.max()} of 20 possible", title_fontsize=7)
+    ax_a.legend(loc="upper left", borderaxespad=0.2, labelspacing=0.25,
+                title=f"range {npairs.min()}–{npairs.max()} of 20 possible", title_fontsize=8)
     secax_movie(ax_a)
     panel_label(ax_a, "(a)")
 
     # (b) fractions
-    ax_b.plot(t, fl, color=C_NEUTRAL, lw=0.9, label=f"opposite ion within l_B/2 = 2.5 σ  (mean {fl.mean():.2f})")
-    ax_b.plot(t, fc, color=C_ION, lw=0.9, label=f"in a contact pair, r < 1.2 σ  (mean {fc.mean():.2f})")
-    ax_b.axhline(P["baseline_loose_ideal"], color=C_DARK, ls="--", lw=0.9,
-                 label=f"random placement, 2.5 σ  ({P['baseline_loose_ideal']:.2f})")
-    ax_b.axhline(P["baseline_contact_neutral_subsets_mean"], color=C_DARK, ls=":", lw=0.9,
-                 label=f"random placement, 1.2 σ  ({P['baseline_contact_neutral_subsets_mean']:.2f})")
+    # both baselines from ONE definition: 100 random 20+20 subsets of the neutral run (hard-core g(r) included);
+    # the hard-core-only estimate 1 - (1 - V_shell/V)^20 = 0.567 for 2.5 sigma is kept in the numbers as a cross-check
+    bl_loose, bl_contact = P["baseline_loose_neutral_subsets_mean"], P["baseline_contact_neutral_subsets_mean"]
+    sem_loose, sem_contact = P["baseline_loose_neutral_subsets_std"] / 10.0, P["baseline_contact_neutral_subsets_std"] / 10.0
+    ax_b.plot(t, fl, color=C_NEUTRAL, lw=0.9, label=f"opposite ion within 2.5 σ  ({fl.mean():.2f})")
+    ax_b.plot(t, fc, color=C_ION, lw=0.9, label=f"in a contact pair, r < 1.2 σ  ({fc.mean():.2f})")
+    ax_b.axhline(bl_loose, color=C_DARK, ls="--", lw=0.9, label=f"random ions, 2.5 σ  ({bl_loose:.3f})")
+    ax_b.axhline(bl_contact, color=C_DARK, ls=":", lw=0.9, label=f"random ions, 1.2 σ  ({bl_contact:.3f})")
     ax_b.set_xlim(0, 18)
-    ax_b.set_ylim(0, 1.38)
+    ax_b.set_ylim(0, 1.6)
     ax_b.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
     ax_b.set_xlabel("t (τ)")
     ax_b.set_ylabel("fraction of ions")
-    ax_b.legend(loc="upper right", fontsize=6.8, borderaxespad=0.2, handlelength=2.0, labelspacing=0.3)
+    ax_b.legend(loc="upper right", borderaxespad=0.2, handlelength=2.0, labelspacing=0.3)
     panel_label(ax_b, "(b)")
 
     # (c) cluster-size histogram
     sizes, frac = PR["sizes"], PR["ion_frac"]
     ax_c.bar(sizes, frac, width=0.7, color=C_ION, alpha=0.85, edgecolor="white", lw=0.8)
     for s_, f_ in zip(sizes, frac):
-        ax_c.text(s_, f_ * 1.25, f"{100 * f_:.2g}%" if f_ < 0.01 else f"{100 * f_:.1f}%", ha="center", va="bottom", fontsize=7, color=C_TXT)
+        ax_c.text(s_, f_ * 1.25, f"{100 * f_:.2g}%" if f_ < 0.01 else f"{100 * f_:.1f}%", ha="center", va="bottom", fontsize=8, color=C_TXT)
     ax_c.set_yscale("log")
     ax_c.set_ylim(8e-4, 2.0)
     ax_c.set_xlabel("cluster size (ions, 1.2 σ +/− bonds)")
     ax_c.set_ylabel("fraction of ions")
     ax_c.set_xticks(sizes)
-    ax_c.text(0.98, 0.78, f"≥ 3 ions: {100 * P['frac_ions_in_clusters_ge3']:.1f} % of ions\nchains {P['chains_per_frame']:.2f} per frame\n"
-              f"branched {P['branched_per_frame']:.3f} per frame", transform=ax_c.transAxes, ha="right", va="top", fontsize=7, color=C_TXT)
+    ax_c.text(0.98, 0.97, f"≥ 3 ions: {100 * P['frac_ions_in_clusters_ge3']:.1f} % of ions\nchains {P['chains_per_frame']:.2f} per frame\n"
+              f"branched {P['branched_per_frame']:.3f} per frame", transform=ax_c.transAxes, ha="right", va="top", fontsize=8, color=C_TXT,
+              linespacing=1.15)
     panel_label(ax_c, "(c)")
 
     # (d) lifetime survival function
@@ -302,18 +313,21 @@ def fig_pairing():
               label=f"contact episodes (n = {len(life)})")
     xx = np.linspace(0, 2.6, 100)
     ax_d.plot(xx, np.exp(-xx / life.mean()), ":", color=C_DARK, lw=0.9, label="exponential with the same mean")
-    for val, lab, dy, ha in ((L_["median_tau"], "median", 0.012, "left"), (L_["mean_tau"], "mean", 0.085, "left"),
-                             (L_["p90_tau"], "90th pct.", 0.012, "left")):
+    for val in (L_["median_tau"], L_["mean_tau"], L_["p90_tau"]):
         ax_d.axvline(val, color=C_NEUTRAL, lw=0.7, ls="--")
-        ax_d.text(val + (0.03 if ha == "left" else -0.03), dy, f"{lab}\n{val:.2f} τ = {val * TAU_TO_S:.2f} s", fontsize=6.8,
-                  color=C_TXT, va="center", ha=ha)
+    # the four labels are stacked at distinct heights to the right of the 90th-percentile line, above the survival curve
+    x_lab = L_["p90_tau"] + 0.05
+    for yy, txt in ((0.80, f"median  {L_['median_tau']:.2f} τ = {L_['median_tau'] * TAU_TO_S:.2f} s"),
+                    (0.45, f"mean  {L_['mean_tau']:.2f} τ = {L_['mean_tau'] * TAU_TO_S:.2f} s"),
+                    (0.25, f"90th pct.  {L_['p90_tau']:.2f} τ = {L_['p90_tau'] * TAU_TO_S:.2f} s"),
+                    (0.142, f"longest  {L_['max_tau']:.2f} τ = {L_['max_s']:.1f} s")):
+        ax_d.text(x_lab, yy, txt, fontsize=8, color=C_TXT, va="center", ha="left")
     ax_d.set_yscale("log")
     ax_d.set_ylim(2e-3, 1.3)
     ax_d.set_xlim(0, 2.6)
     ax_d.set_xlabel("contact-episode lifetime ℓ (τ)")
     ax_d.set_ylabel("P(lifetime ≥ ℓ)")
-    ax_d.text(2.55, 0.06, f"longest {L_['max_tau']:.2f} τ = {L_['max_s']:.1f} s", fontsize=6.8, ha="right", va="bottom", color=C_TXT)
-    ax_d.legend(loc="upper right", fontsize=7, borderaxespad=0.2)
+    ax_d.legend(loc="lower left", borderaxespad=0.3)
     secax_movie(ax_d)
     panel_label(ax_d, "(d)")
 
@@ -332,9 +346,12 @@ def fig_pairing():
         "mean_nearest_opposite_distance": q(P["mean_nearest_opposite_sigma"], "σ"),
         "baseline_random_2p5_ideal": q(P["baseline_loose_ideal"], "1 (1 − (1 − V_shell/V)^20, hard core only)"),
         "baseline_random_2p5_neutral_subsets": q(P["baseline_loose_neutral_subsets_mean"], "1 (100 random 20+20 subsets of the neutral run)"),
-        "baseline_random_2p5_neutral_subsets_std": q(P["baseline_loose_neutral_subsets_std"], "1"),
-        "baseline_random_1p2_neutral_subsets": q(P["baseline_contact_neutral_subsets_mean"], "1"),
-        "baseline_random_1p2_neutral_subsets_std": q(P["baseline_contact_neutral_subsets_std"], "1"),
+        "baseline_random_2p5_neutral_subsets_std": q(P["baseline_loose_neutral_subsets_std"], "1 (std over the 100 subsets)"),
+        "baseline_random_2p5_neutral_subsets_sem": q(sem_loose, "1 (standard error of the subset mean, std/sqrt(100))"),
+        "baseline_random_1p2_neutral_subsets": q(P["baseline_contact_neutral_subsets_mean"], "1 (100 random 20+20 subsets of the neutral run)"),
+        "baseline_random_1p2_neutral_subsets_std": q(P["baseline_contact_neutral_subsets_std"], "1 (std over the 100 subsets)"),
+        "baseline_random_1p2_neutral_subsets_sem": q(sem_contact, "1 (standard error of the subset mean)"),
+        "baselines_plotted": "both dashed/dotted lines in (b) are the neutral-run-subset values (same definition for 2.5 σ and 1.2 σ)",
         "baseline_random_1p2_ideal": q(P["baseline_contact_ideal"], "1 (ideal gas, no g(r) enhancement)"),
         "baseline_pairs_per_frame_random": q(P["baseline_pairs_neutral_subsets_mean"], "pairs"),
         "same_sign_contacts_per_frame": q(P["same_sign_contacts_per_frame"], "++ or −− pairs with r < 1.2 σ"),
@@ -367,8 +384,9 @@ def fig_pairing():
         caption=(f"Bjerrum pairing in the charged production run (20+/20−, l_B = 5 σ, cv-phys, 721 frames). "
                  f"(a) Number of +/− contact pairs (r < 1.2 σ) per frame, mean {P['pairs_per_frame_mean']:.1f} (range {P['pairs_per_frame_min']}–{P['pairs_per_frame_max']}). "
                  f"(b) Fraction of ions in a contact pair ({100 * P['frac_contact_mean']:.0f} ± {100 * P['frac_contact_std']:.0f} %) and fraction with an opposite ion within l_B/2 = 2.5 σ "
-                 f"({100 * P['frac_loose_mean']:.0f} %); dashed and dotted lines are the random-placement baselines "
-                 f"{P['baseline_loose_ideal']:.2f} (2.5 σ) and {P['baseline_contact_neutral_subsets_mean']:.2f} (1.2 σ, random 20+20 subsets of the neutral run). "
+                 f"({100 * P['frac_loose_mean']:.0f} %); dashed and dotted lines are the random-ion baselines obtained from 100 random 20+20 subsets of the neutral run, "
+                 f"{bl_loose:.3f} ± {sem_loose:.3f} (2.5 σ) and {bl_contact:.3f} ± {sem_contact:.3f} (1.2 σ; standard errors of the subset mean); "
+                 f"the hard-core-only estimate 1 − (1 − V_shell/V)^20 = {P['baseline_loose_ideal']:.3f} for 2.5 σ is a consistent cross-check. "
                  f"(c) Fraction of ions in connected +/− clusters of size 1–6: {100 * P['frac_ions_in_clusters_ge3']:.0f} % sit in clusters of three or more, almost all linear chains. "
                  f"(d) Survival function of contact-episode lifetimes: median {L_['median_tau']:.2f} τ, mean {L_['mean_tau']:.2f} τ, 90th percentile {L_['p90_tau']:.2f} τ, "
                  f"longest {L_['max_tau']:.2f} τ ({L_['max_s']:.1f} s of movie); the dotted curve is an exponential with the same mean."),
@@ -384,56 +402,78 @@ def fig_structure():
     fig, (ax_a, ax_b, ax_c) = plt.subplots(1, 3, figsize=(FULL_W, 2.7), gridspec_kw=dict(wspace=0.36, left=0.07, right=0.99, top=0.93, bottom=0.17))
     rcf, g_nn = GR["rc_fine"], GR["g_nn"]
     # (a)
-    ax_a.plot(rcf, g_nn, color=C_NEUTRAL, lw=1.2, label="g(r), neutral run (0.01 σ bins)")
-    ax_a.plot([1.0], [S["g_contact_CS"]], "o", ms=5.5, color=C_DARK, mfc="white", mew=1.2, label=f"Carnahan–Starling g(σ⁺) = {S['g_contact_CS']:.2f}", zorder=5)
-    ax_a.plot([1.0], [S["g_contact_neutral_fit2"]], "s", ms=4.5, color=C_ACCENT, label=f"extrapolated contact {S['g_contact_neutral_fit2']:.2f}", zorder=6)
+    g_nn_plot = np.where(rcf >= 1.0, g_nn, np.nan)          # mask the hard core: the curve starts at contact, no drop to 0
+    ax_a.plot(rcf, g_nn_plot, color=C_NEUTRAL, lw=1.2, label="neutral run, 0.01 σ bins")
+    ax_a.plot([1.0], [S["g_contact_CS"]], "o", ms=5.5, color=C_DARK, mfc="white", mew=1.2, label="Carnahan–Starling g(σ⁺)", zorder=5)
     ax_a.axhline(1.0, color=C_DARK, lw=0.5, ls=":")
     ax_a.set_xlim(0.9, 4.0)
     ax_a.set_ylim(0, 3.4)
     ax_a.set_xlabel("r (σ)")
     ax_a.set_ylabel("g(r)")
-    ax_a.legend(loc="lower right", fontsize=6.8, borderaxespad=0.3, handlelength=1.4)
-    ax_a.text(0.97, 0.52, f"from Z = {R['energy']['neutral']['Z_virial']:.3f}: (Z−1)/4η = {S['g_contact_from_Z_virial_neutral']:.2f}",
-              transform=ax_a.transAxes, fontsize=6.8, ha="right", color=C_TXT)
+    ax_a.legend(loc="lower right", borderaxespad=0.3, handlelength=1.2)
+    # the extrapolated contact value is quoted as text (a second marker at r = 1 would sit on top of the CS circle)
+    ax_a.text(0.97, 0.62, f"g(σ⁺) = {S['g_contact_CS']:.2f}  (CS)\n{S['g_contact_neutral_fit2']:.2f}  extrapolated\n"
+              f"{S['g_contact_from_Z_virial_neutral']:.2f}  from Z = {R['energy']['neutral']['Z_virial']:.3f}",
+              transform=ax_a.transAxes, fontsize=8, ha="right", va="top", color=C_TXT, linespacing=1.15)
     panel_label(ax_a, "(a)")
 
     # (b) ion correlations, log y
     rc = GR["rc"]
-    ax_b.errorbar(rc, GR["g_pm"], yerr=GR["e_pm"], fmt="-", color=C_ION, lw=1.2, elinewidth=0.6, capsize=0, label="g₊₋  (+/− pairs)")
-    ax_b.errorbar(rc, GR["g_pp"], yerr=GR["e_pp"], fmt="-", color=C_SAME, lw=1.1, elinewidth=0.6, capsize=0, label="g₊₊, g₋₋ pooled")
-    ax_b.plot(rc, GR["g_in"], "-", color=C_NEUTRAL, lw=1.4, label="g  ion–neutral")
-    ax_b.plot(rc, GR["g_hs"], ":", color=C_DARK, lw=0.9, label="g_HS neutral run")
+    core = rc < 1.0                                            # hard core: g = 0 bins are masked (no spikes on the log axis)
+
+    def nancore(a):
+        a = np.array(a, float)
+        a[core] = np.nan
+        return a
+    ax_b.errorbar(rc, nancore(GR["g_pm"]), yerr=nancore(GR["e_pm"]), fmt="-", color=C_ION, lw=1.2, elinewidth=0.6, capsize=0, label="g₊₋ (+/−)")
+    ax_b.errorbar(rc, nancore(GR["g_pp"]), yerr=nancore(GR["e_pp"]), fmt=":", color=C_SAME, lw=1.3, elinewidth=0.6, capsize=0, label="g₊₊, g₋₋")
+    ax_b.plot(rc, nancore(GR["g_in"]), "-", color=C_NEUTRAL, lw=1.6, label="ion–neutral")
+    ax_b.plot(rc, nancore(GR["g_hs"]), "--", color=C_DARK, lw=0.8, label="g_HS (neutral)")
     ax_b.set_yscale("log")
     ax_b.set_xlim(0.9, 4.5)
-    ax_b.set_ylim(0.08, 40)
+    ax_b.set_ylim(0.06, 40)
     ax_b.set_xlabel("r (σ)")
     ax_b.set_ylabel("g(r)  (charged run, 0.05 σ bins)")
-    ax_b.legend(loc="upper right", fontsize=6.8, borderaxespad=0.2, handlelength=1.6)
-    ax_b.text(1.08, S["g_pm_firstbin"] * 1.0, f"{S['g_pm_firstbin']:.1f} ± {S['g_pm_firstbin_err']:.1f}", fontsize=6.8, color=C_TXT, va="center")
+    ax_b.legend(loc="lower right", borderaxespad=0.2, handlelength=1.6, labelspacing=0.3)   # below the same-sign curve (g > 0.74 at r > 2.1)
+    ax_b.text(1.13, 15.0, f"{S['g_pm_firstbin']:.1f} ± {S['g_pm_firstbin_err']:.1f}", fontsize=8, color=C_TXT, va="center")
     panel_label(ax_b, "(b)")
 
     # (c) PMF
     w, we = GR["w"], GR["w_err"]
     m = np.isfinite(w) & (rc >= 1.0) & (rc <= 4.0)
     ax_c.errorbar(rc[m], w[m], yerr=we[m], fmt="o-", ms=2.5, color=C_ION, lw=1.0, elinewidth=0.6, capsize=0,
-                  label="simulation  −ln[g₊₋/g_HS]")
+                  label="−ln[g₊₋/g_HS]")
     rr = np.linspace(1.0, 4.0, 200)
     lB, kap = S["l_B_sigma"], S["kappa_sigma"]
-    ax_c.plot(rr, -lB / rr, "--", color=C_DARK, lw=0.9, label="bare Coulomb  −l_B/r")
-    ax_c.plot(rr, -lB * np.exp(-kap * (rr - 1)) / (rr * (1 + kap)), "-.", color=C_NEUTRAL, lw=1.1,
-              label=f"Debye–Hückel, κσ = {kap:.2f}")
+    ax_c.plot(rr, -lB / rr, "--", color=C_DARK, lw=0.9, label="−l_B/r  (bare)")
+    ax_c.plot(rr, -lB * np.exp(-kap * (rr - 1)) / (rr * (1 + kap)), "-.", color=C_NEUTRAL, lw=1.1, label="Debye–Hückel")
     ax_c.axhline(0, color=C_DARK, lw=0.5, ls=":")
     ax_c.set_xlim(0.9, 4.0)
     ax_c.set_ylim(-5.3, 0.6)
     ax_c.set_xlabel("r (σ)")
     ax_c.set_ylabel("w₊₋(r)  (kT)")
-    ax_c.legend(loc="lower right", fontsize=6.8, borderaxespad=0.2, handlelength=1.6, labelspacing=0.3)
-    ax_c.annotate(f"contact bin {S['w_contact_firstbin_kT']:.2f} ± {S['w_contact_firstbin_err_kT']:.2f} kT\n(extrapolated to σ⁺: {S['w_contact_extrapolated_kT']:.2f} kT)",
-                  xy=(1.025, S["w_contact_firstbin_kT"]), xytext=(1.55, -1.1), fontsize=6.8, color=C_TXT, va="top",
-                  arrowprops=dict(arrowstyle="-", color=C_TXT, lw=0.6))
+    ax_c.legend(loc="lower right", borderaxespad=0.2, handlelength=1.6, labelspacing=0.3)
+    # contact value as a text block in the empty region below the bare-Coulomb curve (no arrow: it would cross that curve)
+    ax_c.text(2.35, -2.3, f"w₊₋ contact bin\n{S['w_contact_firstbin_kT']:.2f} ± {S['w_contact_firstbin_err_kT']:.2f} kT\n(σ⁺: {S['w_contact_extrapolated_kT']:.2f} kT)",
+              fontsize=8, color=C_TXT, va="top", ha="left", linespacing=1.1)
     panel_label(ax_c, "(c)")
 
     png = savefig(fig, "fig_structure")
+    # same-sign g(r): where it first reaches the bulk value, its plateau and the weak second depletion
+    gpp = np.asarray(GR["g_pp"], float)
+    i1 = int(np.argmax((rc > 1.0) & (gpp >= 0.98)))
+    ss_first_r, ss_first_g = float(rc[i1]), float(gpp[i1])
+    mp = (rc > 1.95) & (rc < 2.25)
+    ss_plateau = float(gpp[mp].mean())
+    md = (rc > 2.3) & (rc < 2.75)
+    ss_dip_mean = float(gpp[md].mean())
+    ss_dip_min_r, ss_dip_min_g = float(rc[md][np.argmin(gpp[md])]), float(gpp[md].min())
+    # occupancy of the 1.00-1.05 sigma bin around an ion
+    v_bin = 4.0 * np.pi / 3.0 * (1.05 ** 3 - 1.0 ** 3)
+    L3 = R["system"]["L"] ** 3
+    ci_bin = S["g_pm_firstbin"] * (20.0 / L3) * v_bin
+    nn_bin = S["g_ion_neutral_firstbin"] * (960.0 / L3) * v_bin
+    nn_bin_ref = S["g_nn_charged_firstbin"] * (960.0 / L3) * v_bin
     nums = {
         "eta": q(S["eta"], "1"), "rho": q(S["rho"], "σ⁻³"), "frames_averaged_neutral": q(S["frames_neutral"], "frames"),
         "frames_averaged_charged": q(S["frames_charged"], "frames"),
@@ -453,7 +493,15 @@ def fig_structure():
         "g_pm_second_peak": {"r": q(S["g_pm_second_peak_r"], "σ"), "g": q(S["g_pm_second_peak_value"], "1")},
         "g_samesign_contact_bin": q(S["g_samesign_firstbin"], "1"), "g_samesign_contact_bin_err": q(S["g_samesign_firstbin_err"], "1"),
         "g_samesign_contact_bin_counts": q(S["g_samesign_counts_firstbin"], "pair samples"),
-        "g_samesign_peak": {"r": q(S["g_samesign_peak_r"], "σ"), "g": q(S["g_samesign_peak_value"], "1")},
+        "g_samesign_first_bin_at_bulk": {"r": q(ss_first_r, "σ"), "g": q(ss_first_g, "1 (first bin with g ≥ 0.98)")},
+        "g_samesign_plateau_1p95_2p25": q(ss_plateau, "1 (mean over 1.95–2.25 σ; ± 0.04 Poisson per bin)"),
+        "g_samesign_dip_2p3_2p75_mean": q(ss_dip_mean, "1 (mean over 2.3–2.75 σ)"),
+        "g_samesign_dip_2p3_2p75_min": {"r": q(ss_dip_min_r, "σ"), "g": q(ss_dip_min_g, "1")},
+        "g_samesign_max_1p5_3p0": {"r": q(S["g_samesign_peak_r"], "σ"), "g": q(S["g_samesign_peak_value"], "1 (no excess over the bulk value within the Poisson error; NOT a peak)")},
+        "g_ion_neutral_contact_deficit": q(100.0 * (1.0 - S["g_ion_neutral_firstbin"] / S["g_nn_charged_firstbin"]), "% below g_nn of the charged run in the 1.00–1.05 σ bin"),
+        "counter_ions_per_ion_in_contact_bin": q(ci_bin, "ions (g₊₋ ρ_opp V_bin, 1.00–1.05 σ)"),
+        "neutrals_per_ion_in_contact_bin": q(nn_bin, "spheres (g_ion-neutral ρ_n V_bin)"),
+        "neutrals_per_neutral_in_contact_bin": q(nn_bin_ref, "spheres (g_nn ρ_n V_bin, charged run)"),
         "g_ion_neutral_contact_bin": q(S["g_ion_neutral_firstbin"], "1"),
         "g_nn_charged_run_contact_bin": q(S["g_nn_charged_firstbin"], "1"), "g_HS_neutral_run_contact_bin_0p05": q(S["g_hs_firstbin_coarse"], "1"),
         "g_large_r_mean_4p5_5p7": {"pm": q(S["g_large_r_mean_pm"], "1"), "nn": q(S["g_large_r_mean_nn"], "1"),
@@ -472,8 +520,11 @@ def fig_structure():
                  f"the contact value extrapolated from 1.0–1.1 σ is g(σ⁺) = {S['g_contact_neutral_fit2']:.2f}, against the Carnahan–Starling value {S['g_contact_CS']:.2f} "
                  f"and {S['g_contact_from_Z_virial_neutral']:.2f} implied by the collisional virial Z = {R['energy']['neutral']['Z_virial']:.3f}. "
                  f"(b) Ion correlations in the charged run (0.05 σ bins, all 721 frames; error bars are Poisson): g₊₋ reaches {S['g_pm_firstbin']:.1f} ± {S['g_pm_firstbin_err']:.1f} in the contact bin "
-                 f"(≈{S['g_pm_contact_fit']:.0f} extrapolated to σ⁺), same-sign pairs are depleted at contact (g ≈ {S['g_samesign_firstbin']:.1f}) and pile up at ≈{S['g_samesign_peak_r']:.1f} σ, "
-                 f"while ion–neutral correlations are indistinguishable from the neutral fluid. "
+                 f"(≈{S['g_pm_contact_fit']:.0f} extrapolated to σ⁺); same-sign pairs are depleted at contact (g ≈ {S['g_samesign_firstbin']:.1f}), recover the bulk value "
+                 f"by ≈{ss_first_r:.0f} σ (the + − + chain distance; {ss_plateau:.2f} ± 0.04 over 1.95–2.25 σ) and show a weak second depletion "
+                 f"(g ≈ {ss_dip_mean:.2f}) at 2.3–2.75 σ; ion–neutral correlations follow the neutral fluid beyond the first shell, while in the contact bin "
+                 f"g_ion–neutral = {S['g_ion_neutral_firstbin']:.2f} against {S['g_nn_charged_firstbin']:.2f} for neutral pairs, a {100.0 * (1.0 - S['g_ion_neutral_firstbin'] / S['g_nn_charged_firstbin']):.1f} % deficit "
+                 f"corresponding to the contact sites occupied by counter-ion partners ({ci_bin:.2f} per ion in that bin). "
                  f"(c) Potential of mean force w₊₋ = −ln[g₊₋/g_HS] compared with the bare Coulomb pair energy −l_B/r and the linearised Debye–Hückel screened potential "
                  f"(κσ = {S['kappa_sigma']:.2f}): the effective attraction at contact is {S['w_contact_firstbin_kT']:.2f} ± {S['w_contact_firstbin_err_kT']:.2f} kT, "
                  f"far weaker than the bare −5 kT, because the other 38 ions screen the pair; the DH curve is shown only as a scale since l_B/σ = 5 is outside its range of validity."),
@@ -486,61 +537,64 @@ def fig_structure():
 # ---------------------------------------------------------------------------
 def fig_dynamics():
     D = R["dynamics"]
-    fig, (ax_a, ax_b, ax_c) = plt.subplots(1, 3, figsize=(FULL_W, 2.7), gridspec_kw=dict(wspace=0.38, left=0.07, right=0.99, top=0.93, bottom=0.17))
+    fig, (ax_a, ax_b, ax_c) = plt.subplots(1, 3, figsize=(FULL_W, 2.7), gridspec_kw=dict(wspace=0.33, left=0.065, right=0.995, top=0.93, bottom=0.17))
     tl = DY["tl"]
     m = tl <= 9.0
     Dn, Dcn, Dci = (D["D"][k]["D_fit_slope"] for k in ("neutral_run_neutrals", "charged_run_neutrals", "charged_run_ions"))
-    ax_a.loglog(tl[m], DY["msd_n"][m], "-", color=C_NEUTRAL, lw=1.8, label=f"neutrals, neutral run  D = {Dn:.3f}")
-    ax_a.loglog(tl[m], DY["msd_cn"][m], "--", color=C_INTEG["cv-phys"], lw=1.1, label=f"neutrals, charged run  D = {Dcn:.3f}")
-    ax_a.loglog(tl[m], DY["msd_ci"][m], "-", color=C_ION, lw=1.1, label=f"ions, charged run  D = {Dci:.3f}")
-    ax_a.loglog(tl[m], 6 * D["D_enskog_CS"] * tl[m], ":", color=C_DARK, lw=0.9, label=f"Enskog 6 D_E t, D_E = {D['D_enskog_CS']:.3f}")
+    # neutral spheres of both runs in C_NEUTRAL (solid: neutral run, dashed: charged run; the curves overlap), ions in C_ION
+    ax_a.loglog(tl[m], DY["msd_n"][m], "-", color=C_NEUTRAL, lw=1.8, label=f"neutral run  {Dn:.3f}")
+    ax_a.loglog(tl[m], DY["msd_cn"][m], "--", color=C_NEUTRAL, lw=1.1, label=f"charged, neutrals  {Dcn:.3f}")
+    ax_a.loglog(tl[m], DY["msd_ci"][m], "-", color=C_ION, lw=1.1, label=f"charged, ions  {Dci:.3f}")
+    ax_a.loglog(tl[m], 6 * D["D_enskog_CS"] * tl[m], ":", color=C_DARK, lw=0.9, label=f"Enskog 6 D_E t  {D['D_enskog_CS']:.3f}")
     # guides
     tg = np.array([0.025, 0.12])
     ax_a.loglog(tg, 3 * tg ** 2 * 0.55, "-", color=C_DARK, lw=0.6)
-    ax_a.text(0.06, 3 * 0.06 ** 2 * 0.3, "∝ t²", fontsize=7, color=C_TXT, ha="center", va="top")
+    ax_a.text(0.06, 3 * 0.06 ** 2 * 0.3, "∝ t²", fontsize=8, color=C_TXT, ha="center", va="top")
     tg = np.array([2.0, 9.0])
     ax_a.loglog(tg, 6 * Dn * tg * 0.45, "-", color=C_DARK, lw=0.6)
-    ax_a.text(4.3, 6 * Dn * 4.3 * 0.30, "∝ t", fontsize=7, color=C_TXT, ha="center", va="top")
+    ax_a.text(4.3, 6 * Dn * 4.3 * 0.30, "∝ t", fontsize=8, color=C_TXT, ha="center", va="top")
     ax_a.set_xlim(0.02, 10)
-    ax_a.set_ylim(1e-3, 150)
+    ax_a.set_ylim(1e-3, 500)       # head room for the legend (the data end at 6.5 σ² at 9 τ)
     ax_a.set_xlabel("lag time t (τ)")
     ax_a.set_ylabel("MSD  ⟨|Δr|²⟩  (σ²)")
-    ax_a.legend(loc="upper left", fontsize=6.6, borderaxespad=0.2, handlelength=1.8, labelspacing=0.3)
-    ax_a.text(0.97, 0.03, "D (σ²/τ) from the\nslope over 1–4 τ", transform=ax_a.transAxes, fontsize=6.8, ha="right", va="bottom", color=C_TXT)
+    ax_a.legend(loc="upper left", borderaxespad=0.2, handlelength=1.8, labelspacing=0.3, title="D (σ²/τ), slope over 1–4 τ:",
+                title_fontsize=8, alignment="left")
     panel_label(ax_a, "(a)")
 
     # (b) displacement histogram
     dcen, hn, hci, pmax = DY["dcen"], DY["hn"], DY["hci"], DY["pmax"]
     wbin = dcen[1] - dcen[0]
-    ax_b.bar(dcen, hn, width=wbin, color=C_NEUTRAL, alpha=0.75, label=f"neutrals  (mean {D['disp_per_frame']['neutral_run_mean']:.3f} σ)")
+    ax_b.bar(dcen, hn, width=wbin, color=C_NEUTRAL, alpha=0.75, label="neutrals")
     ax_b.step(np.concatenate([dcen - wbin / 2, [dcen[-1] + wbin / 2]]), np.concatenate([hci, [hci[-1]]]), where="post", color=C_ION, lw=1.3,
-              label=f"ions  (mean {D['disp_per_frame']['charged_ions_mean']:.3f} σ)")
-    ax_b.plot(dcen, pmax, "--", color=C_DARK, lw=0.9, label="Maxwell free flight |v| Δt_frame")
+              label="ions")
+    ax_b.plot(dcen, pmax, "--", color=C_DARK, lw=0.9, label="Maxwell free flight")
     ax_b.set_xlim(0, 0.15)
-    ax_b.set_ylim(0, 1.15 * max(hn.max(), pmax.max()))
+    ax_b.set_ylim(0, 1.55 * max(hn.max(), pmax.max()))     # head room: legend and text clear the peak (24 σ⁻¹ at 0.035–0.045 σ)
     ax_b.set_xlabel("displacement per frame |Δr| (σ)")
     ax_b.set_ylabel("probability density (σ⁻¹)")
-    ax_b.legend(loc="upper right", fontsize=6.8, borderaxespad=0.2, handlelength=1.6)
-    ax_b.text(0.98, 0.62, f"max {D['disp_per_frame']['neutral_run_max']:.2f} σ (neutrals)\nmax {D['disp_per_frame']['charged_ions_max']:.2f} σ (ions)",
-              transform=ax_b.transAxes, fontsize=6.8, ha="right", va="top", color=C_TXT)
+    ax_b.legend(loc="upper right", borderaxespad=0.2, handlelength=1.6)
+    ax_b.text(0.98, 0.74, f"mean {D['disp_per_frame']['neutral_run_mean']:.3f} σ (neutrals)\nmean {D['disp_per_frame']['charged_ions_mean']:.3f} σ (ions)",
+              transform=ax_b.transAxes, fontsize=8, ha="right", va="top", color=C_TXT, linespacing=1.15) if False else None
+    ax_b.text(0.98, 0.71, f"mean {D['disp_per_frame']['neutral_run_mean']:.3f} σ (neutrals)\nmean {D['disp_per_frame']['charged_ions_mean']:.3f} σ (ions)",
+              transform=ax_b.transAxes, fontsize=8, ha="right", va="top", color=C_TXT, linespacing=1.15)
     panel_label(ax_b, "(b)")
 
     # (c) free flight
     F = D["freeflight"]
     tt = DY["tt"]
-    ax_c.plot(tt, DY["ff_n"], color=C_NEUTRAL, lw=0.7, label=f"neutral run, per frame")
+    ax_c.plot(tt, DY["ff_n"], color=C_NEUTRAL, lw=0.7, label="per frame, neutral run")
     run = np.convolve(DY["ff_n"], np.ones(40) / 40, mode="valid")
-    ax_c.plot(tt[20:20 + len(run)], run, color=C_DARK, lw=1.3, label=f"1 τ running mean  (overall {F['frac_neutral_run_mean']:.3f})")
-    ax_c.axhline(F["expected_measured_rate_neutral"], color=C_ACCENT, ls="--", lw=1.1,
-                 label=f"exp(−2 Γ Δt_frame) = {F['expected_measured_rate_neutral']:.3f},  Γ = {F['Gamma_neutral']:.2f} /τ")
+    ax_c.plot(tt[20:20 + len(run)], run, color=C_DARK, lw=1.3, label="1 τ running mean")
+    ax_c.axhline(F["expected_measured_rate_neutral"], color=C_ACCENT, ls="--", lw=1.1, label="exp(−2 Γ Δt_frame)")
     ax_c.set_xlim(0, 18)
-    ax_c.set_ylim(0.37, 0.63)
+    ax_c.set_ylim(0.35, 0.65)
     ax_c.set_yticks([0.40, 0.45, 0.50, 0.55, 0.60])
     ax_c.set_xlabel("t (τ)")
     ax_c.set_ylabel("free-flight fraction of neutrals")
-    ax_c.text(0.98, 0.03, f"criterion |Δr_k − Δr_k+1| < 10⁻⁵ σ\ncharged-run neutrals: {F['frac_charged_neutrals_mean']:.3f}",
-              transform=ax_c.transAxes, fontsize=6.6, ha="right", va="bottom", color=C_TXT)
-    ax_c.legend(loc="upper left", fontsize=6.6, borderaxespad=0.2, handlelength=1.8, labelspacing=0.3)
+    ax_c.text(0.98, 0.03, f"mean {F['frac_neutral_run_mean']:.3f} (neutral run)\n{F['frac_charged_neutrals_mean']:.3f} (charged-run neutrals)\n"
+              f"expected {F['expected_measured_rate_neutral']:.3f},  Γ = {F['Gamma_neutral']:.2f} /τ",
+              transform=ax_c.transAxes, fontsize=8, ha="right", va="bottom", color=C_TXT, linespacing=1.15)
+    ax_c.legend(loc="upper left", borderaxespad=0.2, handlelength=1.8, labelspacing=0.3)
     panel_label(ax_c, "(c)")
 
     png = savefig(fig, "fig_dynamics")
@@ -611,6 +665,9 @@ def main():
             "D is the slope of MSD(t) over 1-4 tau divided by 6; MSD/(6t) averaged over the same window is 10 % lower because MSD has a negative intercept after the ballistic regime.",
             "Free-flight criterion evaluated on npz float32 data: roundoff cluster ends at 2.9e-6 sigma, the 1e-5 threshold lies in a clean gap (float64 xyz on frames 0-11 gives the identical fraction 0.4969).",
             "Floats are quoted to 3 significant digits; integer counts are exact.",
+            "Colour semantics: +/- pair and ion quantities are drawn in a dedicated magenta (#A3268F) that is not part of the integrator palette; same-sign ion pairs are dark gray dotted; neutral spheres are C_NEUTRAL gray in both runs (solid = neutral run, dashed = charged run). The integrator colours appear only in fig_energy.",
+            "fig_pairing (b): both random baselines are the neutral-run-subset values (same definition); the hard-core-only estimate 0.567 for 2.5 sigma is kept in the numbers as a cross-check.",
+            "All in-figure text is >= 8 pt (inset tick labels 7.5 pt), figstyle defaults, no rcParams override.",
         ],
         figures=manifest)
     for fg in manifest:

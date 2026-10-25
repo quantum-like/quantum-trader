@@ -19,6 +19,11 @@ const path = require('path');
   // also a quick screenshot of the top of the page for a visual check
   await page.emulateMedia({ media: 'screen' });
   await page.screenshot({ path: path.join(dir, 'data', 'preview_top.png'), fullPage: false });
+  await page.evaluate(() => { const el = document.getElementById('r-order'); if (el) el.scrollIntoView(); });
+  await page.screenshot({ path: path.join(dir, 'data', 'preview_order.png'), fullPage: false });
+  await page.setViewportSize({ width: 400, height: 900 });
+  await page.evaluate(() => { const el = document.getElementById('r-pairing'); if (el) el.scrollIntoView(); });
+  await page.screenshot({ path: path.join(dir, 'data', 'preview_phone.png'), fullPage: false });
   await browser.close();
   console.log('wrote', path.join(dir, 'report.pdf'));
 })().catch(e => { console.error(e); process.exit(1); });

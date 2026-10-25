@@ -1,40 +1,52 @@
 {
  "file": "fig_pair_closeup",
  "width": "full",
- "caption": "Close-ups cut from the x-ray movie (neutrals 85 % transparent, ions opaque; red +, blue \u2212) at frames chosen from a cluster scan of the trajectory with the r < 1.2 \u03c3 contact criterion: (a) an isolated +/\u2212 contact pair at t = 10.82 \u03c4 (nearest other ion 3.5 \u03c3 away), (b) a linear four-ion chain (+ \u2212 + \u2212) at t = 9.75 \u03c4 and (c) a five-ion chain (+ \u2212 + \u2212 +) at t = 12.80 \u03c4. Dotted circles enclose the cluster; the bar gives 1 \u03c3 at the depth of the cluster. Such chains are transient: clusters of four or more ions exist in 142 of the 721 frames and the largest cluster seen has six ions.",
+ "caption": "Close-ups of the charged production run in the x-ray style of the movie (neutrals 85 % transparent, ions opaque; red +, blue \u2212), re-rendered at 3\u00d7 the movie resolution for the three frames chosen from a cluster scan with the r < 1.2 \u03c3 contact criterion: (a) an isolated +/\u2212 contact pair at the front face of the box at t = 16.27 \u03c4 (nearest other ion 2.5 \u03c3 away, no other ion inside the circle in projection, no neutral in front of it), (b) a linear four-ion chain (+ \u2212 + \u2212) at t = 9.75 \u03c4 and (c) a linear five-ion chain (\u2212 + \u2212 + \u2212) at t = 9.22 \u03c4, 42 \u03c3 from the camera. Dotted circles enclose the cluster; the bar gives 1 \u03c3 at the depth of the cluster. Such chains are transient: clusters of four or more ions exist in 142 of the 721 frames and the largest cluster seen has six ions.",
  "numbers": {
   "panels": [
    {
     "panel": "(a)",
-    "frame_index": 433,
-    "time_tau": 10.825,
+    "frame_index": 651,
+    "time_tau": 16.275,
     "label": "+/\u2212 contact pair",
     "cluster_size": 2,
     "charge_sequence": "+ \u2212",
     "max_degree": 1,
-    "member_particle_ids": [
-     962,
-     998
+    "member_particle_indices": [
+     966,
+     994
+    ],
+    "member_xyz_ids": [
+     967,
+     995
     ],
     "bonded_distances_sigma": [
-     1.017
+     1.083
     ],
-    "nearest_other_ion_sigma": 3.51,
-    "pixel_centre": [
-     712.5,
-     224.7
+    "nearest_other_ion_sigma": 2.51,
+    "other_ions_inside_circle_in_projection": 0,
+    "neutrals_in_front_inside_circle": 0,
+    "neutrals_behind_inside_circle": 32,
+    "pixel_centre_720p": [
+     706.0,
+     502.3
     ],
-    "camera_depth_sigma": 38.3,
-    "sphere_radius_px": 17.6,
-    "crop_px_x0_y0_x1_y1": [
-     563,
-     93,
-     863,
-     357
+    "camera_depth_sigma": 37.3,
+    "sphere_radius_px_720p": 18.0,
+    "circle_radius_px_720p": 44.1,
+    "crop_px_720p_x0_y0_x1_y1": [
+     556,
+     370,
+     856,
+     634
+    ],
+    "crop_size_px_rendered": [
+     900,
+     792
     ],
     "pairs_in_frame": 11,
     "largest_cluster_in_frame": 3,
-    "source_png": "report/figures/stills/hs_charges_20p20m_xray_f433.png"
+    "source_png": "traj/_test/report/closeup_frames/frame_00651.png"
    },
    {
     "panel": "(b)",
@@ -44,11 +56,17 @@
     "cluster_size": 4,
     "charge_sequence": "+ \u2212 + \u2212",
     "max_degree": 2,
-    "member_particle_ids": [
+    "member_particle_indices": [
      976,
      987,
      974,
      983
+    ],
+    "member_xyz_ids": [
+     977,
+     988,
+     975,
+     984
     ],
     "bonded_distances_sigma": [
      1.003,
@@ -56,59 +74,82 @@
      1.084
     ],
     "nearest_other_ion_sigma": 2.54,
-    "pixel_centre": [
+    "other_ions_inside_circle_in_projection": 1,
+    "neutrals_in_front_inside_circle": 17,
+    "neutrals_behind_inside_circle": 68,
+    "pixel_centre_720p": [
      777.9,
      382.1
     ],
     "camera_depth_sigma": 39.3,
-    "sphere_radius_px": 17.1,
-    "crop_px_x0_y0_x1_y1": [
+    "sphere_radius_px_720p": 17.1,
+    "circle_radius_px_720p": 74.1,
+    "crop_px_720p_x0_y0_x1_y1": [
      628,
      250,
      928,
      514
     ],
+    "crop_size_px_rendered": [
+     900,
+     792
+    ],
     "pairs_in_frame": 13,
     "largest_cluster_in_frame": 4,
-    "source_png": "report/figures/stills/hs_charges_20p20m_xray_f390.png"
+    "source_png": "traj/_test/report/closeup_frames/frame_00390.png"
    },
    {
     "panel": "(c)",
-    "frame_index": 512,
-    "time_tau": 12.8,
+    "frame_index": 369,
+    "time_tau": 9.225,
     "label": "5-ion chain",
     "cluster_size": 5,
-    "charge_sequence": "+ \u2212 + \u2212 +",
+    "charge_sequence": "\u2212 + \u2212 + \u2212",
     "max_degree": 2,
-    "member_particle_ids": [
-     960,
-     981,
-     971,
-     980,
-     967
+    "member_particle_indices": [
+     986,
+     972,
+     993,
+     963,
+     988
+    ],
+    "member_xyz_ids": [
+     987,
+     973,
+     994,
+     964,
+     989
     ],
     "bonded_distances_sigma": [
-     1.001,
-     1.037,
-     1.16,
-     1.008
+     1.021,
+     1.069,
+     1.071,
+     1.116
     ],
-    "nearest_other_ion_sigma": 1.76,
-    "pixel_centre": [
-     640.6,
-     366.0
+    "nearest_other_ion_sigma": 1.84,
+    "other_ions_inside_circle_in_projection": 0,
+    "neutrals_in_front_inside_circle": 29,
+    "neutrals_behind_inside_circle": 6,
+    "pixel_centre_720p": [
+     804.9,
+     241.4
     ],
-    "camera_depth_sigma": 48.1,
-    "sphere_radius_px": 14.0,
-    "crop_px_x0_y0_x1_y1": [
-     491,
-     234,
-     791,
-     498
+    "camera_depth_sigma": 41.8,
+    "sphere_radius_px_720p": 16.1,
+    "circle_radius_px_720p": 55.5,
+    "crop_px_720p_x0_y0_x1_y1": [
+     655,
+     109,
+     955,
+     373
     ],
-    "pairs_in_frame": 7,
+    "crop_size_px_rendered": [
+     900,
+     792
+    ],
+    "pairs_in_frame": 11,
     "largest_cluster_in_frame": 5,
-    "source_png": "report/figures/stills/hs_charges_20p20m_xray_f512.png"
+    "source_png": "traj/_test/report/closeup_frames/frame_00369.png"
    }
   ],
   "scan": {
@@ -129,6 +170,7 @@
     533,
     535
    ],
+   "six_ion_clusters_note": "all 8 six-ion clusters (frames 527-535) are branched (max degree 3) and sit 48 sigma deep behind ~115 neutrals; the clean linear 5-ion chain of frames 368-370 is shown instead",
    "contact_pairs_per_frame_mean": 8.29,
    "contact_pairs_min": 2,
    "contact_pairs_max": 15,
@@ -141,6 +183,22 @@
     ],
     "distance_sigma": 41.417
    }
+  },
+  "render": {
+   "command": "render/render_ovito.py --style xray --quality final --width 3840 --height 2160 --no-overlay --start K --end K",
+   "resolution_px": [
+    3840,
+    2160
+   ],
+   "scale_vs_movie": 3,
+   "crop_px": [
+    900,
+    792
+   ],
+   "panel_width_in": 2.3,
+   "effective_dpi": 392,
+   "seconds_per_frame_render": 12.0,
+   "id_convention": "member_particle_indices are 0-based npz/array indices (FORMAT.md order); member_xyz_ids = index + 1 are the 1-based id column of the extended XYZ"
   }
  }
 }

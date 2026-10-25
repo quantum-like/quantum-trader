@@ -35,7 +35,8 @@ for i, (mv, rl) in enumerate(zip(MOVIES, ROWLAB)):
             ax.text(0.5, 1.02, 't = %g τ' % t if j == 0 else '%g τ' % t, transform=ax.transAxes, ha='center', va='bottom', fontsize=9)
         if j == 0:
             ax.text(-0.035, 0.5, rl, transform=ax.transAxes, rotation=90, ha='right', va='center', fontsize=9)
-            panel_label(ax, '(%s)' % 'abc'[i])
+            # label aligned with the TOP of its own row (panel_label's y = 1.04 would land in the row above with hspace 0.04)
+            ax.text(-0.035, 1.0, '(%s)' % 'abc'[i], transform=ax.transAxes, fontsize=11, fontweight='bold', va='top', ha='right')
 png = savefig(fig, 'fig_stills')
 print('wrote', png, 'figure size', FULL_W, round(fig_h, 2))
 

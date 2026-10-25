@@ -1,13 +1,15 @@
 {
  "file": "fig_order",
  "width": "full",
- "caption": "Energy-error order test on the production system (N = 1000, \u03b7 = 0.35, 20+/20\u2212, l_B = 5 \u03c3): maximum |E(t) \u2212 E(0)|/N over 2 \u03c4 of NVE dynamics versus the step h for the four integrators, with the fitted log\u2013log slopes in the legends and dashed reference lines \u221d h and \u221d h\u00b2. (a) Equilibrated start (15 \u03c4 with charges on): the shipped cv-phys is second order (slope 2.02) whereas the literal HLL collision Verlet is only first order (slope 0.73) and 35\u00d7 less accurate at the production step h = 0.005 \u03c4; kdk-phys gives 1.81 and the naive splitting 1.09. (b) Same test from the un-equilibrated start with Ewald (solid; slopes 1.40 / 0.78 / 1.69 / 0.89) and with the smooth DSF Coulomb model (dashed, cv-phys 1.92, cv 1.21); the Ewald real-space truncation erfc(\u03b1r_c) \u2248 7.5\u00d710\u207b\u2075 sets a floor of \u2248 10\u207b\u2076 kT/N at h = 0.0025 \u03c4 that flattens every Ewald curve there.",
+ "caption": "Energy-error order test on the production system (N = 1000, \u03b7 = 0.35, 20+/20\u2212, l_B = 5 \u03c3): maximum |E(t) \u2212 E(0)|/N over 2 \u03c4 of NVE dynamics versus the step h for the four integrators, with the fitted log\u2013log slopes in the legends and dashed reference lines \u221d h and \u221d h\u00b2. (a) Equilibrated start (15 \u03c4 with charges on): the shipped cv-phys is second order (slope 2.02) whereas the literal HLL collision Verlet is only sub-first-order (slope 0.73) and 35\u00d7 less accurate at the production step h = 0.005 \u03c4; kdk-phys gives 1.82 and the naive splitting 1.09. (b) Same test from the un-equilibrated start with Ewald (solid; slopes 1.40 / 0.78 / 1.69 / 0.89) and with the smooth DSF Coulomb model (dashed, cv-phys 1.92, cv 1.21). The Ewald real-space truncation erfc(\u03b1r_c) \u2248 7.5\u00d710\u207b\u2075 gives an energy floor of \u2248 0.5\u20131 \u00d7 10\u207b\u2076 kT/N that limits the cv-phys curve at h = 0.0025 \u03c4 (local slope 1.0 between 0.005 and 0.0025 \u03c4; 6 \u00d7 10\u207b\u2077 kT/N in (a)); cv and naive are flat there because of their own first-order collision error (65\u00d7 and 229\u00d7 above the floor, local slopes 0.11 and \u22120.06), and kdk-phys is not yet affected (local slope 2.9).",
  "numbers": {
   "equilibrated_start": {
    "cv-phys": {
     "slope_fit": 2.019,
     "slope_csv": 2.019179506681018,
     "slope_end_drift_csv": 2.947010237151465,
+    "local_slope_0p005_to_0p0025": 2.262,
+    "ratio_to_ewald_floor_at_0p0025": 0.6,
     "max_abs_dE_per_N_kT": {
      "0.0025": 5.972699998437747e-07,
      "0.005": 2.8646400000980067e-06,
@@ -25,6 +27,8 @@
     "slope_fit": 0.726,
     "slope_csv": 0.7256887571470043,
     "slope_end_drift_csv": 0.24483503940579693,
+    "local_slope_0p005_to_0p0025": 0.423,
+    "ratio_to_ewald_floor_at_0p0025": 74.7,
     "max_abs_dE_per_N_kT": {
      "0.0025": 7.465961000002608e-05,
      "0.005": 0.00010012957999992977,
@@ -42,6 +46,8 @@
     "slope_fit": 1.815,
     "slope_csv": 1.8154195568369302,
     "slope_end_drift_csv": 2.153038485944024,
+    "local_slope_0p005_to_0p0025": 1.717,
+    "ratio_to_ewald_floor_at_0p0025": 1.8,
     "max_abs_dE_per_N_kT": {
      "0.0025": 1.818559999946956e-06,
      "0.005": 5.97923999998784e-06,
@@ -59,6 +65,8 @@
     "slope_fit": 1.093,
     "slope_csv": 1.0927124283046872,
     "slope_end_drift_csv": 1.2457499578686129,
+    "local_slope_0p005_to_0p0025": 0.621,
+    "ratio_to_ewald_floor_at_0p0025": 253.1,
     "max_abs_dE_per_N_kT": {
      "0.0025": 0.00025305870000011057,
      "0.005": 0.0003891175200001271,
@@ -78,6 +86,8 @@
     "slope_fit": 1.397,
     "slope_csv": 1.3969537448307578,
     "slope_end_drift_csv": 1.509786929315089,
+    "local_slope_0p005_to_0p0025": 1.029,
+    "ratio_to_ewald_floor_at_0p0025": 1.4,
     "max_abs_dE_per_N_kT": {
      "0.0025": 1.4287500000591535e-06,
      "0.005": 2.916520000098899e-06,
@@ -95,6 +105,8 @@
     "slope_fit": 0.777,
     "slope_csv": 0.7768565840712629,
     "slope_end_drift_csv": 0.5885844077500677,
+    "local_slope_0p005_to_0p0025": 0.106,
+    "ratio_to_ewald_floor_at_0p0025": 64.8,
     "max_abs_dE_per_N_kT": {
      "0.0025": 6.480454999996255e-05,
      "0.005": 6.972345999997742e-05,
@@ -112,6 +124,8 @@
     "slope_fit": 1.687,
     "slope_csv": 1.6872190350294045,
     "slope_end_drift_csv": 1.2509913099009586,
+    "local_slope_0p005_to_0p0025": 2.9,
+    "ratio_to_ewald_floor_at_0p0025": 1.0,
     "max_abs_dE_per_N_kT": {
      "0.0025": 9.992699999656906e-07,
      "0.005": 7.4565499999152965e-06,
@@ -129,6 +143,8 @@
     "slope_fit": 0.886,
     "slope_csv": 0.8862415424487556,
     "slope_end_drift_csv": 1.3058423194957849,
+    "local_slope_0p005_to_0p0025": -0.055,
+    "ratio_to_ewald_floor_at_0p0025": 229.1,
     "max_abs_dE_per_N_kT": {
      "0.0025": 0.00022907994000001964,
      "0.005": 0.0002205465899999126,
@@ -209,9 +225,11 @@
    "production_energy_drift_rel_18tau": 2.3165e-05,
    "production_energy_max_dev_rel": 2.36033e-05,
    "ewald_floor_kT_per_N": 1e-06,
+   "ewald_floor_note": "approximate; cv-phys reaches 6e-7 in (a), so the floor is 0.5-1e-6 kT/N and limits cv-phys only",
    "erfc_alpha_rc": 7.5e-05,
    "alpha_L": 5.6,
-   "rc_sigma": 5.718474607
+   "rc_sigma": 5.718474607,
+   "slope_rounding": "slope_fit = round(fit, 3) is a numbers entry only; captions are formatted from the unrounded fit"
   }
  }
 }

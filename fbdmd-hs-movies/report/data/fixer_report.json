@@ -1,0 +1,165 @@
+{
+ "role": "FIXER (QA findings applied to figure scripts, figures and manifests)",
+ "manifests": {
+  "physics": "/home/user/quantum-trader/fbdmd-hs-movies/report/data/physics_manifest.json",
+  "method": "/home/user/quantum-trader/fbdmd-hs-movies/report/data/method_manifest.json"
+ },
+ "scripts_changed": [
+  "/home/user/quantum-trader/fbdmd-hs-movies/report/physics_figures.py",
+  "/home/user/quantum-trader/fbdmd-hs-movies/report/method_fig_cv_scheme.py",
+  "/home/user/quantum-trader/fbdmd-hs-movies/report/method_fig_order.py",
+  "/home/user/quantum-trader/fbdmd-hs-movies/report/method_fig_stills.py",
+  "/home/user/quantum-trader/fbdmd-hs-movies/report/method_fig_render_cost.py",
+  "/home/user/quantum-trader/fbdmd-hs-movies/report/method_fig_pair_closeup.py",
+  "/home/user/quantum-trader/fbdmd-hs-movies/report/method_manifest_build.py"
+ ],
+ "figures_rerendered": [
+  "fig_energy",
+  "fig_pairing",
+  "fig_structure",
+  "fig_dynamics",
+  "fig_cv_scheme",
+  "fig_order",
+  "fig_stills",
+  "fig_pair_closeup",
+  "fig_render_cost"
+ ],
+ "figures_unchanged": [
+  "fig_pipeline"
+ ],
+ "scratch": [
+  "/home/user/quantum-trader/fbdmd-hs-movies/traj/_test/report/closeup_frames/frame_00651.png",
+  "frame_00390.png",
+  "frame_00369.png (3840x2160 x-ray renders)"
+ ],
+ "findings": [
+  {
+   "figure": "fig_energy, fig_pairing, fig_structure, fig_dynamics (fonts)",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "Deleted the rcParams override (physics_figures.py line 21); figstyle defaults (9 pt labels, 8 pt ticks/legend) apply. Every explicit fontsize raised to 8 pt (legends, in-panel annotations, bar percentages, lifetime labels, drift text, movie-time top axes); inset tick labels 7.5 pt with larger insets. Space recovered by shortening legend strings (units moved to legend titles/axis labels) and moving legends into empty regions, not by shrinking text."
+  },
+  {
+   "figure": "fig_pairing, fig_structure, fig_dynamics (colour consistency)",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "C_ION is now a dedicated magenta #A3268F (not in C_INTEG) for all +/- pair and ion quantities (fig_pairing a-d, fig_structure b/c, fig_dynamics a/b); same-sign pairs are dark gray #333333 dotted (fig_structure b); neutrals of both runs are C_NEUTRAL gray, solid (neutral run) vs dashed (charged run) in fig_dynamics a. Integrator colours now appear only in fig_energy."
+  },
+  {
+   "figure": "fig_energy (a)",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "ylim extended to -0.5..3.5 kT; the 'without naive' inset moved to the upper-right quadrant (axes fraction [0.61,0.66,0.38,0.32], floor incl. tick labels ~1.9 kT, above the naive maximum 1.81 kT); legend kept upper-left with title 'drift over 18 tau (kT)' and shortened entries so it ends before the inset tick labels; inset ticks 7.5 pt, inset title 8 pt."
+  },
+  {
+   "figure": "fig_energy (d)",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "Legend moved to the empty lower-right triangle with shortened entries ('neutral run Gamma = 14.32/tau', 'charged run ...', 'Enskog Gamma_E = 14.24/tau'); the excess-over-Enskog inset moved to the empty upper-left triangle; no line crosses either."
+  },
+  {
+   "figure": "fig_dynamics (b)",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "ylim raised to 1.55x the peak (38 sigma^-1); legend (upper right, 8 pt) has the short entries 'ions', 'Maxwell free flight', 'neutrals'; the means are a separate 8 pt text block below the legend (right-aligned, starting at 0.0525 sigma where the histogram is < 20 sigma^-1); the maxima are quoted in the caption/numbers only."
+  },
+  {
+   "figure": "fig_cv_scheme (a), (b)",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "'hard core' is now a 90-degree rotated label at the top of the shaded band (phi = 0.55 kT downward in (a), F = -0.45 kT/sigma downward in (b), i.e. clear of phi_1/F_1, F_2 = 0 and phi_c); the (a) legend entries were shortened ('phi_2' instead of 'phi_2 (long range)') so the lower-right legend spans r = 1.35-3 sigma, phi = -7.3..-5.6 kT, below phi_c; the P(q1) annotation moved to (1.42, -4.5)."
+  },
+  {
+   "figure": "fig_stills",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "Panel labels (a)/(b)/(c) are placed with ax.text(-0.035, 1.0, va='top', ha='right') so each is aligned with the top edge of its own row (verified in a crop)."
+  },
+  {
+   "figure": "fig_render_cost",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "Legend removed; the production ticks are annotated directly under the bars ('production movies: 1.43 s, 1.43 s (ticks)', 'production movie: 1.24 s (tick)'); bars thinner (0.5), figure 2.9 in tall, xlim 0-2.2 s; caption updated to say the two cpk ticks coincide."
+  },
+  {
+   "figure": "fig_pair_closeup",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "All three panels re-rendered with render/render_ovito.py at 3840x2160 (3x the movie; x-ray, final, no overlay; 12 s/frame) into traj/_test/report/closeup_frames/, crops 900x792 px shown at ~390 dpi (was ~130). New frames from a projection scan (depth, other ions inside the circle, neutrals in front): (a) frame 651 (t = 16.27 tau): pair at the front face, depth 37.3 sigma, nearest other ion 2.51 sigma, 0 other ions inside the circle in projection, 0 neutrals in front (old frame 433 had another + ion overlapping the circle); (b) frame 390 kept (depth 39.3, 17 neutrals in front); (c) frame 369 (t = 9.22 tau): linear 5-ion chain - + - + -, depth 41.8 sigma, 29 neutrals in front, no other ion inside the circle (old frame 512: 48.1 sigma, 128 neutrals in front). The six-ion clusters (frames 527-535) are all branched (max degree 3) and 48 sigma deep, so none qualifies. Caption rewritten accordingly."
+  },
+  {
+   "figure": "fig_structure (a), (b)",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "r < sigma masked to NaN before plotting in (a) and for all four curves in (b): curves start at contact, no vertical lines/spikes. In (a) the filled 'extrapolated contact' square was dropped; only the Carnahan-Starling open circle remains as a marker and the three contact values (CS 3.00, extrapolated 3.01, from Z 3.02) are quoted in a text block."
+  },
+  {
+   "figure": "fig_pairing (d)",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "The median/mean/90th-pct/longest labels are stacked at distinct heights (P = 0.80, 0.45, 0.25, 0.142) to the right of the 90th-percentile line (x = 1.23 tau), above the survival curve, all 8 pt; the legend moved to the empty lower-left corner."
+  },
+  {
+   "figure": "fig_structure caption (b) (same-sign 'pile up')",
+   "severity": "should-fix + blocking",
+   "status": "fixed",
+   "changed": "Caption now reads: same-sign pairs are depleted at contact (g ~ 0.5), recover the bulk value by ~2 sigma (the + - + chain distance; 0.98 +/- 0.04 over 1.95-2.25 sigma) and show a weak second depletion (g ~ 0.84) at 2.3-2.75 sigma. Numbers: g_samesign_peak removed; added g_samesign_first_bin_at_bulk (1.975 sigma, 1.00), g_samesign_plateau_1p95_2p25 (0.981), g_samesign_dip_2p3_2p75_mean (0.843) / _min (0.770 at 2.375 sigma), and g_samesign_max_1p5_3p0 (1.02 at 2.225 sigma) explicitly labelled as not a peak."
+  },
+  {
+   "figure": "fig_order caption (b) and (a) (Ewald floor; 'first order')",
+   "severity": "should-fix + blocking",
+   "status": "fixed",
+   "changed": "Caption (b) now: the Ewald real-space truncation gives a floor of ~0.5-1e-6 kT/N that limits the cv-phys curve at h = 0.0025 tau (local slope 1.0 between 0.005 and 0.0025 tau; 6e-7 kT/N in (a)); cv and naive are flat there because of their own first-order collision error (65x and 229x above the floor, local slopes 0.11 and -0.06); kdk-phys not yet affected (local slope 2.9). Caption (a): 'sub-first-order (slope 0.73)'. Figure annotation: 'Ewald truncation ~ 1e-6 kT/N (limits cv-phys only)'. Numbers: local_slope_0p005_to_0p0025 and ratio_to_ewald_floor_at_0p0025 per integrator and start, ewald_floor_note."
+  },
+  {
+   "figure": "fig_energy (b)",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "Legend entries are 'KE - <KE>' / 'PE - <PE>' with an 8 pt text 'std 4.0 kT each' (no sigma as std symbol); the lower sub-panel text uses mathtext '2.3 x 10^-5 |E0|' on two lines; caption (b) says 'standard deviation of 4.0 kT each'."
+  },
+  {
+   "figure": "fig_structure caption (b) (ion-neutral)",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "Caption: 'ion-neutral correlations follow the neutral fluid beyond the first shell, while in the contact bin g_ion-neutral = 2.57 against 2.75 for neutral pairs, a 6.5 % deficit corresponding to the contact sites occupied by counter-ion partners (0.15 per ion in that bin)'. Numbers: g_ion_neutral_contact_deficit 6.54 %, counter_ions_per_ion_in_contact_bin 0.149, neutrals_per_ion_in_contact_bin 1.09 vs neutrals_per_neutral_in_contact_bin 1.17."
+  },
+  {
+   "figure": "fig_order caption (a) kdk-phys slope",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "Captions are formatted from the unrounded log-log fit (RAW dict) -> 1.82, matching the legend; slope_fit = round(fit, 3) = 1.815 stays only as a numbers entry (slope_rounding note in test_setup)."
+  },
+  {
+   "figure": "fig_pairing caption/legend (b) baselines",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "Both reference lines are now the neutral-run-subset values (same definition): 0.585 (2.5 sigma, dashed) and 0.080 (1.2 sigma, dotted), legend 'random ions, 2.5 sigma (0.585)' / 'random ions, 1.2 sigma (0.080)'; caption quotes 0.585 +/- 0.006 and 0.080 +/- 0.002 (standard errors of the subset mean) and mentions the hard-core-only 0.567 only as a cross-check. Numbers: *_sem entries added, baselines_plotted note."
+  },
+  {
+   "figure": "fig_energy caption (d) Enskog excess",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "Caption: 'the neutral run exceeds Enskog by 0.6 % and the charged run by 0.5 % (inset)' (excess_over_enskog_neutral 0.591 %, _charged 0.531 %)."
+  },
+  {
+   "figure": "fig_pair_closeup manifest ids",
+   "severity": "should-fix",
+   "status": "fixed",
+   "changed": "Key renamed to member_particle_indices (0-based npz/array indices); member_xyz_ids (= index + 1, the 1-based extended-XYZ id column) added; numbers.render.id_convention states the convention; bonded distances reproduce with the indices (1.083 sigma for frame 651)."
+  }
+ ],
+ "updated_captions": {
+  "fig_energy": "Energy conservation and collision statistics of the production runs (N = 1000, η = 0.35, 18 τ NVE). (a) Total-energy deviation E(t) − E(0) for the four integrators of the charged system (20+/20−, l_B = 5 σ, Δt = 0.005 τ): the naive splitting drifts by +1.48 kT, literal collision Verlet (cv) by −0.19 kT, kdk-phys by +0.075 kT and the shipped cv-phys by +0.033 kT (2.3 × 10⁻⁵ of |E₀|; inset without naive). (b) cv-phys: kinetic and potential energy fluctuate in antiphase with a standard deviation of 4.0 kT each while their sum changes by 0.034 kT at most. (c) Instantaneous temperature of the cv-phys run, ⟨T⟩ = 0.9990 ± 0.0027 kT. (d) Cumulative hard-sphere collisions in the neutral and charged runs against the Enskog rate N Γ_E/2 with Γ_E = 14.24 per particle per τ; the neutral run exceeds Enskog by 0.6 % and the charged run by 0.5 % (inset).",
+  "fig_pairing": "Bjerrum pairing in the charged production run (20+/20−, l_B = 5 σ, cv-phys, 721 frames). (a) Number of +/− contact pairs (r < 1.2 σ) per frame, mean 8.3 (range 2–15). (b) Fraction of ions in a contact pair (38 ± 11 %) and fraction with an opposite ion within l_B/2 = 2.5 σ (86 %); dashed and dotted lines are the random-ion baselines obtained from 100 random 20+20 subsets of the neutral run, 0.585 ± 0.006 (2.5 σ) and 0.080 ± 0.002 (1.2 σ; standard errors of the subset mean); the hard-core-only estimate 1 − (1 − V_shell/V)^20 = 0.567 for 2.5 σ is a consistent cross-check. (c) Fraction of ions in connected +/− clusters of size 1–6: 10 % sit in clusters of three or more, almost all linear chains. (d) Survival function of contact-episode lifetimes: median 0.35 τ, mean 0.52 τ, 90th percentile 1.18 τ, longest 2.48 τ (3.3 s of movie); the dotted curve is an exponential with the same mean.",
+  "fig_structure": "Static structure. (a) Neutral–neutral pair distribution of the hard-sphere run (η = 0.35, 0.01 σ bins, 721 frames, minimum image): the contact value extrapolated from 1.0–1.1 σ is g(σ⁺) = 3.01, against the Carnahan–Starling value 3.00 and 3.02 implied by the collisional virial Z = 5.233. (b) Ion correlations in the charged run (0.05 σ bins, all 721 frames; error bars are Poisson): g₊₋ reaches 16.8 ± 0.4 in the contact bin (≈20 extrapolated to σ⁺); same-sign pairs are depleted at contact (g ≈ 0.5), recover the bulk value by ≈2 σ (the + − + chain distance; 0.98 ± 0.04 over 1.95–2.25 σ) and show a weak second depletion (g ≈ 0.84) at 2.3–2.75 σ; ion–neutral correlations follow the neutral fluid beyond the first shell, while in the contact bin g_ion–neutral = 2.57 against 2.75 for neutral pairs, a 6.5 % deficit corresponding to the contact sites occupied by counter-ion partners (0.15 per ion in that bin). (c) Potential of mean force w₊₋ = −ln[g₊₋/g_HS] compared with the bare Coulomb pair energy −l_B/r and the linearised Debye–Hückel screened potential (κσ = 1.30): the effective attraction at contact is −1.81 ± 0.02 kT, far weaker than the bare −5 kT, because the other 38 ions screen the pair; the DH curve is shown only as a scale since l_B/σ = 5 is outside its range of validity.",
+  "fig_dynamics": "Single-particle dynamics (trajectories unwrapped through the periodic box). (a) Mean-squared displacement versus lag time for neutral spheres in the neutral run, neutral spheres in the charged run and the 40 ions, with t² (ballistic) and t (diffusive) guides and the Enskog prediction; the slopes over 1–4 τ give D = 0.123, 0.125 and 0.124 σ²/τ (1.17 × Enskog), i.e. ions and neutrals diffuse alike. (b) Distribution of the displacement per frame (Δt_frame = 0.025 τ): mean 0.038 σ for neutrals, 0.039 σ for ions, maximum 0.14 σ; the dashed curve is the Maxwell speed distribution times Δt_frame. (c) Free-flight check: fraction of neutral spheres whose displacement vector is identical over two consecutive frame intervals, 0.491 on average against exp(−2ΓΔt_frame) = 0.489 for the measured collision rate Γ = 14.32 τ⁻¹.",
+  "fig_order": "Energy-error order test on the production system (N = 1000, η = 0.35, 20+/20−, l_B = 5 σ): maximum |E(t) − E(0)|/N over 2 τ of NVE dynamics versus the step h for the four integrators, with the fitted log–log slopes in the legends and dashed reference lines ∝ h and ∝ h². (a) Equilibrated start (15 τ with charges on): the shipped cv-phys is second order (slope 2.02) whereas the literal HLL collision Verlet is only sub-first-order (slope 0.73) and 35× less accurate at the production step h = 0.005 τ; kdk-phys gives 1.82 and the naive splitting 1.09. (b) Same test from the un-equilibrated start with Ewald (solid; slopes 1.40 / 0.78 / 1.69 / 0.89) and with the smooth DSF Coulomb model (dashed, cv-phys 1.92, cv 1.21). The Ewald real-space truncation erfc(αr_c) ≈ 7.5×10⁻⁵ gives an energy floor of ≈ 0.5–1 × 10⁻⁶ kT/N that limits the cv-phys curve at h = 0.0025 τ (local slope 1.0 between 0.005 and 0.0025 τ; 6 × 10⁻⁷ kT/N in (a)); cv and naive are flat there because of their own first-order collision error (65× and 229× above the floor, local slopes 0.11 and −0.06), and kdk-phys is not yet affected (local slope 2.9).",
+  "fig_pair_closeup": "Close-ups of the charged production run in the x-ray style of the movie (neutrals 85 % transparent, ions opaque; red +, blue −), re-rendered at 3× the movie resolution for the three frames chosen from a cluster scan with the r < 1.2 σ contact criterion: (a) an isolated +/− contact pair at the front face of the box at t = 16.27 τ (nearest other ion 2.5 σ away, no other ion inside the circle in projection, no neutral in front of it), (b) a linear four-ion chain (+ − + −) at t = 9.75 τ and (c) a linear five-ion chain (− + − + −) at t = 9.22 τ, 42 σ from the camera. Dotted circles enclose the cluster; the bar gives 1 σ at the depth of the cluster. Such chains are transient: clusters of four or more ions exist in 142 of the 721 frames and the largest cluster seen has six ions.",
+  "fig_render_cost": "Rendering cost per 1280×720 frame on the 4-core Xeon box (no GPU), measured on the 1000-sphere test trajectory including overlay and PNG writing: OVITO/Tachyon cpk at final quality (16 ambient-occlusion samples, 16 Tachyon threads) takes 1.43 s per frame, i.e. ≈ 17 min for a 721-frame movie, the x-ray preset 1.27 s (≈ 15 min), the AO-free draft preset 0.26 s (≈ 3 min) and the numpy fallback renderer with 4 worker processes 0.24 s wall (≈ 3 min). The annotated vertical ticks mark the three production movies: 1028 s and 1031 s wall for render plus encode of the two cpk movies (1.43 s per frame, two coinciding ticks) and 896 s for the x-ray movie (1.24 s per frame)."
+ },
+ "could_not_do": [
+  "fig_pair_closeup (c): no linear 5-/6-ion cluster exists at a camera depth < 40 sigma (all six-ion clusters are branched and 48 sigma deep); the best linear 5-ion chain (frame 369) is 41.8 sigma deep with 29 transparent neutrals in front, so the five ions are countable but still seen through neutrals. The renderer CLI has no camera-target option and no per-region neutral hiding, and the render code must not be modified, so the camera was not translated; the 3x re-render with the movie camera was used instead.",
+  "fig_energy stays 7.2 x 4.6 in (0.1 in above the 4.5 in convention, as the builder left it) to keep the 8 pt text and the relocated inset from crowding.",
+  "report.html / report.pdf / REPORT.md were not rebuilt (outside the fixer scope); they still embed the old captions and should be regenerated from the updated manifests."
+ ]
+}
