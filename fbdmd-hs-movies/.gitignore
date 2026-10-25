@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+frames/
+traj/*.xyz
+traj/*.bin
+build/
+*.o
+sim/hsdmd
