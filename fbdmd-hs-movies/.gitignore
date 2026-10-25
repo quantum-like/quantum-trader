@@ -11,3 +11,4 @@ traj/_test/
 traj/*.npz
 frames/_test/
 notes/_test/
+sim/_hsdmd*
