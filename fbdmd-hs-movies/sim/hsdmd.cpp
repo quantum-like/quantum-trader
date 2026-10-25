@@ -1,7 +1,13 @@
 // hsdmd.cpp -- event-driven hard-sphere molecular dynamics (EDMD) with an
 // optional restricted-primitive-model (RPM) charged subset integrated by
-// impulsive / collision Verlet (Houndonougbo, Laird, Leimkuhler, Mol. Phys.
-// 98, 309, 2000).
+// collision Verlet (Houndonougbo, Laird, Leimkuhler, Mol. Phys. 98, 309, 2000;
+// "HLL"): the Coulomb pair potential is split into a short-range part phi_1
+// (zero beyond q2, Hermite-cubic matched) and a long-range part phi_2 (flat for
+// r < q1 = sigma, i.e. zero force at contact).  Outer half kicks with F_2 =
+// F_Ewald - F_1 enclose an exact propagation of T + V_hs + V_1: velocity-Verlet
+// sub-steps with F_1 between consecutive hard collisions, quadratic paths for
+// the ions with F_1 != 0, quartic collision times (HLL Table 1, eqs. 28-29).
+// The older kick-drift-kick schemes (--integrator kdk-phys | naive) are kept.
 //
 // Reduced units: sigma = 1, m = 1, kT = 1, tau = sigma*sqrt(m/kT).
 // Coulomb:  U = bjerrum * sum_{i<j} q_i q_j phi(r_ij)   (q = +-1),
@@ -33,7 +39,7 @@ constexpr double SIGMA = 1.0;
 constexpr double SIGMA2 = SIGMA * SIGMA;
 constexpr double PI = 3.14159265358979323846;
 constexpr double KT = 1.0;
-const char* HSDMD_VERSION = "1.1";
+const char* HSDMD_VERSION = "1.2";
 
 struct Vec3 {
   double x = 0, y = 0, z = 0;
@@ -192,6 +198,170 @@ struct Coulomb {
 };
 
 // ---------------------------------------------------------------------------
+// Collision Verlet helpers
+// ---------------------------------------------------------------------------
+// Potential splitting of phi_c(q) = lB q_i q_j / q (HLL eqs. 19-25) with the Hermite cubic
+//   P(q)  = phi_c(q2) + phi_c'(q2) [ (q-q1)^3 - (q2-q1)^3 ] / (3 (q2-q1)^2),
+//   P'(q) = phi_c'(q2) (q-q1)^2 / (q2-q1)^2          (P(q2)=phi_c(q2), P'(q2)=phi_c'(q2), P'(q1)=P''(q1)=0)
+//   phi_2 = P(q1) (q<q1) | P(q) (q1<=q<q2) | phi_c(q) (q>=q2),   phi_1 = phi_c - phi_2.
+// qq = q_i q_j = +-1.  The force on i for the pair vector r = r_i - r_j is  F_1,i = f1_over_r(q) * r.
+struct Split {
+  double lB = 5.0, q1 = 1.0, q2 = 1.5;
+  double phic(double q, double qq) const { return lB * qq / q; }
+  double dphic(double q, double qq) const { return -lB * qq / (q * q); }
+  double P(double q, double qq) const {
+    const double d = q2 - q1, u = q - q1;
+    return phic(q2, qq) + dphic(q2, qq) * (u * u * u - d * d * d) / (3 * d * d);
+  }
+  double dP(double q, double qq) const { const double d = q2 - q1, u = q - q1; return dphic(q2, qq) * u * u / (d * d); }
+  double phi2(double q, double qq) const { return q < q1 ? P(q1, qq) : (q < q2 ? P(q, qq) : phic(q, qq)); }
+  double phi1(double q, double qq) const { return q >= q2 ? 0.0 : phic(q, qq) - phi2(q, qq); }
+  double dphi1(double q, double qq) const { return q >= q2 ? 0.0 : dphic(q, qq) - (q < q1 ? 0.0 : dP(q, qq)); }
+  double f1_over_r(double q, double qq) const { return -dphi1(q, qq) / q; }
+};
+
+// Relative motion of a pair along quadratic paths: d(t) = dq + dv t + 0.5 da t^2.
+struct QuadPath {
+  Vec3 dq, dv, da;
+  inline double f(double t) const { Vec3 p = dq + (dv + da * (0.5 * t)) * t; return dot(p, p) - SIGMA2; }
+  inline double df(double t) const { Vec3 p = dq + (dv + da * (0.5 * t)) * t; return 2 * dot(p, dv + da * t); }
+  inline double d2f(double t) const {
+    Vec3 p = dq + (dv + da * (0.5 * t)) * t, w = dv + da * t;
+    return 2 * (dot(w, w) + dot(p, da));
+  }
+};
+
+// Root of a monotone function on [lo, hi] with f(lo) = flo, f(hi) = fhi of opposite sign (fhi may be 0):
+// safeguarded Newton (rtsafe) with bisection fallback.  Returns the end of the final bracket on the
+// flo side (for a collision entry root, flo > 0, this is the point just outside contact).
+template <class F, class DF>
+double bracket_root(F f, DF df, double lo, double hi, double flo, double fhi) {
+  if (fhi == 0) return hi;
+  double x = hi - fhi * (hi - lo) / (fhi - flo);
+  if (!(x > lo && x < hi)) x = 0.5 * (lo + hi);
+  double dxold = hi - lo, dx = dxold;
+  for (int it = 0; it < 200; ++it) {
+    double fx = f(x);
+    if (fx == 0) return x;
+    if ((fx > 0) == (flo > 0)) { lo = x; flo = fx; } else { hi = x; fhi = fx; }
+    if (hi - lo <= 4 * std::numeric_limits<double>::epsilon() * std::fabs(hi) + 1e-300) break;
+    double d = df(x);
+    double xn;
+    if (d == 0 || std::fabs(2 * fx) > std::fabs(dxold * d)) {
+      xn = 0.5 * (lo + hi);
+    } else {
+      xn = x - fx / d;
+      if (!(xn > lo && xn < hi)) xn = 0.5 * (lo + hi);
+    }
+    dxold = dx;
+    dx = std::fabs(xn - x);
+    x = xn;
+  }
+  return lo;
+}
+
+// Smallest tau in [0, tau_max] at which the pair distance along the quadratic relative path
+// dq + dv tau + 0.5 da tau^2 crosses SIGMA from above (HLL eq. 29; da != 0 assumed).  The quartic
+// f(tau) = |d(tau)|^2 - sigma^2 is split into monotone pieces at its critical points (roots of the
+// cubic f', bracketed between the roots of the quadratic f''); each decreasing piece that brackets
+// a sign change is solved by safeguarded Newton.  A pair inside the contact band
+// |dq|^2 <= sigma^2 (1 + 1e-12) collides at tau = 0 if it approaches; if it separates, the next
+// crossing from above (re-entry under attraction) is returned.  A decreasing piece that starts at
+// f <= 0 (the pair never left contact: turning point inside the band) collides at its start.
+bool quartic_collision_time(const Vec3& dq, const Vec3& dv, const Vec3& da, double tau_max, double& tau) {
+  const double r2 = dot(dq, dq), b = dot(dq, dv);
+  const double a2 = dot(da, da), v2 = dot(dv, dv), ra = dot(dq, da);
+  if (r2 <= SIGMA2 * (1 + 1e-12)) {
+    if (b < 0 || (b == 0 && v2 + ra < 0)) { tau = 0; return true; }
+  } else {
+    // triangle inequality: |d(tau)| >= |dq| - |dv| tau - 0.5 |da| tau^2
+    const double reach = std::sqrt(v2) * tau_max + 0.5 * std::sqrt(a2) * tau_max * tau_max;
+    if (std::sqrt(r2) - SIGMA > reach) return false;
+  }
+  if (!(tau_max > 0)) return false;
+  const QuadPath P{dq, dv, da};
+  auto f = [&](double t) { return P.f(t); };
+  auto g = [&](double t) { return P.df(t); };
+  auto dg = [&](double t) { return P.d2f(t); };
+  // breakpoints of f' (roots of f'' = 12 c4 t^2 + 6 c3 t + 2 c2, c4 = |da|^2/4, c3 = dv.da, c2 = v2 + dq.da)
+  double pts[6];
+  int np = 0;
+  pts[np++] = 0;
+  {
+    const double A = 3 * a2, B = 6 * dot(dv, da), C = 2 * (v2 + ra);
+    const double disc = B * B - 4 * A * C;
+    if (disc > 0 && A > 0) {
+      const double sq = std::sqrt(disc);
+      const double qq = -0.5 * (B + std::copysign(sq, B));
+      double s1 = qq / A, s2 = (qq != 0) ? C / qq : s1;
+      if (s1 > s2) std::swap(s1, s2);
+      if (s1 > 0 && s1 < tau_max) pts[np++] = s1;
+      if (s2 > 0 && s2 < tau_max && s2 != s1) pts[np++] = s2;
+    }
+  }
+  pts[np++] = tau_max;
+  // critical points of f in (0, tau_max)
+  double crit[4];
+  int ncrit = 0;
+  {
+    double ga = g(pts[0]);
+    for (int k = 0; k + 1 < np; ++k) {
+      const double a = pts[k], bnd = pts[k + 1];
+      const double gb = g(bnd);
+      if ((ga < 0 && gb > 0) || (ga > 0 && gb < 0)) crit[ncrit++] = bracket_root(g, dg, a, bnd, ga, gb);
+      else if (gb == 0 && bnd < tau_max) crit[ncrit++] = bnd;
+      ga = gb;
+    }
+  }
+  double fp[6];
+  int nf = 0;
+  fp[nf++] = 0;
+  for (int k = 0; k < ncrit; ++k) fp[nf++] = crit[k];
+  fp[nf++] = tau_max;
+  double fa = r2 - SIGMA2;
+  for (int k = 0; k + 1 < nf; ++k) {
+    const double a = fp[k], bnd = fp[k + 1];
+    const double fb = f(bnd);
+    if (fa > fb) {  // decreasing piece
+      if (a > 0 && fa <= 0) { tau = a; return true; }
+      if (fa > 0 && fb <= 0) { tau = bracket_root(f, g, a, bnd, fa, fb); return true; }
+    }
+    fa = fb;
+  }
+  return false;
+}
+
+// First time t >= 0 at which the 1-d quadratic motion x0 + v t + 0.5 a t^2 reaches the boundary b
+// moving outward (sign of the velocity there = out, +1 for an upper, -1 for a lower cell face).
+// Returns +inf if it never does.  A particle already outside and moving outward crosses at t = 0.
+double quadratic_face_time(double x0, double v, double a, double b, int out) {
+  const double c = x0 - b;  // > 0: above the face
+  const double inf = std::numeric_limits<double>::infinity();
+  if ((out > 0 && c >= 0) || (out < 0 && c <= 0)) {
+    const double vel = v;
+    if ((out > 0 && (vel > 0 || (vel == 0 && a > 0))) || (out < 0 && (vel < 0 || (vel == 0 && a < 0)))) return 0;
+  }
+  double best = inf;
+  auto consider = [&](double t) {
+    if (!(t > 0) || t >= best) return;
+    const double w = v + a * t;
+    if ((out > 0 && w > 0) || (out < 0 && w < 0)) best = t;
+  };
+  if (a == 0) {
+    if (v != 0) consider(-c / v);
+    return best;
+  }
+  const double A = 0.5 * a, B = v, C = c;
+  const double disc = B * B - 4 * A * C;
+  if (disc < 0) return inf;
+  const double sq = std::sqrt(disc);
+  const double qq = -0.5 * (B + std::copysign(sq, B));
+  consider(qq / A);
+  if (qq != 0) consider(C / qq);
+  return best;
+}
+
+// ---------------------------------------------------------------------------
 // Event-driven hard-sphere simulation
 // ---------------------------------------------------------------------------
 struct Event {
@@ -226,6 +396,20 @@ struct Sim {
   bool in_step = false;
   bool phys_collision = true;  // reflect physical velocities at collisions (false = naive drift reflection)
   uint64_t n_phys_separating = 0, n_drift_fix = 0;
+  // ---- collision Verlet (HLL 2000) state; see cv_* below
+  bool cv = false;
+  Split split;
+  std::vector<Vec3> a1;        // F_1 (m = 1) of each particle during the current Verlet sub-step; zero unless in A
+  std::vector<char> inA;       // a1 != 0: quadratic path x + v dt + a1 dt^2/2, velocity v + a1 dt
+  std::vector<int> Alist;      // the accelerated set A
+  double t_sub0 = 0;           // start time of the current Verlet sub-step
+  double t_step_end = 0;       // end of the current outer step = window of the quartic collision predictions
+  double cv_vmin = 2e-5;       // minimum normal separation speed after a processed collision of an accelerated pair
+  uint64_t n_substeps = 0, n_cv_vmin = 0, n_quartic = 0, n_cv_grazing = 0;
+  std::vector<Vec3> F1tmp, rion_tmp;
+  std::vector<int> changed;
+  std::vector<uint32_t> mark;
+  uint32_t mark_gen = 0;
   // statistics
   uint64_t ncoll = 0, ncross = 0, nstale = 0, nevents = 0, nskipped_grazing = 0;
   double virial = 0;           // sum over collisions of sigma*|dp|  (m = 1)
@@ -254,6 +438,10 @@ struct Sim {
     acc.assign(N, Vec3{});
     adot.assign(N, Vec3{});
     have_prev = false;
+    a1.assign(N, Vec3{});
+    inA.assign(N, 0);
+    Alist.clear();
+    mark.assign(N, 0u);
     ions.clear();
     heap.clear();
     heap_limit = std::max<size_t>(100000, (size_t)64 * N);
@@ -375,8 +563,21 @@ struct Sim {
   }
 
   // ---------------- kinematics ----------------
-  inline Vec3 pos_at(int i, double t) const { return pos[i] + vel[i] * (t - tlast[i]); }
-  inline void sync(int i, double t) { pos[i] = pos_at(i, t); tlast[i] = t; }
+  // Lazy positions: ballistic for everybody except the accelerated set A of the collision-Verlet
+  // sub-step (quadratic path with the constant sub-step acceleration a1; the stored velocity is the
+  // velocity at tlast, i.e. at the sub-step start or at the last sync along the same parabola).
+  inline Vec3 pos_at(int i, double t) const {
+    const double dt = t - tlast[i];
+    Vec3 p = pos[i] + vel[i] * dt;
+    if (inA[i]) p += a1[i] * (0.5 * dt * dt);
+    return p;
+  }
+  inline Vec3 vel_at(int i, double t) const { return inA[i] ? vel[i] + a1[i] * (t - tlast[i]) : vel[i]; }
+  inline void sync(int i, double t) {
+    pos[i] = pos_at(i, t);
+    if (inA[i]) vel[i] += a1[i] * (t - tlast[i]);
+    tlast[i] = t;
+  }
   void sync_all(double t) { for (int i = 0; i < N; ++i) sync(i, t); }
 
   // ---------------- events ----------------
@@ -389,6 +590,21 @@ struct Sim {
     double best = std::numeric_limits<double>::infinity();
     int bdir = -1;
     const int cc[3] = {cx[i], cy[i], cz[i]};
+    if (inA[i]) {
+      // quadratic path: per axis both faces, first outward crossing (velocity may reverse)
+      for (int d = 0; d < 3; ++d) {
+        const double x0 = comp(pos[i], d), v = comp(vel[i], d), a = comp(a1[i], d);
+        const double thi = quadratic_face_time(x0, v, a, (cc[d] + 1) * cellw, +1);
+        const double tlo = quadratic_face_time(x0, v, a, cc[d] * cellw, -1);
+        if (thi < best) { best = thi; bdir = 2 * d + 1; }
+        if (tlo < best) { best = tlo; bdir = 2 * d; }
+      }
+      if (bdir < 0) return;
+      best += tlast[i];
+      if (best < tnow) best = tnow;
+      push_event(Event{best, i, -1 - bdir, cnt[i], 0u});
+      return;
+    }
     for (int d = 0; d < 3; ++d) {
       double v = comp(vel[i], d);
       if (v == 0) continue;
@@ -400,8 +616,36 @@ struct Sim {
     if (bdir >= 0) push_event(Event{best, i, -1 - bdir, cnt[i], 0u});
   }
 
+  // collision prediction for a pair with at least one accelerated member (collision Verlet):
+  // quartic on the window (tnow, t_step_end] (all ions are re-kicked and re-predicted at the step end)
+  inline bool predict_pair_cv(int i, int j, double& tc) {
+    Vec3 r = pos_at(i, tnow) - pos_at(j, tnow);
+    minimg(r);
+    const Vec3 v = vel_at(i, tnow) - vel_at(j, tnow);
+    const Vec3 da = a1[i] - a1[j];
+    if (da.x == 0 && da.y == 0 && da.z == 0) {
+      // identical accelerations: ordinary EDMD quadratic (exact for all times)
+      double b = dot(r, v);
+      if (b >= 0) return false;
+      double v2 = dot(v, v);
+      if (v2 <= 0) return false;
+      double r2 = dot(r, r);
+      if (r2 <= SIGMA2 * (1 + 1e-12)) { tc = tnow; return true; }
+      double disc = b * b - v2 * (r2 - SIGMA2);
+      if (disc < 0) return false;
+      tc = tnow + (r2 - SIGMA2) / (-b + std::sqrt(disc));
+      return true;
+    }
+    ++n_quartic;
+    double tau;
+    if (!quartic_collision_time(r, v, da, t_step_end - tnow, tau)) return false;
+    tc = tnow + tau;
+    return true;
+  }
+
   // predicted collision of (i,j) given current velocities; positions evaluated at tnow
-  inline bool predict_pair(int i, int j, double& tc) const {
+  inline bool predict_pair(int i, int j, double& tc) {
+    if (inA[i] || inA[j]) return predict_pair_cv(i, j, tc);
     Vec3 r = pos_at(i, tnow) - pos_at(j, tnow);
     minimg(r);
     Vec3 v = vel[i] - vel[j];
@@ -461,7 +705,149 @@ struct Sim {
     heap_limit = std::max<size_t>(100000, std::max((size_t)64 * N, 2 * heap.size()));
   }
 
+  // ---------------- collision Verlet: H_1 = T + V_hs + V_1 propagation (HLL Table 1) ----------------
+  // F_1 of all ions at time t (positions evaluated on the lazy paths; the accelerated ones must be synced)
+  void compute_F1(double t, std::vector<Vec3>& F1) {
+    const size_t n = ions.size();
+    rion_tmp.resize(n);
+    for (size_t k = 0; k < n; ++k) rion_tmp[k] = pos_at(ions[k], t);
+    F1.assign(n, Vec3{});
+    const double q22 = split.q2 * split.q2;
+    for (size_t a = 0; a < n; ++a)
+      for (size_t b = a + 1; b < n; ++b) {
+        Vec3 d = rion_tmp[a] - rion_tmp[b];
+        minimg(d);
+        const double r2 = dot(d, d);
+        if (r2 >= q22) continue;
+        const double qq = (double)(charge[ions[a]] * charge[ions[b]]);
+        const Vec3 fd = d * split.f1_over_r(std::sqrt(r2), qq);
+        F1[a] += fd;
+        F1[b] -= fd;
+      }
+  }
+  inline void mark_changed(int i) {
+    if (mark[i] != mark_gen) { mark[i] = mark_gen; changed.push_back(i); }
+  }
+  // End of the Verlet sub-step that started at t_sub0, at the current time t = tnow (all events < t done):
+  // advance the accelerated set along its parabolas (p_half + drift of Table 1), recompute F_1 at the new
+  // positions and merge the second half kick of this sub-step with the first of the next one,
+  //     v <- v + tau/2 (a_old + a_new)   written as   v_phys(t) + tau/2 (a_new - a_old),
+  // for every ion whose F_1 is or was non-zero (entering / leaving A is included).  Collects the particles
+  // whose velocity or acceleration changed in `changed`; the caller bumps counters and re-predicts.
+  void cv_substep_boundary(double t) {
+    const double tau = t - t_sub0;
+    for (int i : Alist) sync(i, t);
+    compute_F1(t, F1tmp);
+    ++mark_gen;
+    changed.clear();
+    Alist.clear();
+    for (size_t k = 0; k < ions.size(); ++k) {
+      const int i = ions[k];
+      const Vec3 an = F1tmp[k], ao = a1[i];
+      const bool was = inA[i] != 0, now = (an.x != 0 || an.y != 0 || an.z != 0);
+      if (now) Alist.push_back(i);
+      if (!was && !now) continue;
+      if (!was) sync(i, t);  // entering A: parabola starts here
+      vel[i] += (an - ao) * (0.5 * tau);
+      a1[i] = an;
+      inA[i] = now ? 1 : 0;
+      mark_changed(i);
+    }
+    t_sub0 = t;
+    ++n_substeps;
+  }
+  void repredict_changed() {
+    for (int i : changed) ++cnt[i];
+    for (int i : changed) { schedule_crossing(i); predict_collisions(i); }
+    changed.clear();
+  }
+  // switch the CV machinery on (after assign_charges): F_1 at the current positions defines A
+  void cv_begin(double lB, double q1, double q2) {
+    cv = true;
+    split.lB = lB; split.q1 = q1; split.q2 = q2;
+    sync_all(tnow);
+    t_sub0 = tnow;
+    t_step_end = tnow;
+    cv_substep_boundary(tnow);
+    repredict_changed();
+  }
+  // outer half kick with F_2 = F_total - F_1 at the current (synchronized) positions and start of a step of
+  // length h (F_total indexed like `ions`; F_1 = a1 of the ions, consistent with the same positions)
+  void cv_kick_start(const std::vector<Vec3>& Ftot, double h) {
+    for (size_t k = 0; k < ions.size(); ++k) {
+      const int i = ions[k];
+      sync(i, tnow);
+      vel[i] += (Ftot[k] - a1[i]) * (0.5 * h);
+      ++cnt[i];
+    }
+    t_sub0 = tnow;
+    t_step_end = tnow + h;
+    in_step = true;
+    for (int i : ions) { schedule_crossing(i); predict_collisions(i); }
+  }
+  // final Verlet sub-step of the step (ends at the current tnow = step end) -- call after advance_to(step end)
+  void cv_finish_step() {
+    cv_substep_boundary(tnow);
+    changed.clear();  // the second half kick re-predicts every ion anyway
+  }
+  // second outer half kick with F_2 at the end-of-step positions; velocities are physical afterwards
+  void cv_kick_end(const std::vector<Vec3>& Ftot, double h) {
+    for (size_t k = 0; k < ions.size(); ++k) {
+      const int i = ions[k];
+      sync(i, tnow);
+      vel[i] += (Ftot[k] - a1[i]) * (0.5 * h);
+      ++cnt[i];
+    }
+    in_step = false;
+    t_step_end = tnow;  // no window until the next cv_kick_start (which re-predicts all ions)
+    for (int i : ions) { schedule_crossing(i); predict_collisions(i); }
+  }
+
+  // one hard collision inside the collision-Verlet propagation: it ends the current Verlet sub-step for
+  // the whole system (Table 1), then the pair is reflected with the updated (physical) velocities
+  void process_collision_cv(const Event& e) {
+    const int i = e.i, j = e.j;
+    sync(i, e.t);
+    sync(j, e.t);
+    cv_substep_boundary(e.t);
+    Vec3 r = pos[i] - pos[j];
+    minimg(r);
+    const double rn = std::sqrt(dot(r, r));
+    max_contact_err = std::max(max_contact_err, std::fabs(rn - SIGMA));
+    const Vec3 n = r * (1.0 / rn);
+    double vn = dot(vel[i] - vel[j], n);
+    const bool accelerated = inA[i] || inA[j];
+    if (vn < 0) {
+      const Vec3 dv = n * vn;
+      vel[i] -= dv;
+      vel[j] += dv;
+      virial += SIGMA * (-vn);
+      ++ncoll;
+      vn = -vn;
+      mark_changed(i);
+      mark_changed(j);
+    } else if (!accelerated) {
+      ++nskipped_grazing;  // ballistic pair already separating (grazing roundoff): no impulse
+    } else {
+      ++n_cv_grazing;
+    }
+    if (accelerated && vn < cv_vmin) {
+      // Under an inward relative acceleration a pair leaving contact at normal speed vn returns after
+      // 2 vn / a_n; below cv_vmin the excursion (sigma vn^2 / a_n) is at the roundoff level of the quartic
+      // and the bounce frequency diverges.  Enforce a minimum separation speed (momentum conserving;
+      // energy input <= cv_vmin^2 / 4 per event).
+      const double sft = 0.5 * (cv_vmin - vn);
+      vel[i] += n * sft;
+      vel[j] -= n * sft;
+      ++n_cv_vmin;
+      mark_changed(i);
+      mark_changed(j);
+    }
+    repredict_changed();
+  }
+
   void process_collision(const Event& e) {
+    if (cv) { process_collision_cv(e); return; }
     const int i = e.i, j = e.j;
     sync(i, e.t);
     sync(j, e.t);
@@ -654,7 +1040,8 @@ struct Options {
   int nplus = 0, nminus = 0;
   double bjerrum = 5.0;
   std::string coulomb = "ewald";
-  std::string collision_rule = "phys";
+  std::string integrator = "cv";   // cv | kdk-phys | naive
+  double cv_q1 = 1.0, cv_q2 = 1.5;  // potential-splitting radii (sigma)
   double dt = 0.005;
   double t_equil_neutral = 5, t_equil_charged = 15, t_run = 18, dt_frame = 0.025;
   double thermostat_interval = 0.1;
@@ -672,8 +1059,12 @@ void usage() {
       "  --nplus I --nminus I   number of +e / -e spheres (0, 0)\n"
       "  --bjerrum F         Bjerrum length l_B/sigma (5.0)\n"
       "  --coulomb ewald|dsf (ewald)\n"
-      "  --collision-rule phys|naive   reflect physical velocities at ion collisions (phys, default)\n"
-      "                      or the leapfrog drift velocities (naive, O(dt) error per collision)\n"
+      "  --integrator cv|kdk-phys|naive   (cv) cv = collision Verlet of Houndonougbo, Laird & Leimkuhler\n"
+      "                      2000 (potential splitting + Verlet sub-steps between collisions, O(dt^2));\n"
+      "                      kdk-phys = kick-drift-kick with the physical-velocity collision rule;\n"
+      "                      naive = kick-drift-kick with drift-velocity reflection (HLL eq. 9, O(dt))\n"
+      "  --cv-q1 F --cv-q2 F   splitting radii in sigma (1.0, 1.5): phi_2 is flat for r < q1, phi_1 = 0 for r >= q2\n"
+      "  --collision-rule phys|naive   deprecated alias of --integrator kdk-phys | naive\n"
       "  --dt F              Verlet step for charged runs (0.005); rounded so dt_frame/dt is integer\n"
       "  --t-equil-neutral F --t-equil-charged F --t-run F   (5, 15, 18); the +/- pairing\n"
       "                      relaxation time is 4-6 tau, so t-equil-charged >= 10 is recommended\n"
@@ -703,7 +1094,15 @@ Options parse(int argc, char** argv) {
     else if (a == "--nminus") o.nminus = std::atoi(need(k));
     else if (a == "--bjerrum") o.bjerrum = std::atof(need(k));
     else if (a == "--coulomb") o.coulomb = need(k);
-    else if (a == "--collision-rule") o.collision_rule = need(k);
+    else if (a == "--integrator") o.integrator = need(k);
+    else if (a == "--cv-q1") o.cv_q1 = std::atof(need(k));
+    else if (a == "--cv-q2") o.cv_q2 = std::atof(need(k));
+    else if (a == "--collision-rule") {
+      std::string r = need(k);
+      if (r != "phys" && r != "naive") { std::fprintf(stderr, "--collision-rule must be phys or naive\n"); std::exit(2); }
+      o.integrator = (r == "phys") ? "kdk-phys" : "naive";
+      std::fprintf(stderr, "note: --collision-rule %s is deprecated; using --integrator %s\n", r.c_str(), o.integrator.c_str());
+    }
     else if (a == "--dt") o.dt = std::atof(need(k));
     else if (a == "--t-equil-neutral") o.t_equil_neutral = std::atof(need(k));
     else if (a == "--t-equil-charged") o.t_equil_charged = std::atof(need(k));
@@ -716,8 +1115,12 @@ Options parse(int argc, char** argv) {
     else { std::fprintf(stderr, "unknown option %s\n", a.c_str()); usage(); std::exit(2); }
   }
   if (o.coulomb != "ewald" && o.coulomb != "dsf") { std::fprintf(stderr, "--coulomb must be ewald or dsf\n"); std::exit(2); }
-  if (o.collision_rule != "phys" && o.collision_rule != "naive") { std::fprintf(stderr, "--collision-rule must be phys or naive\n"); std::exit(2); }
+  if (o.integrator != "cv" && o.integrator != "kdk-phys" && o.integrator != "naive") {
+    std::fprintf(stderr, "--integrator must be cv, kdk-phys or naive\n");
+    std::exit(2);
+  }
   auto die = [](const char* msg) { std::fprintf(stderr, "error: %s\n", msg); std::exit(2); };
+  if (!(o.cv_q1 >= SIGMA) || !(o.cv_q2 > o.cv_q1) || !std::isfinite(o.cv_q2)) die("need sigma <= --cv-q1 < --cv-q2");
   if (o.N < 1) die("--N must be >= 1");
   if (o.nplus < 0 || o.nminus < 0) die("--nplus/--nminus must be >= 0");
   if (o.nplus + o.nminus > o.N) die("nplus+nminus > N");
@@ -964,13 +1367,18 @@ int run(const Options& o) {
   const double L = std::cbrt(o.N * PI / (6 * o.eta));
   const int nion = o.nplus + o.nminus;
   if (nion > o.N) { std::fprintf(stderr, "error: nplus+nminus > N\n"); return 2; }
+  const bool use_cv = (o.integrator == "cv");
+  if (nion > 0 && use_cv && o.cv_q2 > 0.5 * L) {
+    std::fprintf(stderr, "error: --cv-q2 %g exceeds L/2 = %g (minimum image)\n", o.cv_q2, 0.5 * L);
+    return 2;
+  }
   Sim s;
   s.setup_box(o.N, L);
-  s.phys_collision = (o.collision_rule == "phys");
+  s.phys_collision = (o.integrator == "kdk-phys");
   s.init_lattice(o.seed);
-  std::fprintf(stderr, "hsdmd %s: N=%d eta=%.4f L=%.6f ncell=%d ions=%d (+%d/-%d) coulomb=%s collision-rule=%s seed=%llu\n",
+  std::fprintf(stderr, "hsdmd %s: N=%d eta=%.4f L=%.6f ncell=%d ions=%d (+%d/-%d) coulomb=%s integrator=%s seed=%llu\n",
                HSDMD_VERSION, o.N, o.eta, L, s.ncell, nion, o.nplus, o.nminus, o.coulomb.c_str(),
-               o.collision_rule.c_str(), (unsigned long long)o.seed);
+               o.integrator.c_str(), (unsigned long long)o.seed);
 
   FILE* fxyz = nullptr;
   FILE* fdiag = nullptr;
@@ -1023,16 +1431,32 @@ int run(const Options& o) {
     dt_eff = o.dt_frame / nsub;
     std::fprintf(stderr, "  charged: dt=%.6g (dt_frame/dt=%d), alpha=%.4f rc=%.4f kvecs=%zu\n", dt_eff, nsub,
                  cb.alpha, cb.rc, cb.kvecs.size());
+    if (use_cv) {
+      s.cv_begin(o.bjerrum, o.cv_q1, o.cv_q2);
+      std::fprintf(stderr, "  collision Verlet: q1=%g q2=%g, %zu ions accelerated at start, vmin=%g\n", o.cv_q1, o.cv_q2,
+                   s.Alist.size(), s.cv_vmin);
+    }
   }
-  // one collision-Verlet step (kick-drift-kick) ending exactly at t_target;
-  // Fion holds the forces at the current (synchronized) positions on entry and on exit
+  // one step of length h ending exactly at t_target; Fion holds the total Coulomb forces at the current
+  // (synchronized) positions on entry and on exit, PE the full Coulomb energy at the exit positions.
+  //  cv:  half kick with F_2 = F - F_1 -> exact H_1 flow (collisions + Verlet sub-steps with F_1) -> half kick
+  //  kdk: half kick with F -> exact hard-sphere flow -> half kick (HLL eq. 9, "naive splitting")
   auto verlet_step_to = [&](double t_target) {
     const double h = t_target - s.tnow;
-    s.kick_start(Fion, h);
-    s.advance_to(t_target);
-    s.ion_positions(s.tnow, rion);
-    PE = cb.compute(rion, qion, Fion);
-    s.kick_end(Fion, h);
+    if (use_cv) {
+      s.cv_kick_start(Fion, h);
+      s.advance_to(t_target);
+      s.cv_finish_step();
+      s.ion_positions(s.tnow, rion);
+      PE = cb.compute(rion, qion, Fion);
+      s.cv_kick_end(Fion, h);
+    } else {
+      s.kick_start(Fion, h);
+      s.advance_to(t_target);
+      s.ion_positions(s.tnow, rion);
+      PE = cb.compute(rion, qion, Fion);
+      s.kick_end(Fion, h);
+    }
   };
   if (nion > 0) {
     s.sync_all(s.tnow);
@@ -1193,9 +1617,22 @@ int run(const Options& o) {
     std::fprintf(f, "  \"N\": %d,\n  \"eta\": %.10g,\n  \"L\": %.12g,\n  \"kT\": 1.0,\n", o.N, o.eta, L);
     std::fprintf(f, "  \"nplus\": %d,\n  \"nminus\": %d,\n  \"bjerrum\": %.10g,\n", o.nplus, o.nminus, o.bjerrum);
     std::fprintf(f, "  \"coulomb\": \"%s\",\n", nion > 0 ? o.coulomb.c_str() : "none");
-    std::fprintf(f, "  \"integrator\": \"%s\",\n", nion > 0 ? "EDMD + impulsive (collision) Verlet" : "EDMD");
+    {
+      char integ[256];
+      if (nion == 0) std::snprintf(integ, sizeof integ, "EDMD");
+      else if (use_cv) std::snprintf(integ, sizeof integ, "collision Verlet (HLL 2000), q1=%g, q2=%g", o.cv_q1, o.cv_q2);
+      else if (o.integrator == "kdk-phys") std::snprintf(integ, sizeof integ, "EDMD + kick-drift-kick (physical-velocity collision rule)");
+      else std::snprintf(integ, sizeof integ, "EDMD + kick-drift-kick (naive splitting, HLL eq. 9)");
+      std::fprintf(f, "  \"integrator\": \"%s\",\n", integ);
+      std::fprintf(f, "  \"integrator_id\": \"%s\",\n", nion > 0 ? o.integrator.c_str() : "edmd");
+      std::fprintf(f, "  \"cv_q1\": %.10g,\n  \"cv_q2\": %.10g,\n  \"cv_vmin\": %.6g,\n", o.cv_q1, o.cv_q2, s.cv_vmin);
+      std::fprintf(f, "  \"n_verlet_substeps\": %llu,\n  \"n_quartic_solves\": %llu,\n  \"n_cv_vmin_bias\": %llu,\n  \"n_cv_grazing\": %llu,\n",
+                   (unsigned long long)s.n_substeps, (unsigned long long)s.n_quartic, (unsigned long long)s.n_cv_vmin,
+                   (unsigned long long)s.n_cv_grazing);
+    }
     std::fprintf(f, "  \"collision_rule\": \"%s\",\n  \"n_phys_separating\": %llu,\n  \"n_drift_fix\": %llu,\n",
-                 nion > 0 ? o.collision_rule.c_str() : "exact", (unsigned long long)s.n_phys_separating, (unsigned long long)s.n_drift_fix);
+                 nion == 0 ? "exact" : (use_cv ? "cv" : (o.integrator == "kdk-phys" ? "phys" : "naive")),
+                 (unsigned long long)s.n_phys_separating, (unsigned long long)s.n_drift_fix);
     std::fprintf(f, "  \"dt\": %.12g,\n  \"dt_requested\": %.12g,\n  \"steps_per_frame\": %d,\n", nion > 0 ? dt_eff : 0.0, o.dt, nion > 0 ? nsub : 0);
     std::fprintf(f, "  \"dt_frame\": %.12g,\n  \"t_equil_neutral\": %.10g,\n  \"t_equil_charged\": %.10g,\n  \"t_run\": %.10g,\n",
                  o.dt_frame, o.t_equil_neutral, nion > 0 ? o.t_equil_charged : 0.0, o.t_run);
