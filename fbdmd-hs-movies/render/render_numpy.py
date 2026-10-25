@@ -24,7 +24,8 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (BG, CELL_COLOR, COLORS, RADIUS, XRAY_TRANSPARENCY, Camera, build_parser,  # noqa: E402
-                    default_label, finish_movie, frame_indices, render_frames, resolve_paths)
+                    check_tools, default_label, finish_movie, frame_indices, n_output_frames,
+                    output_pairs, render_frames, resolve_paths)
 from trajio import load_traj  # noqa: E402
 
 
@@ -160,12 +161,16 @@ class SphereRasterizer:
             pts.append(pa + (pb - pa) * s)
         P = np.concatenate(pts)
         pix, depth = self.cam.project(pose, P)
+        # The z-buffer stores the ray parameter t = Euclidean distance from the camera (unit ray dirs),
+        # NOT the view-axis depth, so the visibility test must use the same quantity: off-axis the
+        # view depth is smaller than the distance by up to ~1.7 sigma and edges would show through spheres.
+        dist = np.linalg.norm(P - pose["pos"], axis=1)
         x, y = pix[:, 0], pix[:, 1]
         ok = (x >= 0) & (x < W - 1) & (y >= 0) & (y < H - 1) & (depth > 0)
-        x, y, depth = x[ok], y[ok], depth[ok]
+        x, y, dist = x[ok], y[ok], dist[ok]
         xi, yi = np.floor(x).astype(int), np.floor(y).astype(int)
-        # depth test against the nearest pixel (small bias so lines on the box faces stay visible)
-        vis = depth < zbuf[np.clip(np.rint(y).astype(int), 0, H - 1), np.clip(np.rint(x).astype(int), 0, W - 1)] + 0.05
+        # distance test against the nearest pixel (small bias so lines on the box faces stay visible)
+        vis = dist < zbuf[np.clip(np.rint(y).astype(int), 0, H - 1), np.clip(np.rint(x).astype(int), 0, W - 1)] + 0.05
         x, y, xi, yi = x[vis], y[vis], xi[vis], yi[vis]
         fx, fy = x - xi, y - yi
         cov = np.zeros((H, W), np.float32)
@@ -185,9 +190,10 @@ def add_numpy_args(p):
     return p
 
 
-def _make_renderer(args, traj, indices):
+def _make_renderer(args, traj, n_total):
+    # nout = frames of the FULL movie so that the azimuth of output frame j is the same in every chunk
     cam = Camera(traj.L, args.width, args.height, args.fov_deg, args.elev_deg, args.azim0_deg,
-                 args.orbit_deg, nout=len(indices))
+                 args.orbit_deg, nout=n_total)
     rast = SphereRasterizer(cam, args.bg, args.style, args.quality)
 
     def render_rgb(j, k):
@@ -199,44 +205,46 @@ def _make_renderer(args, traj, indices):
 def _worker(argdict, pairs, total, wid):
     args = argparse.Namespace(**argdict)
     traj = load_traj(args.traj)
-    indices = frame_indices(traj.nframes, args.start, args.end, args.stride)
     name, out, frames_dir = resolve_paths(args)
     label = default_label(traj, name) if args.label is None else args.label
-    _, render_rgb = _make_renderer(args, traj, indices)
+    _, render_rgb = _make_renderer(args, traj, n_output_frames(traj.nframes, args.stride))
     return render_frames(args, traj, pairs, render_rgb, frames_dir, label, tag=f"[numpy w{wid}] ", total=total)
 
 
 def main(argv=None):
     p = add_numpy_args(build_parser("render_numpy.py", __doc__))
     args = p.parse_args(argv)
+    check_tools(args)
     t_setup = time.time()
     traj = load_traj(args.traj)
     name, out, frames_dir = resolve_paths(args)
     indices = frame_indices(traj.nframes, args.start, args.end, args.stride)
+    n_total = n_output_frames(traj.nframes, args.stride)
+    pairs = output_pairs(indices, args.stride)
     label = default_label(traj, name) if args.label is None else args.label
     print(f"trajectory {args.traj}: {traj.describe()}")
-    print(f"name={name} frames={len(indices)} ({indices[0]}..{indices[-1]} stride {args.stride}) "
+    print(f"name={name} frames={len(indices)} (traj {indices[0]}..{indices[-1]} stride {args.stride} -> "
+          f"output frames {pairs[0][0]}..{pairs[-1][0]} of {n_total}) "
           f"size={args.width}x{args.height} style={args.style} bg={args.bg} quality={args.quality} jobs={args.jobs}")
-    cam, render_rgb = _make_renderer(args, traj, indices)
+    cam, render_rgb = _make_renderer(args, traj, n_total)
     print(cam.describe())
-    pairs = list(enumerate(indices))
     print(f"setup {time.time() - t_setup:.1f}s; rendering to {frames_dir}", flush=True)
     t0 = time.time()
     if args.jobs <= 1 or len(pairs) < 2:
-        render_frames(args, traj, pairs, render_rgb, frames_dir, label, tag="[numpy] ")
+        render_frames(args, traj, pairs, render_rgb, frames_dir, label, tag="[numpy] ", total=n_total)
     else:
         import multiprocessing as mp
         jobs = min(args.jobs, len(pairs))
         chunks = [pairs[w::jobs] for w in range(jobs)]
         ctx = mp.get_context("spawn")        # portable (macOS default); workers re-load the trajectory
         with ctx.Pool(jobs) as pool:
-            results = pool.starmap(_worker, [(vars(args), ch, len(pairs), w) for w, ch in enumerate(chunks)])
+            results = pool.starmap(_worker, [(vars(args), ch, n_total, w) for w, ch in enumerate(chunks)])
         n = sum(r[0] for r in results)
         wall = time.time() - t0
         if n:
             print(f"[numpy] {n} frames with {jobs} workers in {wall:.1f}s -> {wall / n:.3f} s/frame wall "
                   f"(721 frames ~{721 * wall / n / 60:.1f} min)")
-    finish_movie(args, frames_dir, out, len(indices))
+    finish_movie(args, frames_dir, out, pairs, n_total)
 
 
 if __name__ == "__main__":

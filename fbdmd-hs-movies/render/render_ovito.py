@@ -12,8 +12,10 @@ Design
   traj.pos[frame] (positions only, no per-frame import).
 * Camera: perspective, constant elevation, slow azimuth orbit around the box centre at a distance
   fitted once over the whole orbit (5 % margin) -> no popping / re-zoom.
-* Tachyon presets  final: AO (6 samples) + shadows + 4x AA (~1.3 s / 720p frame on 4 cores)
-                   draft: no AO, no shadows, 2x AA (~0.8 s at 720p, ~0.2 s at 640x360)
+* Tachyon presets  final: AO (16 samples) + shadows + 4x AA
+                   draft: no AO, no shadows, 2x AA
+  (timings: see README_render.md; Tachyon is run with OVITO_THREAD_COUNT = 4 x cores by default,
+  see --threads, because its default thread count leaves about half of the CPU idle.)
 * Overlay (label, time, legend) is drawn with Pillow on the rendered image, then PNG, then ffmpeg.
 """
 import os
@@ -24,25 +26,37 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (BG, CELL_COLOR, COLORS, RADIUS, TYPE_NAMES, XRAY_TRANSPARENCY, Camera,  # noqa: E402
-                    build_parser, cell_line_width, default_label, finish_movie, frame_indices,
-                    render_frames, resolve_paths)
+                    build_parser, cell_line_width, check_tools, default_label, finish_movie,
+                    frame_indices, n_output_frames, output_pairs, render_frames, resolve_paths)
 from trajio import load_traj  # noqa: E402
 
 TACHYON_PRESETS = {
     # measured on a 4-core x86 box at 1280x720, N = 1000
-    ("cpk", "final"): dict(ambient_occlusion=True, ambient_occlusion_samples=6, ambient_occlusion_brightness=0.8,
+    # AO 6 samples leaves a visible, screen-fixed streaky grain on every sphere (noise std ~10/255 vs a
+    # 48-sample reference, 44 % of sphere pixels off by > 8 levels, spheres slide under the static
+    # pattern); 16 samples brings that to ~4.5 / 11 % and is visually smooth.  Per-frame cost at 720p
+    # with 16 Tachyon threads: see README_render.md.
+    ("cpk", "final"): dict(ambient_occlusion=True, ambient_occlusion_samples=16, ambient_occlusion_brightness=0.8,
                            shadows=True, antialiasing=True, antialiasing_samples=4,
-                           direct_light=True, direct_light_intensity=0.9),          # ~1.2 s/frame
+                           direct_light=True, direct_light_intensity=0.9),
     ("cpk", "draft"): dict(ambient_occlusion=False, shadows=False, antialiasing=True, antialiasing_samples=2,
-                           direct_light=True, direct_light_intensity=0.9),          # ~0.6 s/frame (0.17 s at 640x360)
+                           direct_light=True, direct_light_intensity=0.9),
     # Transparency (xray) rules: AO multiplies the cost ~6-10x (12 s/frame with AO on), a small
     # max_ray_recursion fragments interior ions, and AO off + shadows off makes Tachyon drop the
     # transparent spheres entirely. So: AO off, shadows ON, recursion depth 50 (default).
     ("xray", "final"): dict(ambient_occlusion=False, shadows=True, antialiasing=True, antialiasing_samples=4,
-                            direct_light=True, direct_light_intensity=0.9, max_ray_recursion=50),   # ~1.8 s/frame
+                            direct_light=True, direct_light_intensity=0.9, max_ray_recursion=50),
     ("xray", "draft"): dict(ambient_occlusion=False, shadows=True, antialiasing=True, antialiasing_samples=2,
-                            direct_light=True, direct_light_intensity=0.9, max_ray_recursion=50),   # ~1.3 s/frame
+                            direct_light=True, direct_light_intensity=0.9, max_ray_recursion=50),
 }
+
+
+def default_threads():
+    """Tachyon's default thread count (= cores) leaves ~half of a 4-core box idle (2.0 cores busy):
+    part of its per-pixel work is single-threaded and the workers wait on it.  Oversubscribing with
+    4 x cores was measured to cut the 720p cpk-final frame time from 1.25 s to 0.72 s (frames are
+    bit-identical); 8 x cores gives no further gain."""
+    return 4 * (os.cpu_count() or 1)
 
 
 def qimage_to_rgb(img):
@@ -82,21 +96,34 @@ def main(argv=None):
     p.add_argument("--aa-samples", type=int, default=None, help="override preset antialiasing_samples")
     p.add_argument("--ao-brightness", type=float, default=None, help="override preset ambient_occlusion_brightness")
     p.add_argument("--no-shadows", action="store_true")
+    p.add_argument("--threads", type=int, default=None,
+                   help="Tachyon thread count (sets OVITO_THREAD_COUNT; default: 4 x CPU cores, or the "
+                        "value already in the environment)")
     args = p.parse_args(argv)
+    check_tools(args)
 
     t_setup = time.time()
     traj = load_traj(args.traj)
     name, out, frames_dir = resolve_paths(args)
     indices = frame_indices(traj.nframes, args.start, args.end, args.stride)
+    n_total = n_output_frames(traj.nframes, args.stride)
+    pairs = output_pairs(indices, args.stride)
     label = default_label(traj, name) if args.label is None else args.label
     print(f"trajectory {args.traj}: {traj.describe()}")
-    print(f"name={name} frames={len(indices)} ({indices[0]}..{indices[-1]} stride {args.stride}) "
+    print(f"name={name} frames={len(indices)} (traj {indices[0]}..{indices[-1]} stride {args.stride} -> "
+          f"output frames {pairs[0][0]}..{pairs[-1][0]} of {n_total}) "
           f"size={args.width}x{args.height} style={args.style} bg={args.bg} quality={args.quality}")
 
+    # nout = frames of the FULL movie so that the azimuth of output frame j is the same in every chunk
     cam = Camera(traj.L, args.width, args.height, args.fov_deg, args.elev_deg, args.azim0_deg,
-                 args.orbit_deg, nout=len(indices))
+                 args.orbit_deg, nout=n_total)
     print(cam.describe())
 
+    # Must be set before `import ovito` (Tachyon reads it once at module load).
+    if args.threads is not None:
+        os.environ["OVITO_THREAD_COUNT"] = str(max(1, args.threads))
+    else:
+        os.environ.setdefault("OVITO_THREAD_COUNT", str(default_threads()))
     import ovito  # noqa: F401  (import after argparse so --help works without the Qt stack)
     from ovito.pipeline import Pipeline, StaticSource
     from ovito.vis import TachyonRenderer, Viewport
@@ -139,7 +166,8 @@ def main(argv=None):
         else:
             settings["shadows"] = False
     renderer = TachyonRenderer(**settings)
-    print("tachyon:", settings)
+    print(f"tachyon: {settings} threads={os.environ['OVITO_THREAD_COUNT']} (OVITO_THREAD_COUNT; "
+          f"{os.cpu_count()} cores)")
     bg = BG[args.bg]
     size = (args.width, args.height)
 
@@ -152,8 +180,8 @@ def main(argv=None):
         return qimage_to_rgb(img)
 
     print(f"setup {time.time() - t_setup:.1f}s; rendering to {frames_dir}", flush=True)
-    render_frames(args, traj, list(enumerate(indices)), render_rgb, frames_dir, label, tag="[ovito] ")
-    finish_movie(args, frames_dir, out, len(indices))
+    render_frames(args, traj, pairs, render_rgb, frames_dir, label, tag="[ovito] ", total=n_total)
+    finish_movie(args, frames_dir, out, pairs, n_total)
 
 
 if __name__ == "__main__":

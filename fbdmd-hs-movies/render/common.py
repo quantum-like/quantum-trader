@@ -60,9 +60,13 @@ def build_parser(prog, description):
     p.add_argument("--azim0-deg", type=float, default=None,
                    help="start azimuth (default 45 - orbit/2, i.e. the orbit is centred on the 3/4 view)")
     p.add_argument("--fov-deg", type=float, default=FOV_DEG, help="vertical field of view")
-    p.add_argument("--start", type=int, default=0, help="first trajectory frame")
+    p.add_argument("--start", type=int, default=0,
+                   help="first trajectory frame of this run (PNG numbering and camera azimuth stay those of "
+                        "the FULL movie, so --start/--end chunks rendered into one frames dir with "
+                        "--keep-frames can be stitched by a final run without --start/--end)")
     p.add_argument("--end", type=int, default=-1, help="last trajectory frame (inclusive; -1 = last)")
-    p.add_argument("--stride", type=int, default=1)
+    p.add_argument("--stride", type=int, default=1,
+                   help="render every stride-th trajectory frame (frames 0, stride, 2*stride, ...)")
     p.add_argument("--label", default=None,
                    help="top-left caption (default: built from trajectory metadata; '' disables)")
     p.add_argument("--no-legend", action="store_true", help="hide the colour legend")
@@ -84,13 +88,39 @@ def resolve_paths(args):
 
 
 def frame_indices(nframes, start, end, stride):
+    """Trajectory frames rendered by this run: the FULL movie's stride grid 0, s, 2s, ... restricted to
+    [start, end].  Output frame j = k // stride is therefore absolute (independent of --start/--end)."""
+    stride = max(1, int(stride))
     if end < 0:
         end = nframes + end
     end = min(end, nframes - 1)
     start = max(0, start)
-    if start > end:
-        raise SystemExit(f"empty frame range: start={start} end={end} (nframes={nframes})")
-    return list(range(start, end + 1, max(1, stride)))
+    idx = [k for k in range(0, nframes, stride) if start <= k <= end]
+    if not idx:
+        raise SystemExit(f"empty frame range: start={start} end={end} stride={stride} (nframes={nframes})")
+    return idx
+
+
+def n_output_frames(nframes, stride):
+    """Number of frames of the FULL movie (all chunks together)."""
+    return len(range(0, nframes, max(1, int(stride))))
+
+
+def output_pairs(indices, stride):
+    """(j, k) pairs: absolute output/PNG index j for trajectory frame k."""
+    stride = max(1, int(stride))
+    return [(k // stride, k) for k in indices]
+
+
+def check_tools(args):
+    """Fail fast (before rendering for 20 min) when ffmpeg/ffprobe are missing."""
+    if args.no_encode:
+        return
+    if shutil.which("ffmpeg") is None:
+        raise SystemExit("ffmpeg not found on PATH (brew install ffmpeg / apt install ffmpeg), "
+                         "or pass --no-encode to render PNG frames only")
+    if shutil.which("ffprobe") is None:
+        print("WARNING: ffprobe not found on PATH; the encoded movie will not be verified", file=sys.stderr)
 
 
 def default_label(traj, name):
@@ -326,21 +356,27 @@ def render_frames(args, traj, pairs, render_rgb, frames_dir, label, tag="", tota
               f"mean {t_render / n_done:.3f} s/frame render, {t_total / n_done:.3f} s/frame incl. overlay+PNG; "
               f"721 frames would take ~{721 * t_total / n_done / 60:.1f} min", flush=True)
     else:
-        print(f"{tag}all {len(pairs)} frames already present in {frames_dir} (use --force to re-render)")
+        print(f"{tag}all {len(pairs)} frames of this run already present in {frames_dir} "
+              f"(use --force to re-render)")
     return n_done, (t_render / n_done if n_done else 0.0), (t_total / n_done if n_done else 0.0)
 
 
 # ------------------------------------------------------------------ ffmpeg / ffprobe
 
-def encode_movie(frames_dir, fps, out, crf=18, preset="slow"):
+def encode_movie(frames_dir, fps, out, crf=18, preset="slow", start_number=0, n_frames=None):
+    """Encode frame_{start_number:05d}.png .. (+n_frames) exactly: -start_number/-frames:v keep ffmpeg
+    from consuming stale PNGs that happen to sit next to the wanted ones."""
     if shutil.which("ffmpeg") is None:
         raise SystemExit("ffmpeg not found on PATH (brew install ffmpeg / apt install ffmpeg)")
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(fps),
-           "-i", os.path.join(frames_dir, FRAME_PATTERN),
-           "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",   # yuv420p needs even dimensions
-           "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", str(crf), "-preset", preset,
-           "-movflags", "+faststart", out]
+           "-start_number", str(int(start_number)),
+           "-i", os.path.join(frames_dir, FRAME_PATTERN)]
+    if n_frames is not None:
+        cmd += ["-frames:v", str(int(n_frames))]
+    cmd += ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",   # yuv420p needs even dimensions
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", str(crf), "-preset", preset,
+            "-movflags", "+faststart", out]
     print("ffmpeg:", " ".join(cmd), flush=True)
     subprocess.run(cmd, check=True)
     return out
@@ -366,27 +402,56 @@ def ffprobe(path):
     return summary
 
 
-def finish_movie(args, frames_dir, out, n_frames_expected):
-    """Encode (unless --no-encode), verify with ffprobe, delete frames unless --keep-frames."""
+def finish_movie(args, frames_dir, out, pairs, n_total):
+    """Encode exactly the output frames of this run (unless --no-encode), verify with ffprobe
+    (codec/pix_fmt/frame count; a failed check removes the mp4 and exits non-zero), delete the
+    run's frames unless --keep-frames.
+
+    `pairs` are the (j, k) pairs of this run (absolute PNG index j), `n_total` the frame count of the
+    full movie.  With --start/--end the mp4 holds only this chunk (frames j0..j1 of n_total); a later
+    run without --start/--end encodes the full movie from the kept PNGs."""
     if args.no_encode:
         print(f"frames in {frames_dir} (encoding skipped)")
         return None
-    present = sum(1 for j in range(n_frames_expected)
-                  if os.path.exists(os.path.join(frames_dir, FRAME_PATTERN % j)))
-    if present != n_frames_expected:
-        raise SystemExit(f"only {present}/{n_frames_expected} frames present in {frames_dir}; not encoding")
-    encode_movie(frames_dir, args.fps, out, args.crf, args.preset)
+    js = [j for j, _ in pairs]
+    j0, n = js[0], len(js)
+    if js != list(range(j0, j0 + n)):
+        raise SystemExit("internal error: output frames of a run must be contiguous")
+    missing = [j for j in js if not os.path.exists(os.path.join(frames_dir, FRAME_PATTERN % j))]
+    if missing:
+        raise SystemExit(f"{len(missing)}/{n} frames missing in {frames_dir} (first: {FRAME_PATTERN % missing[0]}); "
+                         f"not encoding")
+    if n != n_total:
+        print(f"NOTE: partial range: encoding frames {j0}..{j0 + n - 1} of the {n_total}-frame movie into {out}. "
+              f"To get the full movie keep the PNGs (--keep-frames), render the other ranges into the same "
+              f"--frames-dir and run once more without --start/--end.")
+    encode_movie(frames_dir, args.fps, out, args.crf, args.preset, start_number=j0, n_frames=n)
     info = ffprobe(out)
-    ok = info is not None and info["codec"] == "h264" and info["pix_fmt"] == "yuv420p" \
-        and info["nb_frames"] == n_frames_expected
-    if ok and not args.keep_frames:
-        for j in range(n_frames_expected):
+    if info is None:                      # no ffprobe: cannot verify, keep everything
+        print("WARNING: movie not verified (ffprobe missing); frames kept", file=sys.stderr)
+        print(f"movie: {out}")
+        return None
+    problems = []
+    if info["codec"] != "h264":
+        problems.append(f"codec {info['codec']} != h264")
+    if info["pix_fmt"] != "yuv420p":
+        problems.append(f"pix_fmt {info['pix_fmt']} != yuv420p")
+    if info["nb_frames"] != n:
+        problems.append(f"nb_frames {info['nb_frames']} != {n}")
+    if problems:
+        bad = out + ".unverified.mp4"
+        try:
+            os.replace(out, bad)
+        except OSError:
+            bad = out
+        raise SystemExit(f"ffprobe verification failed ({'; '.join(problems)}); "
+                         f"movie moved to {bad}, PNG frames kept in {frames_dir}")
+    if not args.keep_frames:
+        for j in js:
             try:
                 os.remove(os.path.join(frames_dir, FRAME_PATTERN % j))
             except FileNotFoundError:
                 pass
-        print(f"deleted {n_frames_expected} PNG frames from {frames_dir} (use --keep-frames to keep them)")
-    elif not ok:
-        print("WARNING: ffprobe verification failed; frames kept", file=sys.stderr)
+        print(f"deleted {n} PNG frames from {frames_dir} (use --keep-frames to keep them)")
     print(f"movie: {out}")
     return info
