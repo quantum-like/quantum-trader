@@ -1,0 +1,15 @@
+[order_test] N=1000 eta=0.35 +20/-20 l_B=5.0 ewald; t_equil_charged=15.0 t_run=2.0 dt_frame=0.02; 16 runs on 4 threads
+
+  max_t |E(t)-E(0)|/N and (E_end-E_0)/N in kT over t_run=2.0 tau, N=1000:
+  dt                       cv-phys                     cv               kdk-phys                  naive
+  0.02       4.749e-05 (+4.5e-05)  3.811e-04 (-1.5e-04)  6.737e-05 (+4.7e-05)  2.376e-03 (+2.4e-03)
+  0.01       6.826e-06 (+6.8e-06)  1.151e-04 (+7.2e-05)  3.431e-05 (+3.4e-05)  9.157e-04 (-8.0e-04)
+  0.005      2.865e-06 (+2.0e-06)  1.001e-04 (+9.9e-05)  5.979e-06 (+4.9e-06)  3.891e-04 (+2.7e-04)
+  0.0025     5.973e-07 (-7.6e-08)  7.466e-05 (-7.5e-05)  1.819e-06 (+6.3e-07)  2.531e-04 (-1.9e-04)
+  slope           2.02 (   +2.95)       0.73 (   +0.24)       1.82 (   +2.15)       1.09 (   +1.25)    (log-log fit of max |dE|/N, end drift in parentheses)
+  collisions / Verlet sub-steps / vmin events / min_dist / wall at the smallest dt:
+    cv-phys   14217 / 127675 / 0 / 1.000001352 / 0.7s
+    cv        14395 / 128230 / 0 / 1.000000113 / 0.7s
+    kdk-phys  14234 / 0 / 0 / 1.000000618 / 0.4s
+    naive     14308 / 0 / 0 / 1.000000112 / 0.4s
+  wrote /home/user/quantum-trader/fbdmd-hs-movies/traj/_test/order_order.csv
