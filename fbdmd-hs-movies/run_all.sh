@@ -9,7 +9,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
 N=${N:-1000}; ETA=${ETA:-0.35}; BJERRUM=${BJERRUM:-5.0}; SEED=${SEED:-1}
-T_EQ_N=${T_EQ_N:-5}; T_EQ_C=${T_EQ_C:-5}; T_RUN=${T_RUN:-18}; DT_FRAME=${DT_FRAME:-0.025}; DT=${DT:-0.005}
+T_EQ_N=${T_EQ_N:-5}; T_EQ_C=${T_EQ_C:-15}; T_RUN=${T_RUN:-18}; DT_FRAME=${DT_FRAME:-0.025}; DT=${DT:-0.005}
 WIDTH=${WIDTH:-1280}; HEIGHT=${HEIGHT:-720}; FPS=${FPS:-30}; QUALITY=${QUALITY:-final}
 ORBIT=${ORBIT:-40}; XRAY=${XRAY:-1}; FORCE=${FORCE:-0}
 PY=${PYTHON:-python3}
@@ -58,8 +58,8 @@ else log "traj/hs_charges_20p20m.npz exists (FORCE=1 to redo)"; fi
 
 # ---------------------------------------------------------------- 3. sanity analysis (overlaps, energy, pairing)
 log "analysis"
-python sim/analyze.py traj/hs_neutral.npz          | tee notes/analysis_hs_neutral.txt
-python sim/analyze.py traj/hs_charges_20p20m.npz   | tee notes/analysis_hs_charges_20p20m.txt
+python sim/analyze.py traj/hs_neutral              | tee notes/analysis_hs_neutral.txt
+python sim/analyze.py traj/hs_charges_20p20m       | tee notes/analysis_hs_charges_20p20m.txt
 
 # ---------------------------------------------------------------- 4. render
 RENDER="render/render_${RENDERER}.py"
