@@ -5,9 +5,13 @@
     python sim/analyze.py traj/<name>.npz      (force a specific source)
 
 Reports: minimum pair distance over ALL frames (hard-core check), temperature and
-energy drift from <name>_diag.csv, and for charged runs a per-frame pairing /
-cluster analysis of the ions (1.2 sigma +/- bond criterion).
-Exit status is non-zero if any hard-core overlap is found.
+energy drift from <name>_diag.csv, a stationarity check (first half vs second half
+of the production run, linear trends of PE and T; a WARNING means the charged
+equilibration was too short), FORMAT.md contract checks (type ids, json "machine"
+string) and for charged runs a per-frame pairing / cluster analysis of the ions
+(1.2 sigma +/- bond criterion).
+Exit status: 1 if any hard-core overlap is found, 2 on a contract violation, else 0
+(stationarity problems are warnings only).
 """
 import argparse
 import json
@@ -21,6 +25,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from run_sim import read_xyz  # noqa: E402
 
 BOND = 1.2  # sigma; Bjerrum-pair proxy and cluster bond criterion
+# stationarity thresholds (see README_sim.md). A WARNING is issued when
+#  * the linear PE trend over the run exceeds PE_TREND_WARN*|PE| AND PE_TREND_SIGMA per-frame std devs
+#    (the second condition keeps 16-ion test systems, whose relative fluctuations are large, from
+#    warning on noise), or
+#  * the linear T trend over the run exceeds T_DRIFT_WARN*T, or
+#  * the first 2 tau of production differ from the rest by more than RELAX_SIGMA std devs of the
+#    2-tau block means (an initial relaxation = too short --t-equil-charged).
+PE_TREND_WARN = 0.10
+PE_TREND_SIGMA = 2.0
+T_DRIFT_WARN = 0.01
+RELAX_SIGMA = 3.0
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +170,41 @@ def main(argv=None):
         out["min_dist_simulator"] = md_sim
     out.update(min_dist=dmin, min_dist_frame=kmin, overlap=bool(overlap), tolerance=tol)
 
+    # ---- contract checks (FORMAT.md / README_sim.md)
+    contract_fail = []
+    if not np.all(np.isin(types, (1, 2, 3))):
+        contract_fail.append(f"type ids outside {{1,2,3}}: {sorted(set(np.unique(types).tolist()) - {1, 2, 3})}")
+    if np.any(np.diff(types.astype(np.int64)) < 0):
+        contract_fail.append("type ids are not non-decreasing (expected neutrals, then +, then -)")
+    expect_q = {1: 0, 2: 1, 3: -1}
+    if not np.all(charge == np.vectorize(lambda t: expect_q.get(int(t), 99))(types)):
+        contract_fail.append("charge column inconsistent with type column (1->0, 2->+1, 3->-1)")
+    if meta:
+        if not isinstance(meta.get("machine"), str):
+            contract_fail.append(f"json 'machine' is {type(meta.get('machine')).__name__}, FORMAT.md requires a string")
+        for key in ("name", "N", "eta", "L", "nplus", "nminus", "dt_frame", "n_frames", "n_collisions",
+                    "wall_seconds", "Z_CS", "energy_drift_rel"):
+            if key not in meta:
+                contract_fail.append(f"json lacks required field {key!r}")
+        if meta.get("N") != N:
+            contract_fail.append(f"json N={meta.get('N')} but trajectory has N={N}")
+        if meta.get("n_frames") != F:
+            contract_fail.append(f"json n_frames={meta.get('n_frames')} but trajectory has {F} frames")
+    if tr["source"] == "npz":
+        d = np.load(tr["base"] + ".npz")
+        for key, dt_ in (("pos", np.float32), ("types", np.int8), ("charge", np.int8), ("times", np.float64)):
+            if d[key].dtype != dt_:
+                contract_fail.append(f"npz '{key}' dtype {d[key].dtype} != {np.dtype(dt_)}")
+    if F > 1:
+        dtf = np.diff(times)
+        if not np.allclose(dtf, dtf[0], rtol=0, atol=1e-6):
+            contract_fail.append("frame times are not uniformly spaced")
+    print("  contract (FORMAT.md): " + ("OK (types 1/2/3 non-decreasing, charges consistent, json fields/machine string, "
+                                        "uniform frame times)" if not contract_fail else "VIOLATION: " + "; ".join(contract_fail)))
+    out["contract_violations"] = contract_fail
+
     # ---- temperature / energy
+    stationarity_warn = []
     if diag is not None:
         T = diag["T_inst"]
         E = diag["Etot"]
@@ -176,11 +225,73 @@ def main(argv=None):
         out.update(T_mean=float(T.mean()), T_std=float(T.std()), E0=float(E0), E_end=float(E[-1]),
                    energy_drift_rel=float(drift), energy_max_dev_rel=float(maxdev), energy_rms_rel=float(rms),
                    energy_slope_rel_per_tau=float(slope), n_collisions=ncoll, collision_rate=rate)
-        if meta:
+        if meta and meta.get("Z_virial") is not None:
             print(f"  Z_virial {meta.get('Z_virial', float('nan')):.4f} vs Z_CS {meta.get('Z_CS', float('nan')):.4f} "
                   f"({100 * meta.get('Z_rel_dev', float('nan')):+.2f}%)  [from json]")
+
+        # ---- stationarity: first half vs second half, linear trends (detects a too-short equilibration)
+        npairs_d = diag["n_pairs_pm_1p2"]
+        tt = diag["time"]
+        nF = len(tt)
+        if nF >= 4:
+            h = nF // 2
+            tspan = float(tt[-1] - tt[0])
+            pe_slope = np.polyfit(tt, PE, 1)[0]
+            t_slope = np.polyfit(tt, T, 1)[0]
+            pe_trend = abs(pe_slope) * tspan
+            t_trend = abs(t_slope) * tspan
+            pe_ref = max(abs(float(PE.mean())), 1e-12)
+            has_pe = np.any(PE != 0)
+            print(f"  stationarity (first half | second half of production): "
+                  f"T {T[:h].mean():.4f} | {T[h:].mean():.4f}   "
+                  f"PE {PE[:h].mean():.3f} | {PE[h:].mean():.3f}   "
+                  f"+/- pairs(1.2s) {npairs_d[:h].mean():.2f} | {npairs_d[h:].mean():.2f}")
+            print(f"  linear trends over the run: dPE/dt = {pe_slope:+.4f} kT/tau "
+                  f"(|dPE/dt|*t_run = {pe_trend:.2f} kT = {100 * pe_trend / pe_ref:.1f}% of |PE|), "
+                  f"dT/dt = {t_slope:+.2e} /tau (|dT/dt|*t_run = {100 * t_trend:.2f}% of T)")
+            pe_std = float(PE.std())
+            if has_pe and pe_trend > PE_TREND_WARN * pe_ref:
+                if pe_trend > PE_TREND_SIGMA * pe_std:
+                    stationarity_warn.append(f"PE drifts by {100 * pe_trend / pe_ref:.0f}% of |PE| = {pe_trend / pe_std:.1f} "
+                                             f"per-frame std devs over the run (> {100 * PE_TREND_WARN:.0f}% and > {PE_TREND_SIGMA:.0f} sigma)")
+                else:
+                    print(f"  note: PE trend is {100 * pe_trend / pe_ref:.0f}% of |PE| but only {pe_trend / pe_std:.1f} per-frame std devs "
+                          f"(fluctuation level for {int((charge != 0).sum())} ions), not flagged")
+            if t_trend > T_DRIFT_WARN * float(T.mean()):
+                stationarity_warn.append(f"T drifts by {100 * t_trend:.1f}% over the run (> {100 * T_DRIFT_WARN:.0f}%)")
+            # initial relaxation: first 2 tau vs the rest, in units of the 2-tau block std
+            relax = None
+            if has_pe and tspan >= 8.0:
+                edges = np.arange(tt[0], tt[-1] + 1e-9, 2.0)
+                bm = np.array([PE[(tt >= e0) & (tt < e1)].mean() for e0, e1 in zip(edges[:-1], edges[1:])])
+                if len(bm) >= 4:
+                    rest = bm[1:]
+                    bstd = float(rest.std(ddof=1))
+                    relax = (float(bm[0]) - float(rest.mean()), bstd)
+                    print(f"  initial relaxation check: PE first 2 tau {bm[0]:.2f} vs rest {rest.mean():.2f} "
+                          f"(2-tau block std {bstd:.2f}; difference {relax[0] / bstd if bstd > 0 else 0:+.1f} sigma)")
+                    if bstd > 0 and abs(relax[0]) > RELAX_SIGMA * bstd:
+                        stationarity_warn.append(f"first 2 tau of production differ from the rest by {relax[0] / bstd:+.1f} sigma "
+                                                 f"(> {RELAX_SIGMA:.0f}): pairing still relaxing at the start")
+            if has_pe:
+                print(f"  T_mean - 1 = {T.mean() - 1:+.4f} (NVE: set by PE at the end of equilibration; expected scatter "
+                      f"+-{pe_std / (1.5 * (N - 1)):.4f} from PE fluctuations)")
+            out.update(T_first_half=float(T[:h].mean()), T_second_half=float(T[h:].mean()),
+                       PE_first_half=float(PE[:h].mean()), PE_second_half=float(PE[h:].mean()),
+                       npairs_first_half=float(npairs_d[:h].mean()), npairs_second_half=float(npairs_d[h:].mean()),
+                       PE_slope_per_tau=float(pe_slope), T_slope_per_tau=float(t_slope), PE_std=pe_std,
+                       PE_first2tau_minus_rest=None if relax is None else relax[0],
+                       PE_block2tau_std=None if relax is None else relax[1])
+            if stationarity_warn:
+                print("  WARNING: production is not stationary (" + "; ".join(stationarity_warn) +
+                      "); the charged equilibration (--t-equil-charged) is too short -- use >= 10 tau")
+            else:
+                print("  stationarity: OK (no significant PE/T trend)")
+        else:
+            print("  stationarity: not assessed (fewer than 4 frames)")
     else:
         print("  (no diag csv found; skipping temperature/energy)")
+    out["stationarity_warnings"] = stationarity_warn
 
     # ---- pairing analysis (charged runs)
     ions = np.nonzero(charge != 0)[0]
@@ -242,13 +353,20 @@ def main(argv=None):
                    largest_cluster_mean=float(largest.mean()), largest_cluster_max=int(largest.max()),
                    chains_per_frame=float(nchain.mean()), branched_per_frame=float(nbranched.mean()),
                    frac_ions_in_clusters_ge3=frac_in_3plus)
+    if stationarity_warn:
+        verdict += " [WARNING: not stationary, see above]"
     out["verdict"] = verdict
     print(f"  verdict: {verdict}")
-    print(f"  overlap check: {'FAILED' if overlap else 'passed'}; analysis wall time {time.time() - t0:.1f}s")
+    print(f"  overlap check: {'FAILED' if overlap else 'passed'}; contract check: "
+          f"{'FAILED' if contract_fail else 'passed'}; analysis wall time {time.time() - t0:.1f}s")
     if a.json:
         with open(a.json, "w") as f:
             json.dump(out, f, indent=1, sort_keys=True)
-    return 1 if overlap else 0
+    if overlap:
+        return 1
+    if contract_fail:
+        return 2
+    return 0
 
 
 if __name__ == "__main__":

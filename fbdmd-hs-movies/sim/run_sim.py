@@ -14,6 +14,7 @@ Outputs:  <outdir>/<name>.xyz   extended XYZ (canonical, OVITO-readable)
 import argparse
 import io
 import json
+import math
 import os
 import platform
 import re
@@ -129,28 +130,84 @@ def machine_info():
 
 
 # ---------------------------------------------------------------------------
+# argument validation (mirrors the checks in hsdmd.cpp so bad input fails before the binary runs)
+# ---------------------------------------------------------------------------
+def _typed(conv, pred, what):
+    def f(text):
+        try:
+            v = conv(text)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"{text!r} is not a valid {conv.__name__}")
+        if not pred(v):
+            raise argparse.ArgumentTypeError(f"{text!r}: must be {what}")
+        return v
+    f.__name__ = conv.__name__
+    return f
+
+
+positive_int = _typed(int, lambda v: v >= 1, ">= 1")
+nonneg_int = _typed(int, lambda v: v >= 0, ">= 0")
+positive_float = _typed(float, lambda v: v > 0 and math.isfinite(v), "> 0 (finite)")
+nonneg_float = _typed(float, lambda v: v >= 0 and math.isfinite(v), ">= 0 (finite)")
+packing_fraction = _typed(float, lambda v: 0 < v < 0.74, "in (0, 0.74)")
+
+
+def load_summary(summary_tmp, keep_as):
+    """Parse the binary's summary JSON; on a parse error keep the file under `keep_as` and return None."""
+    try:
+        with open(summary_tmp) as f:
+            text = f.read()
+        meta = json.loads(text)
+    except FileNotFoundError:
+        print(f"[run_sim] error: simulator exited 0 but wrote no summary file {summary_tmp}", file=sys.stderr)
+        return None
+    except json.JSONDecodeError as e:
+        lines = text.splitlines()
+        bad = lines[e.lineno - 1] if 0 < e.lineno <= len(lines) else "<out of range>"
+        print(f"[run_sim] error: summary JSON from the simulator is invalid: {e.msg} "
+              f"(line {e.lineno}, col {e.colno}): {bad.strip()!r}", file=sys.stderr)
+        os.replace(summary_tmp, keep_as)
+        print(f"[run_sim] the offending file was kept as {keep_as}", file=sys.stderr)
+        return None
+    os.remove(summary_tmp)
+    return meta
+
+
+def fmt(x, spec):
+    """format() that tolerates JSON null (None) for quantities undefined in degenerate runs."""
+    return "null" if x is None else format(x, spec)
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--name", required=True, help="run name; may contain a subdirectory, e.g. _test/neutral_small")
-    ap.add_argument("--N", type=int, default=1000)
-    ap.add_argument("--eta", type=float, default=0.35)
-    ap.add_argument("--nplus", type=int, default=0)
-    ap.add_argument("--nminus", type=int, default=0)
-    ap.add_argument("--bjerrum", type=float, default=5.0)
+    ap.add_argument("--N", type=positive_int, default=1000)
+    ap.add_argument("--eta", type=packing_fraction, default=0.35)
+    ap.add_argument("--nplus", type=nonneg_int, default=0)
+    ap.add_argument("--nminus", type=nonneg_int, default=0)
+    ap.add_argument("--bjerrum", type=nonneg_float, default=5.0)
     ap.add_argument("--coulomb", choices=["ewald", "dsf"], default="ewald")
-    ap.add_argument("--dt", type=float, default=0.005)
-    ap.add_argument("--t-equil-neutral", type=float, default=5.0)
-    ap.add_argument("--t-equil-charged", type=float, default=5.0)
-    ap.add_argument("--t-run", type=float, default=18.0)
-    ap.add_argument("--dt-frame", type=float, default=0.025)
+    ap.add_argument("--dt", type=positive_float, default=0.005)
+    ap.add_argument("--t-equil-neutral", type=nonneg_float, default=5.0)
+    ap.add_argument("--t-equil-charged", type=nonneg_float, default=15.0,
+                    help="charged (thermostatted) equilibration in tau; the +/- pairing relaxation time is "
+                         "4-6 tau, so >= 10 is recommended for equilibrated production (default 15)")
+    ap.add_argument("--t-run", type=nonneg_float, default=18.0)
+    ap.add_argument("--dt-frame", type=positive_float, default=0.025)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--outdir", default="traj", help="relative to the project root unless absolute")
     ap.add_argument("--rebuild", action="store_true", help="force make clean && make")
     ap.add_argument("--cxx", default=None, help="compiler to pass to make (CXX=...)")
     ap.add_argument("--quiet", action="store_true", help="suppress the simulator's per-tau progress")
     a = ap.parse_args(argv)
+    if a.nplus + a.nminus > a.N:
+        ap.error(f"--nplus + --nminus = {a.nplus + a.nminus} exceeds --N = {a.N}")
+    if a.t_run < a.dt_frame:
+        print(f"[run_sim] warning: --t-run {a.t_run} < --dt-frame {a.dt_frame}: a single frame will be written and "
+              "Z/collision rate are undefined (null)", file=sys.stderr)
 
     outdir = a.outdir if os.path.isabs(a.outdir) else os.path.join(PROJECT_ROOT, a.outdir)
     base = os.path.join(outdir, a.name)
@@ -174,11 +231,13 @@ def main(argv=None):
         return rc
     wall_sim = time.time() - t0
 
-    with open(summary_tmp) as f:
-        meta = json.load(f)
-    os.remove(summary_tmp)
-    meta["machine"] = machine_info()
-    meta["machine_str"] = f"{meta['machine']['cpu_model']} ({meta['machine']['system']} {meta['machine']['machine']}, {meta['machine']['cpu_count']} cpus)"
+    meta = load_summary(summary_tmp, base + "_summary_INVALID.json")
+    if meta is None:
+        return 1
+    mi = machine_info()
+    meta["machine_info"] = mi
+    meta["machine"] = f"{mi['cpu_model']} ({mi['system']} {mi['release']}, {mi['machine']}, {mi['cpu_count']} cpus, python {mi['python']})"
+    meta["machine_str"] = meta["machine"]
     meta["files"] = {"xyz": os.path.relpath(xyz, PROJECT_ROOT), "npz": os.path.relpath(npz, PROJECT_ROOT),
                      "json": os.path.relpath(js, PROJECT_ROOT), "diag": os.path.relpath(diag, PROJECT_ROOT)}
     meta["command"] = "python sim/run_sim.py " + " ".join(sys.argv[1:] if argv is None else argv)
@@ -205,10 +264,11 @@ def main(argv=None):
             f"{' dt=' + format(meta['dt'], '.6g') if nion else ''}; "
             f"{meta['n_frames']} frames at dt_frame={meta['dt_frame']} over t_run={meta['t_run']} tau. "
             f"Production collisions: {meta['n_collisions']} "
-            f"({meta['collision_rate_per_particle_per_tau']:.2f} per particle per tau, Enskog {meta['enskog_rate_per_particle_per_tau']:.2f}); "
-            f"Z_virial={meta['Z_virial']:.4f} vs Carnahan-Starling {meta['Z_CS']:.4f} ({100 * meta['Z_rel_dev']:+.2f}%); "
-            f"T_mean={meta['T_mean']:.5f}; total-energy drift (E_end-E_0)/|E_0|={meta['energy_drift_rel']:.3e}, "
-            f"max |E-E_0|/|E_0|={meta['energy_max_dev_rel']:.3e}; |P|={meta['momentum_abs_final']:.2e}; "
+            f"({fmt(meta['collision_rate_per_particle_per_tau'], '.2f')} per particle per tau, Enskog {meta['enskog_rate_per_particle_per_tau']:.2f}); "
+            f"Z_virial={fmt(meta['Z_virial'], '.4f')} vs Carnahan-Starling {meta['Z_CS']:.4f} "
+            f"({fmt(None if meta['Z_rel_dev'] is None else 100 * meta['Z_rel_dev'], '+.2f')}%); "
+            f"T_mean={meta['T_mean']:.5f}; total-energy drift (E_end-E_0)/|E_0|={fmt(meta['energy_drift_rel'], '.3e')}, "
+            f"max |E-E_0|/|E_0|={fmt(meta['energy_max_dev_rel'], '.3e')}; |P|={meta['momentum_abs_final']:.2e}; "
             f"min pair distance in production {meta['min_dist_production']:.9f}; "
             f"wall: sim {meta['wall_seconds']:.2f}s (equil-neutral {meta['wall_seconds_equil_neutral']:.2f}s, "
             f"equil-charged {meta['wall_seconds_equil_charged']:.2f}s, production {meta['wall_seconds_production']:.2f}s), "

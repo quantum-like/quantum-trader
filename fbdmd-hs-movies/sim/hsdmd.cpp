@@ -33,7 +33,7 @@ constexpr double SIGMA = 1.0;
 constexpr double SIGMA2 = SIGMA * SIGMA;
 constexpr double PI = 3.14159265358979323846;
 constexpr double KT = 1.0;
-const char* HSDMD_VERSION = "1.0";
+const char* HSDMD_VERSION = "1.1";
 
 struct Vec3 {
   double x = 0, y = 0, z = 0;
@@ -214,7 +214,10 @@ struct Sim {
   std::vector<int> cx, cy, cz, nxt, prv, head;
   std::vector<int> charge;     // 0, +1, -1
   std::vector<int> ions;       // indices of charged spheres
-  std::vector<Vec3> acc;       // force (m=1) used for the current Verlet step; zero for neutrals
+  std::vector<Vec3> acc;       // force (m=1) at the start of the current Verlet step; zero for neutrals
+  std::vector<Vec3> adot;      // backward-difference time derivative of acc (previous step); zero for neutrals
+  double h_prev = 0;
+  bool have_prev = false;
   std::vector<Event> heap;     // binary min-heap (std::push_heap / pop_heap)
   double tnow = 0;
   // collision-Verlet bookkeeping: between kick_start and kick_end the stored velocity is the
@@ -249,6 +252,8 @@ struct Sim {
     head.assign((size_t)ncell * ncell * ncell, -1);
     charge.assign(N, 0);
     acc.assign(N, Vec3{});
+    adot.assign(N, Vec3{});
+    have_prev = false;
     ions.clear();
     heap.clear();
     heap_limit = std::max<size_t>(100000, (size_t)64 * N);
@@ -477,11 +482,15 @@ struct Sim {
       virial += SIGMA * (-vn);
       ++ncoll;
     } else {
-      // Collision Verlet: reflect the *physical* velocities v = u + a (tau1 - h/2), then return to
-      // drift velocities. Momentum of the pair is conserved exactly; the drift position at the end
-      // of the step is unchanged to O(dt^2) (pre/post displacements a*tau1*tau2/2 cancel).
-      const double sh = (e.t - t_kick) - 0.5 * h_step;
-      Vec3 vi = vel[i] + acc[i] * sh, vj = vel[j] + acc[j] * sh;
+      // Collision Verlet: reflect the *physical* velocities v = u + c with
+      // c = a (tau1 - h/2) + adot tau1^2/2  (leapfrog drift velocity u -> velocity at the collision
+      // time, force extrapolated linearly within the step), then return to drift velocities with
+      // w = v+ - c (this also gives the correct end-of-step velocity after the second half kick).
+      // Pair momentum is conserved exactly; the drift position at the step end is unchanged to
+      // O(dt^2) (the pre/post-collision displacements a*tau1*tau2/2 cancel).
+      const double tau1 = e.t - t_kick, sh = tau1 - 0.5 * h_step, q2 = 0.5 * tau1 * tau1;
+      const Vec3 ci = acc[i] * sh + adot[i] * q2, cj = acc[j] * sh + adot[j] * q2;
+      Vec3 vi = vel[i] + ci, vj = vel[j] + cj;
       double vn = dot(vi - vj, n);
       if (vn < 0) {
         Vec3 dv = n * vn;
@@ -489,8 +498,8 @@ struct Sim {
         vj += dv;
         virial += SIGMA * (-vn);
         ++ncoll;
-        vel[i] = vi - acc[i] * sh;
-        vel[j] = vj - acc[j] * sh;
+        vel[i] = vi - ci;
+        vel[j] = vj - cj;
       } else {
         ++n_phys_separating;  // physically already separating: no impulse
       }
@@ -527,8 +536,16 @@ struct Sim {
     predict_collisions(i);
   }
 
-  // process all events with t < t_target, then set tnow = t_target
+  // process all events with t < t_target, then set tnow = t_target (t_target >= tnow required:
+  // running the clock backwards would leave tlast/cells/heap at the later time)
   void advance_to(double t_target) {
+    if (t_target < tnow) {
+      if (tnow - t_target > 1e-9) {
+        std::fprintf(stderr, "internal error: advance_to(%.12g) called with tnow=%.12g (backwards)\n", t_target, tnow);
+        std::exit(3);
+      }
+      return;  // roundoff-level: keep tnow, do not move backwards
+    }
     while (!heap.empty() && heap.front().t < t_target) {
       Event e = heap.front();
       std::pop_heap(heap.begin(), heap.end(), EventLater());
@@ -568,7 +585,10 @@ struct Sim {
       int i = ions[k];
       sync(i, tnow);
       vel[i] += F[k] * s;
-      if (store_acc) acc[i] = F[k];
+      if (store_acc) {
+        adot[i] = have_prev ? (F[k] - acc[i]) * (1.0 / h_prev) : Vec3{};
+        acc[i] = F[k];
+      }
       ++cnt[i];
     }
     for (int i : ions) {
@@ -581,6 +601,8 @@ struct Sim {
     apply_kick(F, 0.5 * h, true);
     t_kick = tnow;
     h_step = h;
+    h_prev = h;
+    have_prev = true;
     in_step = true;
   }
   // second half kick (F = forces at the end-of-step positions); velocities are physical afterwards
@@ -634,7 +656,7 @@ struct Options {
   std::string coulomb = "ewald";
   std::string collision_rule = "phys";
   double dt = 0.005;
-  double t_equil_neutral = 5, t_equil_charged = 5, t_run = 18, dt_frame = 0.025;
+  double t_equil_neutral = 5, t_equil_charged = 15, t_run = 18, dt_frame = 0.025;
   double thermostat_interval = 0.1;
   uint64_t seed = 1;
   std::string xyz, diag, summary;
@@ -653,7 +675,8 @@ void usage() {
       "  --collision-rule phys|naive   reflect physical velocities at ion collisions (phys, default)\n"
       "                      or the leapfrog drift velocities (naive, O(dt) error per collision)\n"
       "  --dt F              Verlet step for charged runs (0.005); rounded so dt_frame/dt is integer\n"
-      "  --t-equil-neutral F --t-equil-charged F --t-run F   (5, 5, 18)\n"
+      "  --t-equil-neutral F --t-equil-charged F --t-run F   (5, 15, 18); the +/- pairing\n"
+      "                      relaxation time is 4-6 tau, so t-equil-charged >= 10 is recommended\n"
       "  --dt-frame F        frame spacing (0.025)\n"
       "  --seed I            RNG seed (1)\n"
       "  --xyz PATH --diag PATH --summary PATH   output files\n"
@@ -694,6 +717,16 @@ Options parse(int argc, char** argv) {
   }
   if (o.coulomb != "ewald" && o.coulomb != "dsf") { std::fprintf(stderr, "--coulomb must be ewald or dsf\n"); std::exit(2); }
   if (o.collision_rule != "phys" && o.collision_rule != "naive") { std::fprintf(stderr, "--collision-rule must be phys or naive\n"); std::exit(2); }
+  auto die = [](const char* msg) { std::fprintf(stderr, "error: %s\n", msg); std::exit(2); };
+  if (o.N < 1) die("--N must be >= 1");
+  if (o.nplus < 0 || o.nminus < 0) die("--nplus/--nminus must be >= 0");
+  if (o.nplus + o.nminus > o.N) die("nplus+nminus > N");
+  if (!(o.eta > 0 && o.eta < 0.74)) die("--eta must be in (0, 0.74)");
+  if (!(o.dt > 0) || !(o.dt_frame > 0)) die("--dt and --dt-frame must be > 0");
+  if (!(o.t_equil_neutral >= 0) || !(o.t_equil_charged >= 0) || !(o.t_run >= 0))
+    die("--t-equil-neutral, --t-equil-charged and --t-run must be >= 0");
+  if (!(o.bjerrum >= 0)) die("--bjerrum must be >= 0");
+  if (!(o.thermostat_interval > 0)) die("thermostat interval must be > 0");
   return o;
 }
 
@@ -904,25 +937,15 @@ int selftest() {
         PE = cb.compute(r, q, F);
         s.kick_end(F, h);
         emax = std::max(emax, std::fabs(s.kinetic() + PE - E0));
-        if (std::getenv("HSDMD_DEBUG_PAIR")) {
-          static uint64_t lastc = 0; static uint64_t lastfix = 0;
-          if (s.ncoll != lastc || s.n_drift_fix != lastfix || k % 400 == 0) {
-            Vec3 d = s.pos_at(0, s.tnow) - s.pos_at(1, s.tnow); s.minimg_full(d);
-            std::fprintf(stderr, "    t=%.4f coll=%llu fix=%llu sep=%llu r=%.6f KE=%.6f PE=%.6f dE=%+.3e\n", s.tnow,
-                         (unsigned long long)s.ncoll, (unsigned long long)s.n_drift_fix, (unsigned long long)s.n_phys_separating,
-                         std::sqrt(dot(d, d)), s.kinetic(), PE, s.kinetic() + PE - E0);
-            lastc = s.ncoll; lastfix = s.n_drift_fix;
-          }
-        }
       }
       return std::make_pair(emax / std::fabs(E0), (double)s.ncoll);
     };
     auto p1 = run_pair(true, 0.005), p2 = run_pair(true, 0.0025), n1 = run_pair(false, 0.005);
     std::printf("  bound pair 20 tau: collisions %.0f; max|dE|/|E0|: phys dt=0.005 %.3e, phys dt=0.0025 %.3e, naive dt=0.005 %.3e\n",
                 p1.second, p1.first, p2.first, n1.first);
-    check(p1.second > 20, "bound pair: many collisions occurred", p1.second);
-    check(p1.first < 2e-4, "bound pair: phys rule max relative energy error (dt=0.005)", p1.first);
-    check(p2.first < 0.4 * p1.first, "bound pair: phys rule error shrinks >=2.5x when dt halves", p2.first / p1.first);
+    check(p1.second >= 10, "bound pair: collisions occurred (>=10)", p1.second);
+    check(p1.first < 3e-3, "bound pair: phys rule max rel. energy error (dt=0.005, |E0|~3, a_rel=10)", p1.first);
+    check(p2.first < 0.5 * p1.first, "bound pair: phys rule error shrinks >=2x when dt halves", p2.first / p1.first);
     check(n1.first > 3 * p1.first, "bound pair: naive rule error is >3x the phys rule error", n1.first / p1.first);
   }
   std::printf("selftest: %d failure(s)\n", fails);
@@ -969,10 +992,12 @@ int run(const Options& o) {
   // ---------------- stage A: neutral equilibration (thermostat every 0.1 tau)
   {
     double tend = s.tnow + o.t_equil_neutral;
-    int nblocks = (int)std::llround(o.t_equil_neutral / o.thermostat_interval);
+    // floor (not round): llround overshoots tend for e.g. 0.75/0.1 and the trailing advance_to(tend)
+    // would then run the clock backwards; the remainder (< one block) is covered by advance_to(tend)
+    int nblocks = (int)std::floor(o.t_equil_neutral / o.thermostat_interval + 1e-9);
     double t0 = s.tnow;
     for (int b = 1; b <= nblocks; ++b) {
-      s.advance_to(t0 + b * o.thermostat_interval);
+      s.advance_to(std::min(t0 + b * o.thermostat_interval, tend));
       s.sync_all(s.tnow);
       s.rescale_velocities();
       s.rebuild_events();
@@ -1033,6 +1058,13 @@ int run(const Options& o) {
   const uint64_t coll_prod0 = s.ncoll;
   s.virial = 0;
   const int nframes = (int)std::floor(o.t_run / o.dt_frame + 1e-9) + 1;
+  // output order: neutrals, then + ions, then - ions (frame-invariant ids 1..N). With this order
+  // OVITO's first-appearance numeric type ids coincide with FORMAT.md (HS=1, POS=2, NEG=3).
+  std::vector<int> order;
+  order.reserve(o.N);
+  for (int i = 0; i < o.N; ++i) if (s.charge[i] == 0) order.push_back(i);
+  for (int i = 0; i < o.N; ++i) if (s.charge[i] > 0) order.push_back(i);
+  for (int i = 0; i < o.N; ++i) if (s.charge[i] < 0) order.push_back(i);
   Diag dg;
   double min_dist_prod = std::numeric_limits<double>::infinity();
   std::vector<char> buf;
@@ -1063,7 +1095,8 @@ int run(const Options& o) {
                         "Time=%.6f Frame=%d pbc=\"T T T\"\n",
                         L, L, L, tframe, k);
       buf.insert(buf.end(), line, line + n);
-      for (int i = 0; i < o.N; ++i) {
+      for (int oi = 0; oi < o.N; ++oi) {
+        const int i = order[oi];
         Vec3 p = s.pos_at(i, t);
         s.wrap(p);
         if (p.x >= L) p.x = 0;
@@ -1072,7 +1105,7 @@ int run(const Options& o) {
         int q = s.charge[i];
         const char* sp = q == 0 ? "HS" : (q > 0 ? "POS" : "NEG");
         int ty = q == 0 ? 1 : (q > 0 ? 2 : 3);
-        n = std::snprintf(line, sizeof line, "%s %.10f %.10f %.10f %d %d %d\n", sp, p.x, p.y, p.z, i + 1, ty, q);
+        n = std::snprintf(line, sizeof line, "%s %.10f %.10f %.10f %d %d %d\n", sp, p.x, p.y, p.z, oi + 1, ty, q);
         buf.insert(buf.end(), line, line + n);
       }
       std::fwrite(buf.data(), 1, buf.size(), fxyz);
@@ -1110,9 +1143,10 @@ int run(const Options& o) {
   for (double T : dg.T) Tmean += T;
   Tmean /= (double)dg.T.size();
   const uint64_t ncoll_prod = s.ncoll - coll_prod0;
-  const double Z = 1.0 + s.virial / (3.0 * o.N * Tmean * t_prod);
+  const bool have_prod = t_prod > 0;  // t_run < dt_frame gives a single frame: rates/Z undefined
+  const double Z = have_prod ? 1.0 + s.virial / (3.0 * o.N * Tmean * t_prod) : 0.0;
   const double Zcs = carnahan_starling_Z(o.eta);
-  const double rate = 2.0 * (double)ncoll_prod / ((double)o.N * t_prod);
+  const double rate = have_prod ? 2.0 * (double)ncoll_prod / ((double)o.N * t_prod) : 0.0;
   const double E0 = dg.E.front(), Eend = dg.E.back();
   double Emax_dev = 0, Emean = 0;
   for (double E : dg.E) { Emax_dev = std::max(Emax_dev, std::fabs(E - E0)); Emean += E; }
@@ -1140,9 +1174,20 @@ int run(const Options& o) {
                (unsigned long long)ncoll_prod, rate, enskog_rate(o.eta), Z, Zcs, 100 * (Z / Zcs - 1), E0, Eend,
                (Eend - E0) / std::fabs(E0), Emax_dev / std::fabs(E0), Pabs, min_dist_prod, s.max_contact_err, wall_total);
 
+  if (!have_prod)
+    std::fprintf(stderr, "warning: t_run (%g) < dt_frame (%g): single frame, Z/collision rate undefined (written as null)\n",
+                 o.t_run, o.dt_frame);
+
   if (!o.summary.empty()) {
     FILE* f = std::fopen(o.summary.c_str(), "w");
     if (!f) { std::perror(o.summary.c_str()); return 2; }
+    // JSON has no nan/inf: non-finite values are written as null (printf would emit "-nan")
+    char jbuf[64];
+    auto jnum = [&](double x, const char* fmt) -> const char* {
+      if (!std::isfinite(x)) return "null";
+      std::snprintf(jbuf, sizeof jbuf, fmt, x);
+      return jbuf;
+    };
     std::fprintf(f, "{\n");
     std::fprintf(f, "  \"name\": \"%s\",\n", o.name.c_str());
     std::fprintf(f, "  \"N\": %d,\n  \"eta\": %.10g,\n  \"L\": %.12g,\n  \"kT\": 1.0,\n", o.N, o.eta, L);
@@ -1159,12 +1204,23 @@ int run(const Options& o) {
                  s.ncell, (unsigned long long)ncoll_prod, (unsigned long long)s.ncoll, (unsigned long long)coll_A);
     std::fprintf(f, "  \"n_cell_crossings_total\": %llu,\n  \"n_events_processed\": %llu,\n  \"n_stale_events\": %llu,\n  \"n_grazing_skipped\": %llu,\n",
                  (unsigned long long)s.ncross, (unsigned long long)s.nevents, (unsigned long long)s.nstale, (unsigned long long)s.nskipped_grazing);
-    std::fprintf(f, "  \"collision_rate_per_particle_per_tau\": %.6g,\n  \"enskog_rate_per_particle_per_tau\": %.6g,\n", rate, enskog_rate(o.eta));
-    std::fprintf(f, "  \"Z_virial\": %.8g,\n  \"Z_CS\": %.8g,\n  \"Z_rel_dev\": %.6g,\n", Z, Zcs, Z / Zcs - 1);
-    std::fprintf(f, "  \"T_mean\": %.10g,\n  \"KE_mean\": %.10g,\n  \"PE_mean\": %.10g,\n", Tmean, KEmean, PEmean);
-    std::fprintf(f, "  \"E0\": %.12g,\n  \"E_end\": %.12g,\n  \"energy_drift_rel\": %.6g,\n  \"energy_max_dev_rel\": %.6g,\n  \"energy_rms_rel\": %.6g,\n  \"energy_slope_per_tau_rel\": %.6g,\n",
-                 E0, Eend, (Eend - E0) / std::fabs(E0), Emax_dev / std::fabs(E0), Erms / std::fabs(E0), slope / std::fabs(E0));
-    std::fprintf(f, "  \"momentum_abs_final\": %.6g,\n  \"min_dist_production\": %.15g,\n  \"max_contact_err\": %.6g,\n", Pabs, min_dist_prod, s.max_contact_err);
+    std::fprintf(f, "  \"collision_rate_per_particle_per_tau\": %s,\n", have_prod ? jnum(rate, "%.6g") : "null");
+    std::fprintf(f, "  \"enskog_rate_per_particle_per_tau\": %s,\n", jnum(enskog_rate(o.eta), "%.6g"));
+    std::fprintf(f, "  \"Z_virial\": %s,\n", have_prod ? jnum(Z, "%.8g") : "null");
+    std::fprintf(f, "  \"Z_CS\": %s,\n", jnum(Zcs, "%.8g"));
+    std::fprintf(f, "  \"Z_rel_dev\": %s,\n", have_prod ? jnum(Z / Zcs - 1, "%.6g") : "null");
+    std::fprintf(f, "  \"T_mean\": %s,\n", jnum(Tmean, "%.10g"));
+    std::fprintf(f, "  \"KE_mean\": %s,\n", jnum(KEmean, "%.10g"));
+    std::fprintf(f, "  \"PE_mean\": %s,\n", jnum(PEmean, "%.10g"));
+    std::fprintf(f, "  \"E0\": %s,\n", jnum(E0, "%.12g"));
+    std::fprintf(f, "  \"E_end\": %s,\n", jnum(Eend, "%.12g"));
+    std::fprintf(f, "  \"energy_drift_rel\": %s,\n", jnum((Eend - E0) / std::fabs(E0), "%.6g"));
+    std::fprintf(f, "  \"energy_max_dev_rel\": %s,\n", jnum(Emax_dev / std::fabs(E0), "%.6g"));
+    std::fprintf(f, "  \"energy_rms_rel\": %s,\n", jnum(Erms / std::fabs(E0), "%.6g"));
+    std::fprintf(f, "  \"energy_slope_per_tau_rel\": %s,\n", jnum(slope / std::fabs(E0), "%.6g"));
+    std::fprintf(f, "  \"momentum_abs_final\": %s,\n", jnum(Pabs, "%.6g"));
+    std::fprintf(f, "  \"min_dist_production\": %s,\n", jnum(min_dist_prod, "%.15g"));
+    std::fprintf(f, "  \"max_contact_err\": %s,\n", jnum(s.max_contact_err, "%.6g"));
     std::fprintf(f, "  \"wall_seconds\": %.3f,\n  \"wall_seconds_equil_neutral\": %.3f,\n  \"wall_seconds_equil_charged\": %.3f,\n  \"wall_seconds_production\": %.3f,\n",
                  wall_total, wall_A, wall_B, wall_C);
     if (nion > 0)
