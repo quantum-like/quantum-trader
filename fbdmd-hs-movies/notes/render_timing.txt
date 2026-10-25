@@ -1,0 +1,2 @@
+hs_neutral: 19 s wall for render+encode (ovito, final, 1280x720)
+hs_charges_20p20m: 1031 s wall for render+encode (ovito, final, 1280x720)
